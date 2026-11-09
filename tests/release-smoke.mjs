@@ -17,7 +17,7 @@ try {
  await page.getByRole('button',{name:'暂停',exact:true}).click();const snapshot=await page.evaluate(()=>JSON.stringify(window.ballCore.physics.balls));await page.waitForTimeout(200);assert.equal(await page.evaluate(()=>JSON.stringify(window.ballCore.physics.balls)),snapshot);
  await page.getByRole('button',{name:'继续',exact:true}).click();await page.waitForTimeout(100);assert.equal(await page.locator('#status').textContent(),'突破进行中');
  // Simulate the final ball crossing the existing exit, and verify relaunch.
- await page.evaluate(()=>{const p=window.ballCore.physics;p.balls.length=1;Object.assign(p.balls[0],{x:400,y:1010,vx:0,vy:440});});
+ await page.evaluate(()=>{const p=window.ballCore.physics;p.balls.length=1;Object.assign(p.balls[0],{x:400,y:1050,vx:0,vy:440});});
  await page.waitForFunction(()=>window.ballCore.state==='ready');await page.getByRole('button',{name:'开始游戏'}).click();await page.waitForTimeout(100);assert.equal(await page.locator('#status').textContent(),'突破进行中');
  await page.getByRole('button',{name:'重新开始'}).click();assert.equal(await page.locator('#removed').textContent(),'0');assert.equal(await page.locator('#balls').textContent(),'1');
  assert.deepEqual(errors,[]);mkdirSync('work',{recursive:true});const report={base,assets,total:4203,mouse:true,normalBlockDestruction:true,pauseAndResume:true,escapeAndRelaunch:true,restart:true,errors};writeFileSync('work/release-smoke-results.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));
