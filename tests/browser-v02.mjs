@@ -1,0 +1,50 @@
+import {chromium} from '@playwright/test';
+import {writeFileSync,mkdirSync} from 'node:fs';
+mkdirSync('work',{recursive:true});
+const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
+const page=await browser.newPage({viewport:{width:1440,height:1200}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
+const assert=(value,message)=>{if(!value)throw Error(message);};
+await page.goto(process.env.BASE_URL||'http://localhost:5173');await page.getByRole('button',{name:'开始游戏'}).click();
+await page.waitForTimeout(500);
+const audio=await page.evaluate(()=>window.ballCore.audio.context?.state);assert(audio==='running','首次点击未启用音频');
+// Inject drops just above the paddle, then use the actual falling/collection path.
+await page.evaluate(()=>{const p=window.ballCore.physics;p.powers.spawn(p.paddleX,760,'triple');p.powers.spawn(p.paddleX,760,'wide');});
+await page.waitForFunction(()=>window.ballCore.physics.balls.length===3&&window.ballCore.physics.wideRemaining>0);
+await page.getByRole('button',{name:'暂停',exact:true}).click();
+const frozen=await page.evaluate(()=>JSON.stringify([window.ballCore.physics.balls,window.ballCore.physics.wideRemaining,window.ballCore.physics.effects,window.ballCore.physics.powers]));
+await page.waitForTimeout(300);assert(frozen===await page.evaluate(()=>JSON.stringify([window.ballCore.physics.balls,window.ballCore.physics.wideRemaining,window.ballCore.physics.effects,window.ballCore.physics.powers])),'暂停期间仍然更新');
+await page.getByRole('button',{name:'静音',exact:true}).click();assert(await page.locator('#mute').getAttribute('aria-pressed')==='true','静音未启用');
+await page.waitForTimeout(120);
+const muteGain=await page.evaluate(()=>window.ballCore.audio.master.gain.value);assert(muteGain<.001,'静音增益未降至零');await page.getByRole('button',{name:'开启音效'}).click();
+await page.screenshot({path:'work/v02-powers.png',fullPage:true});
+await page.getByRole('button',{name:'重新开始'}).click();assert(await page.locator('#removed').textContent()==='0','重开未清零');assert(await page.locator('#balls').textContent()==='1','重开未恢复单球');
+await page.getByRole('button',{name:'百球压力测试'}).click();
+const perf=await page.evaluate(async()=>{
+ const g=window.ballCore;const times=[],physics=[],render=[],counts=[];let initial=g.physics.balls.length;
+ const update=g.physics.update.bind(g.physics);g.physics.update=dt=>{const t=performance.now();update(dt);physics.push(performance.now()-t);};
+ const draw=g.renderer.draw.bind(g.renderer);g.renderer.draw=(...args)=>{const t=performance.now();draw(...args);render.push(performance.now()-t);};
+ let last=performance.now();await new Promise(resolve=>{const end=last+5000;function frame(t){times.push(t-last);last=t;counts.push(g.physics.balls.length);if(t<end)requestAnimationFrame(frame);else resolve();}requestAnimationFrame(frame);});
+ const stats=a=>({mean:a.reduce((x,y)=>x+y,0)/a.length,p95:[...a].sort((x,y)=>x-y)[Math.floor(a.length*.95)]});
+ return {blocks:g.physics.blocks.total,initialBalls:initial,minBalls:Math.min(...counts),maxBalls:Math.max(...counts),fps:1000/stats(times).mean,frameMs:stats(times),physicsMs:stats(physics),renderMs:stats(render),removed:g.physics.blocks.removed,activeParticles:g.physics.effects.particles.filter(p=>p.life>0).length};
+});assert(perf.initialBalls===100,'未生成百球');assert(perf.removed>0,'压力模式未消除方块');
+// A second phase replenishes escaped balls in the harness to sustain exactly 100.
+await page.getByRole('button',{name:'百球压力测试'}).click();
+const sustained=await page.evaluate(async()=>{
+ const g=window.ballCore,frames=[],costs=[];let min=100,max=0,last=performance.now();
+ const update=g.physics.update.bind(g.physics);
+ g.physics.update=dt=>{const t=performance.now();update(dt);while(g.physics.balls.length<100){const b=g.physics.newBall();b.vx=(g.physics.ticks%7-3)*90;b.vy=-400;g.physics.balls.push(b);}costs.push(performance.now()-t);min=Math.min(min,g.physics.balls.length);max=Math.max(max,g.physics.balls.length);};
+ await new Promise(resolve=>{const end=last+5000;function frame(t){frames.push(t-last);last=t;if(t<end)requestAnimationFrame(frame);else resolve();}requestAnimationFrame(frame);});
+ const stats=a=>({mean:a.reduce((x,y)=>x+y,0)/a.length,p95:[...a].sort((x,y)=>x-y)[Math.floor(a.length*.95)]});
+ return {minBalls:min,maxBalls:max,fps:1000/stats(frames).mean,frameMs:stats(frames),physicsWithReplenishmentMs:stats(costs),removed:g.physics.blocks.removed};
+});assert(sustained.minBalls===100&&sustained.maxBalls===100,'持续百球失败');
+await page.reload();await page.waitForTimeout(100);
+await page.setViewportSize({width:390,height:844});await page.waitForTimeout(100);
+assert(!await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),'手机横向溢出');
+const cdp=await page.context().newCDPSession(page);const box=await page.locator('canvas').boundingBox();
+await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:box.x+box.width*.5,y:box.y+box.height*.8}]});
+await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:box.x+box.width*.75,y:box.y+box.height*.8}]});
+await page.waitForTimeout(250);await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+assert(await page.evaluate(()=>window.ballCore.physics.paddleX)>400,'触摸拖动未移动挡板');
+await page.screenshot({path:'work/v02-mobile.png',fullPage:true});
+assert(errors.length===0,'页面运行异常');const result={audioState:audio,muteGain,actualDropCollection:true,pauseFreezesAll:true,restart:true,touch:true,mobileNoOverflow:true,errors,perf,sustained};
+mkdirSync('work',{recursive:true});writeFileSync('work/v02-browser-results.json',JSON.stringify(result,null,2));console.log(JSON.stringify(result,null,2));await browser.close();
