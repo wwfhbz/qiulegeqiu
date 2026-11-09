@@ -4,7 +4,7 @@ mkdirSync('work',{recursive:true});
 const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
 const page=await browser.newPage({viewport:{width:1440,height:1200}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
 const assert=(value,message)=>{if(!value)throw Error(message);};
-await page.goto((process.env.BASE_URL||'http://localhost:5173')+'?debug=1');await page.getByRole('button',{name:'开始游戏'}).click();
+await page.goto((process.env.BASE_URL||'http://localhost:5173')+'?debug=1');await page.locator('#start').click();
 await page.waitForTimeout(500);
 const audio=await page.evaluate(()=>window.ballCore.audio.context?.state);assert(audio==='running','首次点击未启用音频');
 // Inject drops just above the paddle, then use the actual falling/collection path.

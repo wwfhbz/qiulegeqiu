@@ -1,0 +1,36 @@
+{
+  "base": "http://127.0.0.1:4173",
+  "firstStart": true,
+  "lifeLostContinue": true,
+  "centralAndBottomUseSameStart": true,
+  "repeatedActivationDoesNotDuplicateBalls": true,
+  "nextLevelAutoLaunch": true,
+  "gameOverRetry": true,
+  "finalVictoryAndRetry": true,
+  "bottomButtonCount": 2,
+  "canvasReceivesFormerButtonPointWhenRunning": true,
+  "touchDragThroughFormerButton": true,
+  "resizeKeepsAnimationRunning": true,
+  "zeroSizeCanvasRecovery": true,
+  "desktopButton": {
+    "width": 144,
+    "height": 50
+  },
+  "touchButton": {
+    "width": 144,
+    "height": 48
+  },
+  "mobileWidths": [
+    390,
+    320
+  ],
+  "dpr": 3,
+  "speeds": [
+    440,
+    484.00000000000006,
+    528
+  ],
+  "unchangedLives": 3,
+  "unchangedLevels": 3,
+  "errors": []
+}
