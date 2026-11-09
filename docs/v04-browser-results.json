@@ -1,0 +1,30 @@
+{
+  "base": "http://127.0.0.1:4173",
+  "initialLives": 3,
+  "normalDestructionScores": true,
+  "singleLossInMultiballPreservesLife": true,
+  "allLostCostsOneLife": true,
+  "gameOverBlocksLaunch": true,
+  "restart": true,
+  "clearBeforeLoss": true,
+  "levelsPreserveLivesAndScore": true,
+  "speeds": [
+    440,
+    484.00000000000006,
+    528
+  ],
+  "finalScore": 383505,
+  "finalVictory": true,
+  "pauseFreezesScoreAndPower": true,
+  "audioState": "running",
+  "touch": true,
+  "dpr": 3,
+  "mobileWidths": [
+    390,
+    320
+  ],
+  "bottomButtons": true,
+  "debugHiddenByDefault": true,
+  "errors": [],
+  "settlementScenarios": "通过真实方块销毁事件注入快速通关场景，未手工玩完12609块"
+}
