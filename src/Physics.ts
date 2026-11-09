@@ -68,6 +68,10 @@ export class Physics {
   paddleX: number = C.arena.x; targetX: number = C.arena.x;
   accumulator = 0; ticks = 0; paused = false;
   wideRemaining = 0;
+  speedScale = 1;
+  onBlockDestroyed?: (index: number) => void;
+  onStep?: (dt: number) => void;
+  get launchSpeed() { return Math.max(C.ball.minSpeed, Math.min(C.ball.maxSpeed, C.ball.speed * this.speedScale)); }
   readonly effects = new Effects();
   readonly powers = new PowerUps();
   private pool: Ball[] = [];
@@ -78,6 +82,7 @@ export class Physics {
     const x = b.left + index % b.cols * C.grid.step + C.grid.size / 2;
     const y = b.top + Math.floor(index / b.cols) * C.grid.step + C.grid.size / 2;
     this.effects.burst(x, y);
+    this.onBlockDestroyed?.(index);
     this.onSound?.(this.effects.combo > 1 ? 'combo' : 'break', this.effects.combo);
     if (b.removed % C.power.dropEvery === 0) this.powers.spawn(x, y, Math.floor(b.removed / C.power.dropEvery) % 2 ? 'triple' : 'wide');
   };
@@ -125,10 +130,16 @@ export class Physics {
   }
   constructor() { this.blocks.onHit = this.destroyed; this.reset(); }
   reset() {
-    for (const b of this.balls) { b.alive = false; } this.recycleDead();
-    this.blocks.reset(); this.paddleX = this.targetX = C.arena.x;
+    this.blocks.reset(); this.resetRound();
+  }
+  /** A lost round clears transient objects while retaining the current block grid. */
+  resetRound(spawn = true) {
+    for (const b of this.balls) b.alive = false;
+    this.recycleDead();
+    this.paddleX = this.targetX = C.arena.x;
     this.wideRemaining = 0; this.effects.reset(); this.powers.reset();
-    this.balls.push(this.newBall()); this.accumulator = 0; this.ticks = 0; this.paused = false;
+    if (spawn) this.balls.push(this.newBall());
+    this.accumulator = 0; this.ticks = 0; this.paused = false;
   }
   newBall(): Ball {
     const b = this.pool.pop() ?? {x:0,y:0,vx:0,vy:0,radius:C.ball.radius,alive:true};
@@ -139,7 +150,7 @@ export class Physics {
   aimLaunch(b: Ball) {
     const dx = C.arena.x - b.x, dy = C.arena.y + C.arena.radius - 12 - b.y;
     const length = Math.hypot(dx, dy);
-    b.vx = dx / length * C.ball.speed; b.vy = dy / length * C.ball.speed; b.outsideArena = true;
+    b.vx = dx / length * this.launchSpeed; b.vy = dy / length * this.launchSpeed; b.outsideArena = true;
   }
   setTarget(x: number) {
     const extent = Math.min(C.arena.radius, C.width / 2 - C.paddle.margin) - this.paddleWidth / 2;
@@ -152,6 +163,7 @@ export class Physics {
   }
   update(dt: number) {
     if (this.paused) return;
+    this.onStep?.(dt);
     this.wideRemaining = Math.max(0, this.wideRemaining - dt);
     if (this.wideRemaining < 1e-9) this.wideRemaining = 0;
     this.clampPaddle();
@@ -161,8 +173,8 @@ export class Physics {
       if (!b.alive) continue;
       b.previousX = b.x; b.previousY = b.y;
       let speed = Math.hypot(b.vx, b.vy);
-      if (speed < .001) { b.vy = -C.ball.minSpeed; speed = C.ball.minSpeed; }
-      const bounded = Math.max(C.ball.minSpeed, Math.min(C.ball.maxSpeed, speed));
+      if (speed < .001) { b.vy = -this.launchSpeed; speed = this.launchSpeed; }
+      const bounded = Math.max(Math.min(C.ball.maxSpeed, C.ball.minSpeed * this.speedScale), Math.min(C.ball.maxSpeed, speed));
       b.vx *= bounded / speed; b.vy *= bounded / speed;
       const steps = Math.ceil(bounded * dt / C.maxTravel), h = dt / steps;
       for (let i = 0; i < steps && b.alive; i++) {
