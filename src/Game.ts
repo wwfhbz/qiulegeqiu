@@ -19,12 +19,12 @@ export class Game {
     document.addEventListener('visibilitychange', () => { if (document.hidden && this.state === 'running') this.pause(); });
     requestAnimationFrame(this.frame);
   }
-  start() { if (this.state !== 'won') { this.audio.unlock(); this.physics.paused = false; this.state = 'running'; this.physics.accumulator = 0; this.onChange(this); } }
+  start() { if (this.state !== 'won') { if(this.state === 'ready') for(const b of this.physics.balls) this.physics.aimLaunch(b); this.audio.unlock(); this.physics.paused = false; this.state = 'running'; this.physics.accumulator = 0; this.onChange(this); } }
   pause() { if (this.state === 'running') { this.physics.paused = true; this.state = 'paused'; this.onChange(this); } }
   reset() { this.physics.reset(); this.state = 'ready'; this.onChange(this); }
   stress() {
     this.reset();
-    for (let i = 1; i < C.maxBalls; i++) { const b = this.physics.newBall(); b.x += (i % 20 - 10) * 10; b.y -= Math.floor(i / 20) * 10; const angle = -1.1 + i / C.maxBalls * 2.2; b.vx = Math.sin(angle) * C.ball.speed; b.vy = -Math.cos(angle) * C.ball.speed; this.physics.balls.push(b); }
+    for (let i = 1; i < C.maxBalls; i++) { const b = this.physics.newBall(); b.x += (i % 20 - 10) * 10; b.y += Math.floor(i / 20) * 2; const angle = -1.1 + i / C.maxBalls * 2.2; b.vx = Math.sin(angle) * C.ball.speed; b.vy = -Math.cos(angle) * C.ball.speed; this.physics.balls.push(b); }
     this.start();
   }
   private frame = (now: number) => {

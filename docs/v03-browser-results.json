@@ -1,0 +1,36 @@
+{
+  "gap": 40,
+  "paddleY": 898,
+  "left": {
+    "x": 96,
+    "y": 898
+  },
+  "right": {
+    "x": 704,
+    "y": 898
+  },
+  "trajectory": {
+    "outside": true,
+    "bounced": true,
+    "reentered": true,
+    "maxY": 887.49
+  },
+  "desktopTopButtons": true,
+  "mobileTopButtons": true,
+  "touch": true,
+  "errors": [],
+  "performance": {
+    "minBalls": 100,
+    "maxBalls": 100,
+    "fps": 60.10743455080073,
+    "frameMs": {
+      "mean": 16.636877076409483,
+      "p95": 16.700000000000728
+    },
+    "physicsWithReplenishmentMs": {
+      "mean": 0.04442595674837637,
+      "p95": 0.20000000018626451
+    },
+    "removed": 751
+  }
+}

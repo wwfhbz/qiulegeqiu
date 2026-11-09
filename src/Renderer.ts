@@ -59,11 +59,11 @@ export class Renderer {
     c.textAlign='center';c.font='bold 15px sans-serif';
     for(const item of p.powers.items)if(item.alive){c.fillStyle=item.kind==='wide'?'#91e9d4':'#ffc28b';c.beginPath();c.roundRect(item.x-23,item.y-14,46,28,7);c.fill();c.fillStyle='#0b1525';c.fillText(item.kind==='wide'?'加宽':'×3',item.x,item.y+5);}
     c.textAlign = 'center'; c.font = '17px sans-serif'; c.fillStyle = '#74869e';
-    c.fillText('底部出口', a.x, a.y + a.radius + 31);
+    c.fillText('底部出口', a.x, a.y + a.radius + 22);
     if (ready) {
-      c.fillStyle = '#b6c6da'; c.font = '18px sans-serif'; c.fillText('移动挡板，准备突破', a.x, C.paddle.y - 42);
+      c.fillStyle = '#b6c6da'; c.font = '18px sans-serif'; c.fillText('移动挡板，准备突破', a.x, C.paddle.y + 47);
       c.setLineDash([4, 8]); c.strokeStyle = '#36506b'; c.beginPath();
-      c.moveTo(a.x, C.paddle.y - 35); c.lineTo(a.x + 12, C.paddle.y - 90); c.stroke(); c.setLineDash([]);
+      c.moveTo(a.x, C.paddle.y - 35); c.lineTo(a.x + 12, C.paddle.y - 43); c.stroke(); c.setLineDash([]);
     }
   }
 }

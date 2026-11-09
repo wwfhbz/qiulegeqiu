@@ -7,7 +7,7 @@ export class PowerUps {
   update(dt:number,paddleX:number,width:number,collect:(kind:PowerKind)=>void){
     for(const p of this.items){if(!p.alive)continue;p.y+=C.power.fallSpeed*dt;
       if(Math.abs(p.y-C.paddle.y)<=C.power.radius+C.paddle.height/2 && Math.abs(p.x-paddleX)<=width/2+C.power.radius){p.alive=false;collect(p.kind);}
-      else if(p.y>C.arena.y+C.arena.radius+C.power.radius)p.alive=false;
+      else if(p.y>C.height+C.power.radius)p.alive=false;
     }
   }
 }
