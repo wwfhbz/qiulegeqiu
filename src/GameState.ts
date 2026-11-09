@@ -1,3 +1,4 @@
+export type ReadyReason = 'initial' | 'lifeLost' | 'levelStart';
 export type GameState = 'ready' | 'running' | 'paused' | 'levelComplete' | 'gameOver' | 'victory';
 export const STATE_LABELS: Record<GameState, string> = {
   ready: '等待发射', running: '突破进行中', paused: '已暂停',

@@ -13,8 +13,10 @@ export class Renderer {
   }
   resize() {
     const rect = this.canvas.getBoundingClientRect();
+    // Hidden/transitional layouts can report zero size. Keep the last valid buffer.
+    if (rect.width <= 0 || rect.height <= 0) return;
     this.ratio = Math.min(window.devicePixelRatio || 1, 3) * rect.width / C.width;
-    this.canvas.width = Math.round(C.width * this.ratio); this.canvas.height = Math.round(C.height * this.ratio);
+    this.canvas.width = Math.max(1, Math.round(C.width * this.ratio)); this.canvas.height = Math.max(1, Math.round(C.height * this.ratio));
     this.cache.width = this.canvas.width; this.cache.height = this.canvas.height; this.cachedRevision = -1;
   }
   draw(p: Physics, ready: boolean) {
