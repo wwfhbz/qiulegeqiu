@@ -2,21 +2,30 @@ import { C } from './GameConfig';
 import { Blocks } from './Blocks';
 import { Effects } from './Effects';
 import { PowerUps, type PowerKind } from './PowerUps';
-export interface Ball { x: number; y: number; vx: number; vy: number; radius: number; alive: boolean; previousX?: number; previousY?: number }
+export interface Ball { x: number; y: number; vx: number; vy: number; radius: number; alive: boolean; previousX?: number; previousY?: number; outsideArena?: boolean }
 export function reflect(b: Ball, nx: number, ny: number) {
   const dot = b.vx * nx + b.vy * ny;
   if (dot < 0) { b.vx -= 2 * dot * nx; b.vy -= 2 * dot * ny; }
 }
 export function boundary(b: Ball) {
   const a = C.arena, dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy);
-  if (dy > 0 && Math.abs(dx) < a.exitHalfWidth) {
-    if (b.y - b.radius > a.y + a.radius) b.alive = false;
+  if (b.y - b.radius > C.height || b.x + b.radius < 0 || b.x - b.radius > C.width) { b.alive = false; return; }
+  const opening = dy > 0 && Math.abs(dx) + b.radius < a.exitHalfWidth;
+  const inner = a.radius - b.radius, outer = a.radius + b.radius;
+  if (b.outsideArena) {
+    if (opening) { if (d < inner) b.outsideArena = false; return; }
+    // Outside balls meet the outer face of the wall; never snap them inside.
+    if (d < outer && d > 0) {
+      const nx = dx / d, ny = dy / d;
+      b.x = a.x + nx * (outer + .01); b.y = a.y + ny * (outer + .01);
+      reflect(b, nx, ny);
+    }
     return;
   }
-  const limit = a.radius - b.radius;
-  if (d > limit) {
+  if (opening && d > inner) { b.outsideArena = true; return; }
+  if (d > inner) {
     const nx = -dx / d, ny = -dy / d;
-    b.x = a.x - nx * (limit - .01); b.y = a.y - ny * (limit - .01);
+    b.x = a.x - nx * (inner - .01); b.y = a.y - ny * (inner - .01);
     reflect(b, nx, ny);
   }
 }
@@ -24,7 +33,9 @@ export function paddleCollision(b: Ball, x: number, width: number = C.paddle.wid
   const p = C.paddle;
   if (b.vy <= 0 || b.x + b.radius < x - width / 2 || b.x - b.radius > x + width / 2 || b.y + b.radius < p.y - p.height / 2 || b.y - b.radius > p.y + p.height / 2) return false;
   b.y = p.y - p.height / 2 - b.radius - .01;
-  const angle = Math.max(-1, Math.min(1, (b.x - x) / (width / 2))) * 1.05;
+  const aim = Math.atan2(C.arena.x - b.x, p.y - (C.arena.y + C.arena.radius - 12));
+  const offset = Math.max(-1, Math.min(1, (b.x - x) / (width / 2)));
+  const angle = Math.max(-1.48, Math.min(1.48, aim + offset * 1.05));
   const speed = Math.hypot(b.vx, b.vy);
   b.vx = Math.sin(angle) * speed; b.vy = -Math.cos(angle) * speed; return true;
 }
@@ -94,10 +105,10 @@ export class Physics {
         // Spawn along the cleared side of the parent, then clamp to the circle.
         b.x = source.x + sign * (source.radius * 2 + 1); b.y = source.y;
         const dx = b.x - C.arena.x, dy = b.y - C.arena.y, d = Math.hypot(dx, dy), limit = C.arena.radius - b.radius - .05;
-        if (d > limit) { b.x = C.arena.x + dx / d * limit; b.y = C.arena.y + dy / d * limit; }
+        if (!source.outsideArena && d > limit) { b.x = C.arena.x + dx / d * limit; b.y = C.arena.y + dy / d * limit; }
         // Nearby solids: keep the child at the safe parent position with a small directional separation.
         if (this.overlapsBlocks(b)) { b.x = source.x; b.y = source.y + sign * .1; }
-        boundary(b); b.previousX = b.x; b.previousY = b.y;
+        b.outsideArena = source.outsideArena; boundary(b); b.previousX = b.x; b.previousY = b.y;
         if (b.alive) this.balls.push(b); else this.pool.push(b);
       }
     }
@@ -121,13 +132,17 @@ export class Physics {
   }
   newBall(): Ball {
     const b = this.pool.pop() ?? {x:0,y:0,vx:0,vy:0,radius:C.ball.radius,alive:true};
-    b.x = this.paddleX; b.y = C.paddle.y - 20; b.vx = 120;
-    b.vy = -Math.sqrt(C.ball.speed ** 2 - 120 ** 2); b.radius = C.ball.radius; b.alive = true;
+    b.x = this.paddleX; b.y = C.paddle.y - 20;
+    this.aimLaunch(b); b.radius = C.ball.radius; b.alive = true;
     b.previousX = b.x; b.previousY = b.y; return b;
   }
+  aimLaunch(b: Ball) {
+    const dx = C.arena.x - b.x, dy = C.arena.y + C.arena.radius - 12 - b.y;
+    const length = Math.hypot(dx, dy);
+    b.vx = dx / length * C.ball.speed; b.vy = dy / length * C.ball.speed; b.outsideArena = true;
+  }
   setTarget(x: number) {
-    const halfChord = Math.sqrt(C.arena.radius ** 2 - (C.paddle.y + C.paddle.height / 2 - C.arena.y) ** 2);
-    const extent = halfChord - this.paddleWidth / 2 - 2;
+    const extent = Math.min(C.arena.radius, C.width / 2 - C.paddle.margin) - this.paddleWidth / 2;
     this.targetX = Math.max(C.arena.x - extent, Math.min(C.arena.x + extent, x));
   }
   advance(seconds: number) {

@@ -8,7 +8,7 @@ await page.goto(process.env.BASE_URL||'http://localhost:5173');await page.getByR
 await page.waitForTimeout(500);
 const audio=await page.evaluate(()=>window.ballCore.audio.context?.state);assert(audio==='running','首次点击未启用音频');
 // Inject drops just above the paddle, then use the actual falling/collection path.
-await page.evaluate(()=>{const p=window.ballCore.physics;p.powers.spawn(p.paddleX,760,'triple');p.powers.spawn(p.paddleX,760,'wide');});
+await page.evaluate(()=>{const p=window.ballCore.physics;p.powers.spawn(p.paddleX,883,'triple');p.powers.spawn(p.paddleX,883,'wide');});
 await page.waitForFunction(()=>window.ballCore.physics.balls.length===3&&window.ballCore.physics.wideRemaining>0);
 await page.getByRole('button',{name:'暂停',exact:true}).click();
 const frozen=await page.evaluate(()=>JSON.stringify([window.ballCore.physics.balls,window.ballCore.physics.wideRemaining,window.ballCore.physics.effects,window.ballCore.physics.powers]));
