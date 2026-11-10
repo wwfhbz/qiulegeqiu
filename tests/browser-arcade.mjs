@@ -6,10 +6,10 @@ const out='work/regression-arcade';mkdirSync(out,{recursive:true});
 const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',args:['--no-sandbox']});
 const errors=[];
 async function layout(page){
- const selectors=['header','#level','.dashboard','canvas','.bottom-controls'];
+ const selectors=['header','.hud','canvas','.bottom-controls'];
  const boxes=await Promise.all(selectors.map(s=>page.locator(s).boundingBox()));
- assert(boxes[0].y<boxes[1].y&&boxes[1].y<boxes[2].y&&boxes[2].y<boxes[3].y);
- assert(boxes[4].y>=boxes[3].y+boxes[3].height);
+ assert(boxes[0].y<boxes[1].y&&boxes[1].y<boxes[2].y);
+ assert(boxes[3].y>=boxes[2].y+boxes[2].height);
  const buttons=await Promise.all(['#pause','#reset'].map(s=>page.locator(s).boundingBox()));
  const width=await page.evaluate(()=>innerWidth);
  assert(buttons.every(b=>b.width>=80&&b.height>=42&&b.x>=0&&b.x+b.width<=width));
