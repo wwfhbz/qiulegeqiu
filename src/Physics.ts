@@ -1,3 +1,7 @@
+import { LEVELS,type LevelConfig } from './Levels';
+import { Obstacles } from './Obstacles';
+import { seededRandom,weightedPower } from './PowerRules';
+import type { SoundKind } from './Audio';
 import { C } from './GameConfig';
 import { Blocks } from './Blocks';
 import { ARENA_WALL, inExitSector } from './ArenaGeometry';
@@ -99,6 +103,11 @@ export class Physics {
   paddleX: number = C.arena.x; targetX: number = C.arena.x;
   accumulator = 0; ticks = 0; paused = false;
   wideRemaining = 0;
+  level:LevelConfig=LEVELS[0];
+  readonly obstacles=new Obstacles();
+  private random=seededRandom(1);
+  setSeed(seed:number){this.random=seededRandom(seed);}
+  onBomb?: (target:string|null) => void;
   speedScale = 1;
   powerUpDropMultiplier = 1;
   get powerDropEvery() { return Math.max(1, Math.round(C.power.dropEvery / this.powerUpDropMultiplier)); }
@@ -110,7 +119,7 @@ export class Physics {
   readonly effects = new Effects();
   readonly powers = new PowerUps();
   private pool: Ball[] = [];
-  onSound?: (kind: 'break' | 'combo' | 'paddle' | 'power' | 'win', combo?: number) => void;
+  onSound?: (kind: SoundKind, combo?: number) => void;
   get paddleWidth() { return C.paddle.width * (this.wideRemaining > 0 ? C.power.wideScale : 1); }
   private destroyed = (index: number) => {
     const b = this.blocks;
@@ -120,20 +129,30 @@ export class Physics {
     this.onBlockDestroyed?.(index);
     this.onSound?.(this.effects.combo > 1 ? 'combo' : 'break', this.effects.combo);
     const interval = this.powerDropEvery;
-    if (b.removed % interval === 0) this.powers.spawn(x, y, Math.floor(b.removed / interval) % 2 ? 'triple' : 'wide');
+    if (b.removed % interval === 0) this.powers.spawn(x, y, weightedPower(this.level.number,this.random));
   };
   private pickup = (kind: PowerKind) => this.collect(kind);
   collect(kind: PowerKind) {
+    let bombTarget:string|null=null;
     if (kind === 'wide') { this.wideRemaining = C.power.duration; this.clampPaddle(); }
-    else this.triple();
+    else if(kind==='triple')this.triple();
+    else if(kind==='halve')this.halve();
+    else if(kind==='bomb'){const target=this.obstacles.destroyNearest(C.arena.x,C.arena.y);this.effects.explode(target?.x??C.arena.x,target?.y??C.arena.y);bombTarget=target?.config.id??null;}
+    this.effects.power(kind);
     this.onPowerCollected?.(kind);
-    this.onSound?.('power');
+    if(kind==='bomb')this.onBomb?.(bombTarget);
+    this.onSound?.(kind==='bomb'?'bomb':kind==='halve'?'halve':kind==='life'?'life':'power');
   }
   private clampPaddle() { this.setTarget(this.targetX); const target = this.targetX; this.setTarget(this.paddleX); this.paddleX = this.targetX; this.targetX = target; }
   recycleDead() {
     let write = 0;
     for (const b of this.balls) { if (b.alive) this.balls[write++] = b; else if (this.pool.length < C.maxBalls) this.pool.push(b); }
     this.balls.length = write;
+  }
+  halve() {
+    this.recycleDead();const keep=Math.max(1,Math.ceil(this.balls.length/2));
+    for(let i=keep;i<this.balls.length;i++)this.balls[i].alive=false;
+    this.recycleDead(); // Administrative removal deliberately emits no death event.
   }
   triple() {
     this.recycleDead(); const count = this.balls.length;
@@ -150,6 +169,7 @@ export class Physics {
         if (!source.outsideArena && d > limit) { b.x = C.arena.x + dx / d * limit; b.y = C.arena.y + dy / d * limit; }
         // Nearby solids: keep the child at the safe parent position with a small directional separation.
         if (this.overlapsBlocks(b)) { b.x = source.x; b.y = source.y + sign * .1; }
+        if(this.obstacles.overlaps(b)){b.x=source.x;b.y=source.y;}
         b.outsideArena = source.outsideArena; boundary(b); frameCollision(b); b.previousX = b.x; b.previousY = b.y;
         this.balls.push(b);
       }
@@ -167,7 +187,7 @@ export class Physics {
   }
   constructor() { this.blocks.onHit = this.destroyed; this.reset(); }
   reset() {
-    this.blocks.reset(); this.resetRound();
+    this.obstacles.load(this.level.obstacles??[]);this.blocks.reset(this.level.obstacles??[]); this.resetRound();
   }
   /** A lost round clears transient objects while retaining the current block grid. */
   resetRound(spawn = true) {
@@ -202,6 +222,7 @@ export class Physics {
   update(dt: number) {
     if (this.paused) return;
     this.onStep?.(dt);
+    const obstacleStart=this.obstacles.time;
     this.wideRemaining = Math.max(0, this.wideRemaining - dt);
     if (this.wideRemaining < 1e-9) this.wideRemaining = 0;
     this.clampPaddle();
@@ -214,18 +235,20 @@ export class Physics {
       if (speed < .001) { b.vy = -this.launchSpeed; speed = this.launchSpeed; }
       const bounded = Math.max(Math.min(C.ball.maxSpeed, C.ball.minSpeed * this.speedScale), Math.min(C.ball.maxSpeed, speed));
       b.vx *= bounded / speed; b.vy *= bounded / speed;
-      const steps = Math.ceil(bounded * dt / C.maxTravel), h = dt / steps;
+      const steps = Math.ceil(C.ball.maxSpeed * dt / C.maxTravel), h = dt / steps;
       for (let i = 0; i < steps && b.alive; i++) {
         b.x += b.vx * h; b.y += b.vy * h;
         boundary(b); frameCollision(b);
         if (paddleCollision(b, this.paddleX, this.paddleWidth)) this.onSound?.('paddle');
         // Resolve a bounded number of simultaneous contacts before the next movement.
         for (let contact = 0; contact < 3; contact++) if (!blockCollision(b, this.blocks)) break;
+        for(let contact=0;contact<3;contact++)if(!this.obstacles.collide(b,obstacleStart+(i+1)*h))break;
         boundary(b); frameCollision(b);
         // The only gameplay removal condition, evaluated after all contact corrections.
         if (isBallInDeathZone(b)) { b.alive = false; this.onBallLost?.(); }
       }
     }
+    this.obstacles.time=obstacleStart+dt;this.obstacles.sync();
     this.recycleDead();
     this.powers.update(dt, this.paddleX, this.paddleWidth, this.pickup);
   }

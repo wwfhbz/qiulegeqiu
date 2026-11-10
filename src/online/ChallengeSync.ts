@@ -9,7 +9,7 @@ export class ChallengeSync {
   observe(){const journal=this.game.journal;if(!journal.events.length)return;
     if(!this.run||this.run.generation!==journal.generation){
       const run:Run={generation:journal.generation,id:Promise.resolve(''),sequence:0,acknowledged:0,key:crypto.randomUUID()};
-      run.id=this.api.request<{id:string}>('/challenges',{rulesVersion:RULES_VERSION,unranked:journal.unranked}).then(r=>r.id).catch(error=>{run.error=String(error.message);return '';});this.run=run;
+      run.id=this.api.request<{id:string}>('/challenges',{rulesVersion:RULES_VERSION,unranked:journal.unranked,seed:journal.seed}).then(r=>r.id).catch(error=>{run.error=String(error.message);return '';});this.run=run;
     }
     if(performance.now()-this.lastPump>1500||journal.events.length-this.run.acknowledged>=128){this.lastPump=performance.now();void this.flush().catch(()=>{});}
   }

@@ -57,3 +57,34 @@ describe('真实游戏事件与服务端重算一致',()=>{
  });
  it('调试压力测试明确标记不参榜，暂停不增加日志计时',()=>{const g=new Game();g.stress();expect(g.journal.unranked).toBe(true);g.pause();const tick=g.journal.tick;g.update(1);expect(g.journal.tick).toBe(tick);g.reset();expect(g.journal.unranked).toBe(false);expect(g.journal.events.length).toBe(0);});
 });
+
+import { LEVELS } from '../../src/Levels';
+import { seededRandom,weightedPower,type PowerKind } from '../../src/PowerRules';
+describe('V0.8十关与五道具服务端一致性',()=>{
+ it('十关网格扣除机关区域后，完整清关日志与客户端分数一致',()=>{const g=new Game();for(let n=1;n<=10;n++){g.start();for(let i=0;i<g.physics.blocks.alive.length;i++)g.physics.blocks.hit(i);g.update(0);if(n<10)g.nextLevel();}expect(g.state).toBe('victory');const result=verifyTrace(g.journal.events,600000,g.journal.seed);expect(result.summary).toEqual(g.journal.summary(g.score.total,10,true));expect(result.suspicious.length).toBeGreaterThan(0);});
+ for(const kind of ['halve','triple','wide','life','bomb'] as PowerKind[])it(`真实第2关${kind}拾取、机关状态与生命日志能够重算`,()=>{
+  let seed=1;for(;seed<10000;seed++){const random=seededRandom(seed);for(let i=0;i<300;i++)weightedPower(1,random);if(weightedPower(2,random)===kind)break;}expect(seed).toBeLessThan(10000);
+  const g=new Game();g.journal.seed=seed;g.physics.setSeed(seed);g.start();for(let i=0;i<g.physics.blocks.alive.length;i++)g.physics.blocks.hit(i);g.update(0);g.nextLevel();g.start();
+  // Lose once before a life pickup to verify restoration, not only clamping at five.
+  Object.assign(g.physics.balls[0],{x:400,y:1080,vx:0,vy:760,outsideArena:true});g.update(C.step);g.start();
+  const indexes=Array.from(g.physics.blocks.alive).flatMap((v,i)=>v?[i]:[]).sort((a,b)=>{const point=(i:number)=>Math.abs(g.physics.blocks.left+i%g.physics.blocks.cols*C.grid.step-400)+Math.abs(g.physics.blocks.top+Math.floor(i/g.physics.blocks.cols)*C.grid.step-700);return point(a)-point(b);});
+  for(const i of indexes.slice(0,28))g.physics.blocks.hit(i);
+  const drop=g.physics.powers.items.find(d=>d.alive)!;expect(drop.kind).toBe(kind);g.physics.paddleX=g.physics.targetX=drop.x;
+  Object.assign(g.physics.balls[0],{x:400,y:940,vx:380,vy:0,outsideArena:true});
+  for(let n=0;n<1000&&drop.alive;n++)g.update(C.step);
+  expect(drop.alive).toBe(false);expect(g.journal.events.some(e=>e.type==='power'&&e.kind===kind)).toBe(true);
+  if(kind==='life')expect(g.lives).toBe(5);if(kind==='bomb')expect(g.physics.obstacles.items[0].destroyed).toBe(true);
+  while(g.lives>0){g.start();for(const ball of g.physics.balls)Object.assign(ball,{x:400,y:1080,vx:0,vy:760,outsideArena:true});g.update(C.step);}
+  const result=verifyTrace(g.journal.events,600000,seed);expect(result.summary).toEqual(g.journal.summary(g.score.total,2,false));
+ });
+ it('新规则API绑定随机种子；旧规则拒绝，存量迁移包含seed字段',async()=>{const s=await setup(),c=await s.client();expect((await c.request('POST','/api/challenges',{rulesVersion:'0.7.0-arcade-5l-3lv-v1',seed:1})).statusCode).toBe(400);const r=await c.request('POST','/api/challenges',{rulesVersion:RULES_VERSION,seed:4294967295});expect(r.statusCode).toBe(201);expect(s.db.prepare('SELECT seed FROM challenges WHERE id=?').get(r.json().id)!.seed).toBe(4294967295);expect(s.db.prepare('SELECT version FROM schema_migrations WHERE version=2').get()).toBeTruthy();});
+});
+
+import {mkdtempSync,readFileSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {DatabaseSync,backup} from 'node:sqlite';
+it('旧001数据库升级002可重复打开，SQLite在线备份可恢复完整schema',async()=>{
+ const dir=mkdtempSync(join(tmpdir(),'qiulegeqiu-db-'));const path=join(dir,'test.sqlite'),snapshot=join(dir,'backup.sqlite');
+ try{const old=new DatabaseSync(path);old.exec(readFileSync('migrations/001-initial.sql','utf8'));old.prepare('INSERT INTO schema_migrations VALUES(1,?)').run(1);old.close();const current=openDb(path);expect(current.prepare('PRAGMA table_info(challenges)').all().some(c=>c.name==='seed')).toBe(true);await backup(current,snapshot);current.close();const again=openDb(path);expect(again.prepare('SELECT COUNT(*) n FROM schema_migrations').get()!.n).toBe(2);again.close();const restored=new DatabaseSync(snapshot,{readOnly:true});expect(restored.prepare('PRAGMA integrity_check').get()!.integrity_check).toBe('ok');expect(restored.prepare('SELECT COUNT(*) n FROM schema_migrations').get()!.n).toBe(2);restored.close();}finally{rmSync(dir,{recursive:true,force:true});}
+});

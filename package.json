@@ -1,6 +1,6 @@
 {
   "name": "ball-core",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -22,7 +22,8 @@
     "api:build": "npm run build --prefix server",
     "regions:update": "node scripts/update-regions.mjs",
     "regions:check": "npm run regions:check --prefix server",
-    "test:browser:leaderboard": "node tests/browser-leaderboard.mjs"
+    "test:browser:leaderboard": "node tests/browser-leaderboard.mjs",
+    "test:browser:v08": "node tests/browser-v08.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.56.1",

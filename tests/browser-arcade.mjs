@@ -62,10 +62,10 @@ try{
  await page.getByRole('button',{name:'下一关'}).click();assert.equal(await page.evaluate(()=>window.ballCore.levels.current.number),2);assert.equal(await page.locator('#lives').textContent(),'4');assert.equal(Number(await page.locator('#score').textContent()),total);assert.equal(await page.locator('#removed').textContent(),'0');
  const speeds=[440,await page.evaluate(()=>Math.hypot(window.ballCore.physics.balls[0].vx,window.ballCore.physics.balls[0].vy))];
  await clear(page);total=await page.evaluate(()=>window.ballCore.score.total);await page.getByRole('button',{name:'下一关'}).click();assert.equal(await page.evaluate(()=>window.ballCore.levels.current.number),3);assert.equal(await page.evaluate(()=>window.ballCore.score.total),total);
- speeds.push(await page.evaluate(()=>Math.hypot(window.ballCore.physics.balls[0].vx,window.ballCore.physics.balls[0].vy)));assert(speeds.every((value,i)=>Math.abs(value-[440,484,528][i])<1e-8));
- await clear(page);assert.equal(await page.evaluate(()=>window.ballCore.state),'victory');assert.equal(await page.locator('#next').count(),0);assert.equal(await page.locator('#start').textContent(),'重新挑战');
+ speeds.push(await page.evaluate(()=>Math.hypot(window.ballCore.physics.balls[0].vx,window.ballCore.physics.balls[0].vy)));assert(speeds.every((value,i)=>Math.abs(value-[440,440,462][i])<1e-8));
+ for(let number=3;number<=await page.evaluate(()=>window.ballCore.levels.count);number++){await clear(page);if(number<await page.evaluate(()=>window.ballCore.levels.count)){await page.getByRole('button',{name:'下一关'}).click();speeds.push(await page.evaluate(()=>Math.hypot(window.ballCore.physics.balls[0].vx,window.ballCore.physics.balls[0].vy)));}}assert.equal(await page.evaluate(()=>window.ballCore.state),'victory');assert.equal(await page.locator('#next').count(),0);assert.equal(await page.locator('#start').textContent(),'重新挑战');
  await page.locator('#settlement').screenshot({path:`${out}/v04-victory.png`});
- const finalScore=await page.evaluate(()=>window.ballCore.score.total);assert.equal(finalScore,386505);
+ const finalScore=await page.evaluate(()=>window.ballCore.score.total);assert.equal(finalScore,1283130);
  await page.getByRole('button',{name:'重新开始'}).click();assert.equal(await page.locator('#lives').textContent(),'5');assert.equal(await page.locator('#score').textContent(),'0');
  const mobile=await browser.newPage({viewport:{width:390,height:844},hasTouch:true,deviceScaleFactor:3});mobile.on('pageerror',e=>errors.push(e.message));await mobile.goto(base);await layout(mobile);
  const box=await mobile.locator('canvas').boundingBox(),cdp=await mobile.context().newCDPSession(mobile);
@@ -73,6 +73,6 @@ try{
  await mobile.screenshot({path:`${out}/v04-mobile.png`,fullPage:true});await mobile.setViewportSize({width:320,height:720});await layout(mobile);
  await page.goto(base+'?debug=1');assert(await page.locator('#stress').isVisible());await page.getByRole('button',{name:'百球压力测试'}).click();assert.equal(await page.evaluate(()=>window.ballCore.physics.balls.length),100);
  assert.deepEqual(errors,[]);
- const report={base,initialLives:5,normalDestructionScores:true,singleLossInMultiballPreservesLife:true,allLostCostsOneLife:true,gameOverBlocksLaunch:true,restart:true,clearBeforeLoss:true,levelsPreserveLivesAndScore:true,speeds,finalScore,finalVictory:true,pauseFreezesScoreAndPower:true,audioState,touch:true,dpr:3,mobileWidths:[390,320],bottomButtons:true,debugHiddenByDefault:true,errors,settlementScenarios:'通过真实方块销毁事件注入快速通关场景，未手工玩完12609块'};
+ const report={base,initialLives:5,normalDestructionScores:true,singleLossInMultiballPreservesLife:true,allLostCostsOneLife:true,gameOverBlocksLaunch:true,restart:true,clearBeforeLoss:true,levelsPreserveLivesAndScore:true,speeds,finalScore,finalVictory:true,pauseFreezesScoreAndPower:true,audioState,touch:true,dpr:3,mobileWidths:[390,320],bottomButtons:true,debugHiddenByDefault:true,errors,settlementScenarios:'通过真实方块销毁事件注入快速通关场景，未手工玩完41856块；十关结算通过事件快速构造'};
  writeFileSync('work/regression-arcade/browser-results.json',JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify(report,null,2));
 }finally{await browser.close();}

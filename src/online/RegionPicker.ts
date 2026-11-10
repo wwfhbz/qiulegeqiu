@@ -22,8 +22,12 @@ export class RegionPicker {
     try{
       const result=await this.api.request<{items:Region[];nextOffset:number|null}>(`/regions?${params}`);if(version!==this.revision)return;
       select.innerHTML='';for(const r of result.items){const option=document.createElement('option');option.value=r.code;option.textContent=r.name;option.title=r.path;select.append(option);}
+      select.selectedIndex=-1;
       tip.textContent=result.items.length?'选择即可使用此级地区':'没有匹配地区；上级选择仍有效';
-      select.onchange=()=>{const r=result.items.find(r=>r.code===select.value);if(!r)return;this.code=r.code;this.prefix=r.prefix;this.display();this.changed();while(columns.children.length>depth+1)columns.lastElementChild!.remove();if(r.hasChildren)void this.load(depth+1,r.code).catch(()=>{});else if(['CN:710000','CN:810000','CN:820000'].includes(r.code))tip.textContent='本数据口径仅提供省级，不编造下级划分';};
+      const choose=()=>{const r=result.items.find(r=>r.code===select.value);if(!r)return;this.code=r.code;this.prefix=r.prefix;this.display();this.changed();while(columns.children.length>depth+1)columns.lastElementChild!.remove();if(r.hasChildren)void this.load(depth+1,r.code).catch(()=>{});else if(['CN:710000','CN:810000','CN:820000'].includes(r.code))tip.textContent='本数据口径仅提供省级，不编造下级划分';};
+      select.onchange=choose;
+      select.onclick=()=>{if(select.value&&this.code!==select.value)choose();};
+      select.onkeydown=event=>{if(event.key==='Enter'){event.preventDefault();if(select.value&&this.code!==select.value)choose();}};
       if(result.nextOffset!==null){const more=document.createElement('button');more.type='button';more.textContent='更多地区';more.onclick=()=>void this.load(depth,parent,q,result.nextOffset!).catch(()=>{});col.append(more);}
     }catch(error){tip.textContent=(error as Error).message;}
   }

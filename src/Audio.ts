@@ -1,4 +1,4 @@
-export type SoundKind = 'break'|'combo'|'paddle'|'power'|'win';
+export type SoundKind = 'break'|'combo'|'paddle'|'power'|'win'|'bomb'|'halve'|'life';
 /** Quiet sine tones; voices and event frequency are bounded for hundred-ball play. */
 export class AudioSystem {
   muted = false;
@@ -16,7 +16,7 @@ export class AudioSystem {
   play = (kind:SoundKind,combo=1) => {
     const ctx=this.context;if(!ctx||!this.master||this.muted||ctx.state!=='running'||this.voices>=12)return;
     const now=ctx.currentTime;if(now-(this.last[kind]??-1)<.045)return;this.last[kind]=now;
-    const frequencies={break:300,combo:330+Math.min(combo,12)*22,paddle:190,power:540,win:660};
+    const frequencies={break:300,combo:330+Math.min(combo,12)*22,paddle:190,power:540,win:660,bomb:100,halve:160,life:600};
     const count=kind==='win'?3:kind==='power'?2:1;
     for(let i=0;i<count && this.voices<12;i++){
       const osc=ctx.createOscillator(),gain=ctx.createGain(),t=now+i*.085;
