@@ -1,6 +1,7 @@
 export type SoundKind = 'break'|'combo'|'paddle'|'power'|'win'|'bomb'|'halve'|'life';
 /** Quiet sine tones; voices and event frequency are bounded for hundred-ball play. */
 export class AudioSystem {
+  constructor(private createContext:()=>AudioContext=()=>new AudioContext()){}
   muted = false;
   private context?: AudioContext;
   private master?: GainNode;
@@ -8,7 +9,7 @@ export class AudioSystem {
   private last: Partial<Record<SoundKind, number>> = {};
   unlock() {
     try {
-      if(!this.context){this.context=new AudioContext();this.master=this.context.createGain();this.master.gain.value=this.muted?0:.14;this.master.connect(this.context.destination);}
+      if(!this.context){this.context=this.createContext();this.master=this.context.createGain();this.master.gain.value=this.muted?0:.14;this.master.connect(this.context.destination);}
       if(this.context.state==='suspended')void this.context.resume().catch(()=>{});
     } catch { /* Audio unavailable: gameplay remains usable. */ }
   }

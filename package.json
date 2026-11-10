@@ -25,11 +25,17 @@
     "test:browser:leaderboard": "node tests/browser-leaderboard.mjs",
     "test:browser:v08": "node tests/browser-v08.mjs",
     "regions": "npm run regions:check",
-    "test:deploy": "node deploy/run-tests.mjs"
+    "test:deploy": "node deploy/run-tests.mjs",
+    "typecheck:minigame": "tsc --noEmit -p minigame/tsconfig.json",
+    "build:minigame": "npm run typecheck:minigame && node minigame/scripts/build.mjs",
+    "dev:minigame": "npm run typecheck:minigame && node minigame/scripts/build.mjs --dev",
+    "test:browser:minigame": "npm run build:minigame && node tests/browser-minigame.mjs",
+    "test:minigame": "npm run build:minigame && node --test minigame/scripts/build.test.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.56.1",
     "@types/node": "^26.6.6",
+    "esbuild": "0.28.2",
     "i18n-iso-countries": "^7.14.0",
     "typescript": "~5.9.3",
     "vite": "^7.2.2",

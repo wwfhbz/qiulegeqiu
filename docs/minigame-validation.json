@@ -1,0 +1,80 @@
+{
+  "date": "2026-11-10",
+  "timezone": "Asia/Shanghai",
+  "clientVersion": "1.0.0",
+  "sharedRulesVersion": "0.8.0-arcade-5l-10lv-v1",
+  "automated": {
+    "clientTests": 168,
+    "serverTests": 47,
+    "deploymentTests": 22,
+    "minigameBuildTests": 3,
+    "webBrowserPlayers": 2,
+    "webResponsiveViewports": 5,
+    "typechecks": "web/minigame/server passed",
+    "builds": "web/minigame/server passed"
+  },
+  "officialDevTools": "not run: no official DevTools/AppID",
+  "realWechatLogin": "not run: no AppID/AppSecret",
+  "physicalDevices": "not run",
+  "productionModified": false,
+  "screenshots": "Chromium with wx compatibility mock, isolated SQLite; not official WeChat DevTools",
+  "compatibilityRuns": [
+    {
+      "name": "phone",
+      "width": 750,
+      "height": 812,
+      "moved": true,
+      "balls": 3,
+      "playedBricks": 2,
+      "state": "gameOver",
+      "lives": 0,
+      "boardCount": 1,
+      "stress": {
+        "frames": 90,
+        "elapsedMs": 1494.9,
+        "averageFps": 60.204695966285364,
+        "maxFrameMs": 16.800000000000182,
+        "ballsAtEnd": 100
+      },
+      "errors": []
+    },
+    {
+      "name": "small-phone",
+      "width": 640,
+      "height": 568,
+      "moved": true,
+      "balls": 3,
+      "playedBricks": 2,
+      "state": "gameOver",
+      "lives": 0,
+      "boardCount": 2,
+      "stress": {
+        "frames": 90,
+        "elapsedMs": 1485.0000000014902,
+        "averageFps": 60.60606060599979,
+        "maxFrameMs": 16.799999999999955,
+        "ballsAtEnd": 100
+      },
+      "errors": []
+    },
+    {
+      "name": "tablet",
+      "width": 1536,
+      "height": 1024,
+      "moved": true,
+      "balls": 3,
+      "playedBricks": 2,
+      "state": "gameOver",
+      "lives": 0,
+      "boardCount": 3,
+      "stress": {
+        "frames": 90,
+        "elapsedMs": 1485.500000002235,
+        "averageFps": 60.585661393379056,
+        "maxFrameMs": 16.800000000000182,
+        "ballsAtEnd": 100
+      },
+      "errors": []
+    }
+  ]
+}

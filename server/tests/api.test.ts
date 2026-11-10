@@ -84,7 +84,7 @@ import {mkdtempSync,readFileSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {DatabaseSync,backup} from 'node:sqlite';
-it('旧001数据库升级002可重复打开，SQLite在线备份可恢复完整schema',async()=>{
+it('旧001数据库升级002及003可重复打开，SQLite在线备份可恢复完整schema',async()=>{
  const dir=mkdtempSync(join(tmpdir(),'qiulegeqiu-db-'));const path=join(dir,'test.sqlite'),snapshot=join(dir,'backup.sqlite');
- try{const old=new DatabaseSync(path);old.exec(readFileSync('migrations/001-initial.sql','utf8'));old.prepare('INSERT INTO schema_migrations VALUES(1,?)').run(1);old.close();const current=openDb(path);expect(current.prepare('PRAGMA table_info(challenges)').all().some(c=>c.name==='seed')).toBe(true);await backup(current,snapshot);current.close();const again=openDb(path);expect(again.prepare('SELECT COUNT(*) n FROM schema_migrations').get()!.n).toBe(2);again.close();const restored=new DatabaseSync(snapshot,{readOnly:true});expect(restored.prepare('PRAGMA integrity_check').get()!.integrity_check).toBe('ok');expect(restored.prepare('SELECT COUNT(*) n FROM schema_migrations').get()!.n).toBe(2);restored.close();}finally{rmSync(dir,{recursive:true,force:true});}
+ try{const old=new DatabaseSync(path);old.exec(readFileSync('migrations/001-initial.sql','utf8'));old.prepare('INSERT INTO schema_migrations VALUES(1,?)').run(1);old.close();const current=openDb(path);expect(current.prepare('PRAGMA table_info(challenges)').all().some(c=>c.name==='seed')).toBe(true);await backup(current,snapshot);current.close();const again=openDb(path);expect(again.prepare('SELECT COUNT(*) n FROM schema_migrations').get()!.n).toBe(3);again.close();const restored=new DatabaseSync(snapshot,{readOnly:true});expect(restored.prepare('PRAGMA integrity_check').get()!.integrity_check).toBe('ok');expect(restored.prepare('SELECT COUNT(*) n FROM schema_migrations').get()!.n).toBe(3);restored.close();}finally{rmSync(dir,{recursive:true,force:true});}
 });

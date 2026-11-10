@@ -31,3 +31,7 @@ server/build/
 # Python deployment verifier cache
 __pycache__/
 *.pyc
+
+# WeChat developer-local public configuration and generated bundle
+minigame/local.config.json
+minigame/project.private.config.json

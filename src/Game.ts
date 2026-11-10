@@ -12,7 +12,7 @@ import type { GameState, ReadyReason } from './GameState';
 export class Game {
   readonly physics = new Physics();
   readonly journal = new ChallengeJournal();
-  readonly audio = new AudioSystem();
+  readonly audio:AudioSystem;
   readonly score = new ScoreSystem(this.physics.blocks.alive.length);
   private remainingLives: number = ARCADE.initialLives;
   get lives() { return this.remainingLives; }
@@ -24,7 +24,8 @@ export class Game {
   private roundActive = false;
 
   // Without a canvas this is the same coordinator, driven deterministically by tests.
-  constructor(canvas?: HTMLCanvasElement, private onChange: (game: Game) => void = () => {}, readonly levels = new LevelManager()) {
+  constructor(canvas?: HTMLCanvasElement, private onChange: (game: Game) => void = () => {}, readonly levels = new LevelManager(), audio = new AudioSystem()) {
+    this.audio=audio;
     this.configureLevel();this.physics.setSeed(this.journal.seed);this.physics.reset();
     this.physics.onSound = this.audio.play;
     this.physics.onStep = dt => { if (this.state === 'running') { this.score.update(dt); this.journal.tick++; } };

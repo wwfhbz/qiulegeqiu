@@ -1,3 +1,4 @@
+import {wechatLogin,productionWechat,identityForSession,attachWechatPlayer,tokenHash,type WechatProvider} from './wechat.js';
 import Fastify, { type FastifyRequest } from 'fastify';
 import cookie from '@fastify/cookie';
 import { randomBytes, randomUUID, createHash } from 'node:crypto';
@@ -19,7 +20,7 @@ const event=z.union([
 ]);
 type Session={id:string;player_id:string|null;csrf_token:string};
 type Challenge={id:string;session_id:string;rules_version:string;created_at:number;expires_at:number;finished_at:number|null;next_sequence:number;event_count:number;state:string;unranked:number;seed:number};
-export interface AppOptions { db?:Db; dbPath?:string; origin?:string; secure?:boolean; now?:()=>number; rateLimit?:boolean }
+export interface AppOptions { db?:Db; dbPath?:string; origin?:string; secure?:boolean; now?:()=>number; rateLimit?:boolean; wechat?:WechatProvider }
 export async function createApp(options:AppOptions={}) {
  const db=options.db||openDb(options.dbPath||process.env.DB_PATH||'../work/leaderboard.sqlite'); seedRegions(db);
  const now=options.now||Date.now, origin=options.origin||process.env.PUBLIC_ORIGIN||'http://127.0.0.1:5173', secure=options.secure??process.env.NODE_ENV==='production';
@@ -27,8 +28,14 @@ export async function createApp(options:AppOptions={}) {
  const app=Fastify({bodyLimit:256*1024,trustProxy:['127.0.0.1','::1'],logger:process.env.NODE_ENV==='production'?{level:'info',redact:['req.headers.cookie','req.headers.authorization','req.headers["x-csrf-token"]','res.headers["set-cookie"]'],serializers:{req:(r:{method:string;url:string})=>({method:r.method,path:r.url.split('?')[0]})}}:false}); await app.register(cookie);
  app.addHook('onSend',async(_request,reply,payload)=>{reply.header('cache-control','no-store').header('x-content-type-options','nosniff').header('referrer-policy','same-origin');return payload;});
  function session(req:FastifyRequest,required=true):Session|undefined {
-  const token=req.cookies[secure?'__Secure-qlgq':'qlgq_dev'];
-  const s=token&&token.length<128?db.prepare('SELECT id,player_id,csrf_token FROM sessions WHERE session_token_hash=? AND expires_at>?').get(hash(token),now()) as unknown as Session:undefined;
+  const authorization=req.headers.authorization;
+  if(authorization&&!/^Bearer [A-Za-z0-9_-]{43}$/.test(authorization))throw new ApiError(401,'微信会话格式无效');
+  const bearer=authorization?.slice(7),token=bearer||req.cookies[secure?'__Secure-qlgq':'qlgq_dev'];
+  const transport=bearer?'EXISTS':'NOT EXISTS';
+  const s=token&&token.length<128?db.prepare(`SELECT id,player_id,csrf_token FROM sessions WHERE session_token_hash=? AND expires_at>? AND ${transport}(SELECT 1 FROM wechat_sessions w WHERE w.session_id=sessions.id)`).get(hash(token),now()) as unknown as Session:undefined;
+  if(bearer&&!s)throw new ApiError(401,'微信登录已失效，请重新登录');
+  if(s&&bearer){const identity=identityForSession(db,s.id);if(identity?.player_id)s.player_id=String(identity.player_id);}
+
   if(!s&&required)throw new ApiError(401,'登录状态已失效，请刷新后重试'); return s||undefined;
  }
  function active(s:Session){if(!s.player_id)throw new ApiError(401,'请先登记昵称');const player=db.prepare('SELECT * FROM players WHERE id=?').get(s.player_id)!;if(player.status!=='active')throw new ApiError(403,'账号已被限制，可提交申诉');return player;}
@@ -36,7 +43,8 @@ export async function createApp(options:AppOptions={}) {
  app.addHook('preHandler',async(req)=>{
   rate(`ip:${req.ip}`,600,60000);
   if(req.method==='POST'){
-   if(req.headers.origin!==origin)throw new ApiError(403,'请求来源无效');
+   if(req.url.split('?')[0]==='/api/wechat/login')return;
+   if((!req.headers.authorization&&req.headers.origin!==origin)||(req.headers.origin&&req.headers.origin!==origin))throw new ApiError(403,'请求来源无效');
    const s=session(req)!;if(req.headers['x-csrf-token']!==s.csrf_token)throw new ApiError(403,'请求校验失败，请刷新后重试');
   }
  });
@@ -49,6 +57,32 @@ export async function createApp(options:AppOptions={}) {
   app.log.error({err:error},'接口异常');return reply.status(503).send({message:'服务暂不可用，单机游戏不受影响'});
  });
  function challenge(req:FastifyRequest){const s=session(req)!;const cid=id.parse((req.params as {id:string}).id);const c=db.prepare('SELECT * FROM challenges WHERE id=? AND session_id=?').get(cid,s.id) as unknown as Challenge;if(!c)throw new ApiError(404,'挑战不存在或无权访问');if(c.expires_at<now())throw new ApiError(410,'挑战已过期，本次可继续单机游玩');if(c.rules_version!==RULES_VERSION)throw new ApiError(409,'游戏规则版本已更新，请开始新的挑战');return {s,c};}
+ app.post('/api/wechat/login',async(req)=>{
+  rate(`wxlogin:${req.ip}`,30,60000);
+  const {code}=z.object({code:z.string().min(1).max(256)}).strict().parse(req.body);
+  return wechatLogin(db,options.wechat||productionWechat(),code,now());
+ });
+ app.post('/api/account/link-ticket',async(req)=>{
+  if(req.headers.authorization)throw new ApiError(403,'请在已登录的网页账号生成绑定凭据');
+  const s=session(req)!,p=active(s);rate(`link:${s.id}`,5,3600000);
+  const ticket=randomBytes(32).toString('base64url');
+  db.prepare('INSERT INTO account_link_tickets VALUES(?,?,?,?,NULL)').run(tokenHash(ticket),p.id,s.id,now()+300000);
+  return {ticket,expiresAt:now()+300000};
+ });
+ app.post('/api/wechat/bind',async(req)=>{
+  if(!req.headers.authorization)throw new ApiError(403,'请在微信小游戏中绑定');
+  const s=session(req)!,{ticket}=z.object({ticket:z.string().regex(/^[A-Za-z0-9_-]{43}$/)}).strict().parse(req.body);
+  const identity=identityForSession(db,s.id);if(!identity)throw new ApiError(403,'需要微信登录');
+  return transaction(db,()=>{
+   if(identity.player_id||s.player_id)throw new ApiError(409,'微信已登记玩家，不能自动合并历史账号');
+   const proof=db.prepare('SELECT t.* FROM account_link_tickets t JOIN sessions s ON s.id=t.session_id WHERE t.token_hash=? AND t.used_at IS NULL AND t.expires_at>? AND s.expires_at>?').get(tokenHash(ticket),now(),now());
+   if(!proof)throw new ApiError(409,'绑定凭据无效、过期或已使用');
+   const player=db.prepare('SELECT status FROM players WHERE id=?').get(proof.player_id);if(player?.status!=='active')throw new ApiError(403,'玩家账号不可绑定');
+   try{attachWechatPlayer(db,s.id,String(proof.player_id));}catch(error){if(String(error).includes('UNIQUE'))throw new ApiError(409,'此网页账号已绑定其他微信身份');throw error;}
+   db.prepare('UPDATE account_link_tickets SET used_at=? WHERE token_hash=?').run(now(),tokenHash(ticket));
+   return {id:proof.player_id};
+  });
+ });
  app.get('/api/health',async()=>{db.prepare('SELECT 1').get();return {ok:true,rulesVersion:RULES_VERSION,database:'ready'};});
  app.get('/api/me',async(req,reply)=>{
   let s=session(req,false);
@@ -69,7 +103,7 @@ export async function createApp(options:AppOptions={}) {
   const s=session(req)!;const input=z.object({nickname:z.string().max(100),regionCode:z.string().max(32)}).strict().parse(req.body);const name=await moderateNickname(input.nickname),r=region(db,input.regionCode);if(!r)throw new ApiError(400,'请选择有效地区');
   if(s.player_id){const p=active(s);if(p.normalized_nickname!==name.normalized||p.region_code!==r.code)throw new ApiError(409,'已绑定玩家身份，不能通过修改昵称冒领或切换账号');return {id:s.player_id};}
   rate(`register:${req.ip}`,10,3600000);
-  try{return transaction(db,()=>{const current=db.prepare('SELECT player_id FROM sessions WHERE id=?').get(s.id)!;if(current.player_id)return {id:current.player_id};const pid=randomUUID();db.prepare('INSERT INTO players VALUES(?,?,?,?,?,?,?,?)').run(pid,name.nickname,name.normalized,r.code,r.level,now(),now(),'active');db.prepare('UPDATE sessions SET player_id=? WHERE id=? AND player_id IS NULL').run(pid,s.id);reply.status(201);return {id:pid};});}
+  try{return transaction(db,()=>{const current=db.prepare('SELECT player_id FROM sessions WHERE id=?').get(s.id)!;const identity=identityForSession(db,s.id);if(current.player_id||identity?.player_id)return {id:current.player_id||identity!.player_id};const pid=randomUUID();db.prepare('INSERT INTO players VALUES(?,?,?,?,?,?,?,?)').run(pid,name.nickname,name.normalized,r.code,r.level,now(),now(),'active');db.prepare('UPDATE sessions SET player_id=? WHERE id=? AND player_id IS NULL').run(pid,s.id);attachWechatPlayer(db,s.id,pid);reply.status(201);return {id:pid};});}
   catch(error){if(String(error).includes('UNIQUE constraint failed'))throw new ApiError(409,'该地区的昵称已被使用，请更换地区或昵称。');throw error;}
  });
  app.post('/api/challenges',async(req,reply)=>{
