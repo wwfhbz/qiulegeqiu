@@ -5,7 +5,7 @@ import { openDb } from '../src/db';
 import { verifyTrace } from '../src/verifier';
 import { normalizeNickname } from '../src/moderation';
 import { leaderboard, personalBest, refreshBest } from '../src/leaderboard';
-import { RULES_VERSION,type ChallengeEvent } from '../../shared/Challenge';
+import { LEGACY_RULES_VERSION as RULES_VERSION,type ChallengeEvent } from '../../shared/Challenge';
 const apps: Awaited<ReturnType<typeof createApp>>[]=[];
 afterEach(async()=>{for(const item of apps.splice(0)){await item.app.close();item.db.close();}});
 async function setup(rateLimit=false){let time=1_800_000_000_000;const db=openDb(':memory:');const item=await createApp({db,origin:'https://game.test',secure:true,now:()=>time,rateLimit});apps.push(item);
@@ -48,7 +48,7 @@ describe('事件验证、真实提交与榜单',()=>{
  });
 });
 
-import { Game } from '../../src/Game';
+import {LegacyGame as Game} from '../../tests/helpers/LegacyGame';
 import { C } from '../../src/GameConfig';
 describe('真实游戏事件与服务端重算一致',()=>{
  it('真实物理死亡回调、五轮扣命和时钟产生可验证日志',()=>{
@@ -86,5 +86,5 @@ import {join} from 'node:path';
 import {DatabaseSync,backup} from 'node:sqlite';
 it('旧001数据库升级002及003可重复打开，SQLite在线备份可恢复完整schema',async()=>{
  const dir=mkdtempSync(join(tmpdir(),'qiulegeqiu-db-'));const path=join(dir,'test.sqlite'),snapshot=join(dir,'backup.sqlite');
- try{const old=new DatabaseSync(path);old.exec(readFileSync('migrations/001-initial.sql','utf8'));old.prepare('INSERT INTO schema_migrations VALUES(1,?)').run(1);old.close();const current=openDb(path);expect(current.prepare('PRAGMA table_info(challenges)').all().some(c=>c.name==='seed')).toBe(true);await backup(current,snapshot);current.close();const again=openDb(path);expect(again.prepare('SELECT COUNT(*) n FROM schema_migrations').get()!.n).toBe(3);again.close();const restored=new DatabaseSync(snapshot,{readOnly:true});expect(restored.prepare('PRAGMA integrity_check').get()!.integrity_check).toBe('ok');expect(restored.prepare('SELECT COUNT(*) n FROM schema_migrations').get()!.n).toBe(3);restored.close();}finally{rmSync(dir,{recursive:true,force:true});}
+ try{const old=new DatabaseSync(path);old.exec(readFileSync('migrations/001-initial.sql','utf8'));old.prepare('INSERT INTO schema_migrations VALUES(1,?)').run(1);old.close();const current=openDb(path);expect(current.prepare('PRAGMA table_info(challenges)').all().some(c=>c.name==='seed')).toBe(true);await backup(current,snapshot);current.close();const again=openDb(path);expect(again.prepare('SELECT COUNT(*) n FROM schema_migrations').get()!.n).toBe(4);again.close();const restored=new DatabaseSync(snapshot,{readOnly:true});expect(restored.prepare('PRAGMA integrity_check').get()!.integrity_check).toBe('ok');expect(restored.prepare('SELECT COUNT(*) n FROM schema_migrations').get()!.n).toBe(4);restored.close();}finally{rmSync(dir,{recursive:true,force:true});}
 });

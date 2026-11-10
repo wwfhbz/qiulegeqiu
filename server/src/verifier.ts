@@ -1,15 +1,19 @@
+import {LEGACY_LEVELS} from '../../src/LegacyLevels.js';
+import {RULES_VERSION,LEGACY_RULES_VERSION} from '../../shared/Challenge.js';
 import { Blocks } from '../../src/Blocks.js';
 import { ScoreSystem } from '../../src/ScoreSystem.js';
 import { ARCADE } from '../../src/ArcadeRules.js';
 import { C } from '../../src/GameConfig.js';
-import { LEVELS } from '../../src/Levels.js';
+import {LEVELS,dropMultiplier,powerProfile}  from '../../src/Levels.js';
 import { seededRandom,weightedPower,type PowerKind } from '../../src/PowerRules.js';
 import { Obstacles } from '../../src/Obstacles.js';
 import type { ChallengeEvent, ChallengeSummary } from '../../shared/Challenge.js';
 import { ApiError } from './moderation.js';
 /** Event/rule replay, not authoritative physical replay. Client seed is a declared run parameter, not a secret. */
-export function verifyTrace(events: ChallengeEvent[], wallMs: number,seed=1): { summary: ChallengeSummary; suspicious: string[] } {
+export function verifyTrace(events: ChallengeEvent[], wallMs: number,seed=1,rulesVersion:string=LEGACY_RULES_VERSION): { summary: ChallengeSummary; suspicious: string[] } {
+  const levels=rulesVersion===RULES_VERSION?LEVELS:rulesVersion===LEGACY_RULES_VERSION?LEGACY_LEVELS:undefined;if(!levels)throw new ApiError(422,'不支持的规则版本');
   const blocks=new Blocks(),score=new ScoreSystem(blocks.alive.length),obstacles=new Obstacles(),random=seededRandom(seed);
+  blocks.reset(levels[0].obstacles??[],levels[0]);obstacles.load(levels[0].obstacles??[]);
   let valid=blocks.alive.slice(),level=1,lives:number=ARCADE.initialLives,phase='ready',balls=0,lastTick=0,bricks=0,finished=false,levelStartTick=0;
   let destroyedThisLevel=0;const suspicious=new Set<string>(),drops:{kind:PowerKind;tick:number;y:number}[]=[];
   let peakBalls=1,budgetTick=-1,tickBallMax=0;
@@ -25,8 +29,8 @@ export function verifyTrace(events: ChallengeEvent[], wallMs: number,seed=1): { 
       case 'hit':{
         if(phase!=='running'||!balls||!valid[e.index])throw new ApiError(422,'重复或不可能的方块事件');valid[e.index]=0;score.hit(e.index);bricks++;destroyedThisLevel++;
         if(hitTick!==e.tick){hitTick=e.tick;tickHits=0;}if(++tickHits>Math.max(tickBallMax,balls)*12)suspicious.add('单步击碎数量异常');
-        const interval=Math.round(C.power.dropEvery/(level===1?ARCADE.powerUpDropMultiplier.level1:ARCADE.powerUpDropMultiplier.level2AndAbove));
-        if(destroyedThisLevel%interval===0){const kind=weightedPower(level,random);if(drops.length<C.power.maxDrops)drops.push({kind,tick:e.tick,y:blocks.top+Math.floor(e.index/blocks.cols)*C.grid.step+C.grid.size/2});}break;
+        const interval=Math.round(C.power.dropEvery/dropMultiplier(levels[level-1]));
+        if(destroyedThisLevel%interval===0){const kind=weightedPower(powerProfile(levels[level-1]),random);if(drops.length<C.power.maxDrops)drops.push({kind,tick:e.tick,y:blocks.top+Math.floor(e.index/blocks.cols)*blocks.step+blocks.size/2});}break;
       }
       case 'power':{
         if(phase!=='running')throw new ApiError(422,'道具拾取状态无效');
@@ -41,8 +45,8 @@ export function verifyTrace(events: ChallengeEvent[], wallMs: number,seed=1): { 
       case 'bomb':if(expectedBomb===undefined||e.target!==expectedBomb)throw new ApiError(422,'炸弹目标无效');if(expectedBomb===null)score.addBombCompensation();expectedBomb=undefined;break;
       case 'ballLost':if(phase!=='running'||balls<=0)throw new ApiError(422,'重复弹球死亡');balls--;break;
       case 'lost':if(phase!=='running'||balls!==0||destroyedThisLevel===blocks.total)throw new ApiError(422,'回合扣命无效');lives--;if(lives<0)throw new ApiError(422,'生命异常');phase=lives?'ready':'gameOver';drops.length=0;score.resetCombo();break;
-      case 'clear':if(phase!=='running'||destroyedThisLevel!==blocks.total)throw new ApiError(422,'未完成本关');score.complete(lives);phase=level===LEVELS.length?'victory':'cleared';break;
-      case 'next':if(phase!=='cleared')throw new ApiError(422,'无效切关');level++;phase='ready';blocks.reset(LEVELS[level-1].obstacles??[]);valid=blocks.alive.slice();destroyedThisLevel=0;drops.length=0;score.beginLevel();obstacles.load(LEVELS[level-1].obstacles??[]);levelStartTick=e.tick;break;
+      case 'clear':if(phase!=='running'||destroyedThisLevel!==blocks.total)throw new ApiError(422,'未完成本关');score.complete(lives);phase=level===levels.length?'victory':'cleared';break;
+      case 'next':if(phase!=='cleared')throw new ApiError(422,'无效切关');level++;phase='ready';blocks.reset(levels[level-1].obstacles??[],levels[level-1]);valid=blocks.alive.slice();destroyedThisLevel=0;drops.length=0;score.beginLevel();obstacles.load(levels[level-1].obstacles??[]);levelStartTick=e.tick;break;
       case 'finish':if(phase!=='gameOver'&&phase!=='victory')throw new ApiError(422,'挑战尚未结束');finished=true;break;
     }
     peakBalls=Math.max(peakBalls,balls);tickBallMax=Math.max(tickBallMax,balls);

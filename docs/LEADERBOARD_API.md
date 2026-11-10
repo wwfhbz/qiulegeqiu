@@ -1,4 +1,4 @@
-# V0.8 API、数据库与安全边界（沿用V0.7接口）
+# V1.2 API、数据库与安全边界（兼容旧客户端）
 
 ## 运行
 
@@ -8,7 +8,7 @@ Node.js 24 LTS + TypeScript + Fastify + 内置SQLite，无需Redis或额外数�
 
 ## 数据模型
 
-迁移server/migrations/001-initial.sql与002-challenge-seed.sql，npm run migrate --prefix server可初始化/幂等重跑。
+迁移server/migrations/001～004（003微信身份、004赛季最佳引用），npm run migrate --prefix server可初始化/幂等重跑。
 
 | 表 | 职责与关键约束 |
 |---|---|
@@ -18,7 +18,8 @@ Node.js 24 LTS + TypeScript + Fastify + 内置SQLite，无需Redis或额外数�
 | challenges | 会话绑定、规则版本、开始/结束/过期、事件序号、计数、调试标记、公开本局随机种子 |
 | challenge_batches | PRIMARY KEY(challenge_id,sequence)、原始事件与内容哈希，用于幂等和后续物理回放 |
 | scores | 随机ID、玩家/挑战、摘要、首次达成/提交时间、校验状态；UNIQUE(challenge_id)、UNIQUE(player_id,idempotency_key) |
-| player_bests | 每玩家唯一best引用，只从verified中选择最佳 |
+| player_bests | 旧版历史榜best引用，保留已有数据 |
+| season_player_bests | PRIMARY KEY(rules_version,player_id)，新规则每玩家独立best引用 |
 | appeals/admin_audit | 玩家或匿名会话申诉、人工处理结果、OS操作者及审计理由 |
 | rate_limits/schema_migrations | 持久化频控窗口、迁移版本 |
 
@@ -82,4 +83,20 @@ NFKC、Unicode码点2～12、大小写/空白标准化；拒绝控制/隐藏字�
 
 所有变更写admin_audit；封禁从榜单排除，禁止新挑战/提交，保留会话用于申诉。不提供普通玩家编辑他人成绩接口。昵称/申诉输出JSON转义，排行榜用户内容使用textContent而非HTML。
 
-V0.8规则版本为0.8.0-arcade-5l-10lv-v1；002仅追加seed列、幂等迁移。种子由客户端声明并在服务端会话中绑定，用于可复现校验，不是安全凭据或服务端权威随机性保证。前后端需同步升级；存量已验证成绩保留，旧规则未提交挑战拒绝。单步击碎预算按本步曾存活最大球数计算，避免同帧部分球死亡导致误判；总消除速度阈值考虑本局有效峰值球数。
+旧十关规则版本0.8.0-arcade-5l-10lv-v1继续接受；新十二关为1.2.0-arcade-5l-12lv-v1。按挑战存储版本选择冻结十关或十二关配置、网格和掉落规则，未知版本拒绝。种子由客户端声明并绑定，不是安全凭据。单步击碎预算按本步曾存活最大球数计算，避免同帧部分球死亡导致误判；总消除速度阈值考虑本局有效峰值球数。
+
+## V1.2分赛季查询与兼容
+
+`GET /api/leaderboard`、`GET /api/me`、`GET /api/me/best`接受可选`rulesVersion`。省略时为旧版历史榜，保障缓存中的旧网页客户端继续运行；新网页/小游戏显式发送`1.2.0-arcade-5l-12lv-v1`。这三个响应均包含所选`rulesVersion`，榜单行另含`rules_version`。新客户端必须匹配响应赛季，不能把旧后端忽略参数的结果当成新榜。
+
+```text
+GET /api/leaderboard?rulesVersion=1.2.0-arcade-5l-12lv-v1&offset=0&limit=20
+GET /api/me?rulesVersion=1.2.0-arcade-5l-12lv-v1
+GET /api/me/best?rulesVersion=0.8.0-arcade-5l-10lv-v1
+```
+
+POST挑战明确声明任一支持版本，提交校验严格使用该挑战存储的版本，不接受客户端切换规则。提交响应best属于该挑战赛季。health返回当前rulesVersion及supportedRulesVersions。身份、昵称地区唯一约束、Cookie/Bearer、CSRF和会话机制不变；一名玩家可在两个赛季各有最佳分。
+
+004只追加空的season_player_bests表，不更新历史scores或player_bests，不把旧十关分数折算成新分。旧榜保留原有历史归属（包含原本已在旧榜的更早记录），新十二关只选择精确版本。后台审核按成绩原挑战版本刷新对应best，不能跨榜。
+
+发布顺序与回滚限制见[V1.2说明](V1_2_TUTORIAL_SEASONS.md)。这次没有执行生产迁移、发布或数据库操作。

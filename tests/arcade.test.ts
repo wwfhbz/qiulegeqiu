@@ -1,5 +1,6 @@
+import {LEGACY_LEVELS} from '../src/LegacyLevels';
 import { describe, it, expect } from 'vitest';
-import { Game } from '../src/Game';
+import {LegacyGame as Game} from './helpers/LegacyGame';
 import { ScoreSystem } from '../src/ScoreSystem';
 import { ARCADE } from '../src/ArcadeRules';
 import { C } from '../src/GameConfig';
@@ -32,8 +33,8 @@ describe('积分与连击', () => {
 describe('十关与结算', () => {
   it('真实销毁4203块后奖励1000+500乘剩余生命，只结算一次', () => { const g=game();clear(g);expect(g.state).toBe('levelComplete');expect(g.lives).toBe(5);expect(g.result?.clearBonus).toBe(1000);expect(g.result?.lifeBonus).toBe(2500);expect(g.result?.blockScore).toBe(125835);expect(g.score.total).toBe(129335);const total=g.score.total;g.update(.1);g.start();expect(g.score.total).toBe(total);expect(g.state).toBe('levelComplete'); });
   it('切关保留生命和总分，清空球、方块、强化、道具和连击', () => { const g=game();lose(g);clear(g);const total=g.score.total;g.nextLevel();expect(g.levels.current.number).toBe(2);expect(g.lives).toBe(4);expect(g.score.total).toBe(total);expect(g.physics.blocks.remaining).toBe(4203);expect(g.physics.balls.length).toBe(1);expect(g.physics.wideRemaining).toBe(0);expect(g.physics.powers.items.every(x=>!x.alive)).toBe(true);expect(g.score.combo).toBe(0);expect(g.state).toBe('ready');g.nextLevel();expect(g.levels.current.number).toBe(2); });
-  it('十关基础速度符合集中配置且不超安全上限', () => { const g=game();for(let i=0;i<ARCADE.levels.length;i++){expect(g.levels.current.speedScale).toBe(ARCADE.levels[i].speedScale);const b=g.physics.balls[0];expect(Math.hypot(b.vx,b.vy)).toBeCloseTo(C.ball.speed*ARCADE.levels[i].speedScale);expect(Math.hypot(b.vx,b.vy)).toBeLessThanOrEqual(C.ball.maxSpeed);clear(g);if(i<ARCADE.levels.length-1)g.nextLevel();} });
-  it('第10关结束后最终胜利，下一关和开始均无效，仍可重开', () => { const g=game();for(let i=0;i<ARCADE.levels.length;i++){clear(g);if(i<ARCADE.levels.length-1)g.nextLevel();}expect(g.state).toBe('victory');expect(g.score.total).toBeGreaterThan(1000000);g.nextLevel();g.start();expect(g.state).toBe('victory');expect(g.levels.current.number).toBe(10);g.reset();expect(g.state).toBe('ready');expect(g.levels.current.number).toBe(1);expect(g.score.total).toBe(0); });
+  it('十关基础速度符合集中配置且不超安全上限', () => { const g=game();for(let i=0;i<LEGACY_LEVELS.length;i++){expect(g.levels.current.speedScale).toBe(LEGACY_LEVELS[i].speedScale);const b=g.physics.balls[0];expect(Math.hypot(b.vx,b.vy)).toBeCloseTo(C.ball.speed*LEGACY_LEVELS[i].speedScale);expect(Math.hypot(b.vx,b.vy)).toBeLessThanOrEqual(C.ball.maxSpeed);clear(g);if(i<LEGACY_LEVELS.length-1)g.nextLevel();} });
+  it('第10关结束后最终胜利，下一关和开始均无效，仍可重开', () => { const g=game();for(let i=0;i<LEGACY_LEVELS.length;i++){clear(g);if(i<LEGACY_LEVELS.length-1)g.nextLevel();}expect(g.state).toBe('victory');expect(g.score.total).toBeGreaterThan(1000000);g.nextLevel();g.start();expect(g.state).toBe('victory');expect(g.levels.current.number).toBe(10);g.reset();expect(g.state).toBe('ready');expect(g.levels.current.number).toBe(1);expect(g.score.total).toBe(0); });
   it('同一帧通关和全部漏球，优先通关且不扣生命', () => { const g=game();g.start();for(let i=0;i<g.physics.blocks.alive.length;i++)g.physics.blocks.hit(i);for(const b of g.physics.balls)b.alive=false;g.update(C.step);expect(g.state).toBe('levelComplete');expect(g.lives).toBe(5);expect(g.result?.lifeBonus).toBe(2500); });
   it('非运行状态销毁事件不产生玩家分数', () => { const g=game();hitOne(g);expect(g.score.total).toBe(0); });
   it('不让最高速度或多球越过引擎限制', () => { const g=game();g.physics.speedScale=100;g.physics.reset();g.start();for(let i=0;i<6;i++)g.physics.collect('triple');g.update(C.step);expect(g.physics.balls.length).toBe(100);expect(g.physics.balls.every(b=>Math.hypot(b.vx,b.vy)<=C.ball.maxSpeed+1e-8)).toBe(true); });

@@ -1,0 +1,50 @@
+[
+  {
+    "name": "初试身手",
+    "speed": 1,
+    "paddleScale": 1,
+    "exit": 104.6,
+    "stationary": {
+      "samples": 45,
+      "caught": 23,
+      "dead": 22
+    },
+    "trackingAfter350ms": {
+      "samples": 45,
+      "caught": 45,
+      "dead": 0
+    }
+  },
+  {
+    "name": "轻松出击",
+    "speed": 0.85,
+    "paddleScale": 1.3,
+    "exit": 200,
+    "stationary": {
+      "samples": 45,
+      "caught": 25,
+      "dead": 20
+    },
+    "trackingAfter350ms": {
+      "samples": 45,
+      "caught": 45,
+      "dead": 0
+    }
+  },
+  {
+    "name": "渐入佳境",
+    "speed": 0.92,
+    "paddleScale": 1.15,
+    "exit": 160,
+    "stationary": {
+      "samples": 45,
+      "caught": 25,
+      "dead": 20
+    },
+    "trackingAfter350ms": {
+      "samples": 45,
+      "caught": 45,
+      "dead": 0
+    }
+  }
+]

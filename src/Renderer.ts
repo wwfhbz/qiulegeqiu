@@ -1,7 +1,6 @@
 import { POWER_LABELS,POWER_COLORS } from './PowerRules';
 import { C } from './GameConfig';
 import { Physics } from './Physics';
-import { ARENA_WALL } from './ArenaGeometry';
 import { FRAME } from './WorldGeometry';
 export interface RendererHost {
  cache:HTMLCanvasElement;
@@ -39,27 +38,27 @@ export class Renderer {
       for (let row = 0; row < b.rows; row++) {
         c.fillStyle = `hsl(${15 + row * .12},93%,${59 - row * .13}%)`;
         for (let col = 0; col < b.cols; col++) if (b.alive[row * b.cols + col])
-          c.fillRect(b.left + col * C.grid.step, b.top + row * C.grid.step, C.grid.size, C.grid.size);
+          c.fillRect(b.left + col * b.step, b.top + row * b.step, b.size, b.size);
       }
       this.generation = b.generation; this.cleared = b.destroyed.length;
       } else {
         // Clear only changed cells, using integral device pixels to avoid fringes.
         for (; this.cleared < b.destroyed.length; this.cleared++) {
-          const i = b.destroyed[this.cleared], x = b.left + i % b.cols * C.grid.step, y = b.top + Math.floor(i / b.cols) * C.grid.step;
-          c.clearRect(Math.floor(x*this.ratio)/this.ratio, Math.floor(y*this.ratio)/this.ratio, (Math.ceil((x+C.grid.size)*this.ratio)-Math.floor(x*this.ratio))/this.ratio, (Math.ceil((y+C.grid.size)*this.ratio)-Math.floor(y*this.ratio))/this.ratio);
+          const i = b.destroyed[this.cleared], x = b.left + i % b.cols * b.step, y = b.top + Math.floor(i / b.cols) * b.step;
+          c.clearRect(Math.floor(x*this.ratio)/this.ratio, Math.floor(y*this.ratio)/this.ratio, (Math.ceil((x+b.size)*this.ratio)-Math.floor(x*this.ratio))/this.ratio, (Math.ceil((y+b.size)*this.ratio)-Math.floor(y*this.ratio))/this.ratio);
         }
       }
       this.cachedRevision = b.revision;
     }
-    const c = this.ctx, a = C.arena;
+    const c = this.ctx, a = C.arena, wall=p.wall;
     c.setTransform(this.ratio, 0, 0, this.ratio, 0, 0); c.clearRect(0, 0, C.width, C.height);
     if(p.effects.explosionRemaining>0)c.translate(Math.sin(p.effects.explosionRemaining*110)*3,Math.cos(p.effects.explosionRemaining*140)*2);
     c.beginPath(); c.arc(a.x, a.y, a.radius, 0, Math.PI * 2); c.fillStyle = '#0b1525'; c.fill();
     c.drawImage(this.cache, 0, 0, C.width, C.height);
     for(const obstacle of p.obstacles.items){if(obstacle.destroyed)continue;const o=obstacle.config,half=(o.length-o.thickness)/2;c.save();c.translate(obstacle.x,obstacle.y);c.rotate(obstacle.angle);c.beginPath();c.moveTo(-half,0);c.lineTo(half,0);c.lineWidth=o.thickness;c.lineCap='round';c.strokeStyle=o.kind==='rotating'?'#a7a8c3':o.kind==='moving'?'#849aaf':'#7a899b';c.stroke();c.beginPath();c.moveTo(-half+3,0);c.lineTo(half-3,0);c.lineWidth=1;c.strokeStyle='#d6e6ef66';c.stroke();c.restore();}
     if(p.effects.explosionRemaining>0){c.beginPath();c.arc(p.effects.explosionX,p.effects.explosionY,(.24-p.effects.explosionRemaining)*240,0,Math.PI*2);c.lineWidth=2;c.strokeStyle='#ffb46e';c.stroke();}
-    c.beginPath(); c.arc(a.x, a.y, a.radius, ARENA_WALL.startAngle, ARENA_WALL.endAngle);
-    c.strokeStyle = '#7e94ac'; c.lineWidth = ARENA_WALL.width; c.lineCap = 'round'; c.stroke(); c.lineCap = 'butt';
+    c.beginPath(); c.arc(a.x, a.y, a.radius, wall.startAngle, wall.endAngle);
+    c.strokeStyle = '#7e94ac'; c.lineWidth = wall.width; c.lineCap = 'round'; c.stroke(); c.lineCap = 'butt';
     c.beginPath(); c.moveTo(FRAME.left, FRAME.deathY); c.lineTo(FRAME.left, FRAME.top);
     c.lineTo(FRAME.right, FRAME.top); c.lineTo(FRAME.right, FRAME.deathY);
     c.lineWidth = FRAME.width; c.lineCap = 'round'; c.lineJoin = 'miter'; c.stroke(); c.lineCap = 'butt';

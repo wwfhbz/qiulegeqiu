@@ -1,9 +1,10 @@
 import {describe,it,expect,vi} from 'vitest';
-import {Game} from '../src/Game';
+import {LegacyGame as Game} from './helpers/LegacyGame';
 import {LevelManager} from '../src/LevelManager';
 import {Physics,type Ball} from '../src/Physics';
 import {C} from '../src/GameConfig';
-import {LEVELS,type ObstacleConfig} from '../src/Levels';
+import {LEGACY_LEVELS as LEVELS} from '../src/LegacyLevels';
+import {type ObstacleConfig} from '../src/Levels';
 import {Blocks} from '../src/Blocks';
 import {Obstacles} from '../src/Obstacles';
 import {sweptBounds,obstaclePose} from '../src/ObstacleGeometry';

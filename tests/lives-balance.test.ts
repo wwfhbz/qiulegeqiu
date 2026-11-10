@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { Game } from '../src/Game';
+import {LegacyGame as Game} from './helpers/LegacyGame';
 import { LevelManager } from '../src/LevelManager';
 import { C } from '../src/GameConfig';
 import { ARCADE } from '../src/ArcadeRules';

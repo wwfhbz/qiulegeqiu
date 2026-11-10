@@ -1,0 +1,134 @@
+{
+  "reports": [
+    {
+      "viewport": [
+        1366,
+        768
+      ],
+      "first": {
+        "level": 1,
+        "total": 600,
+        "remaining": 600,
+        "speed": 374,
+        "width": 145.6,
+        "exit": 200,
+        "lives": 5,
+        "balls": 1,
+        "hud": "01/12",
+        "hearts": 5
+      },
+      "second": {
+        "level": 2,
+        "total": 1200,
+        "remaining": 1200,
+        "speed": 404.8,
+        "width": 128.79999999999998,
+        "exit": 160,
+        "lives": 4,
+        "balls": 1,
+        "hud": "02/12",
+        "hearts": 4
+      },
+      "third": {
+        "level": 3,
+        "total": 4203,
+        "remaining": 4203,
+        "speed": 440,
+        "width": 112,
+        "exit": 104.6,
+        "lives": 4,
+        "balls": 1,
+        "hud": "03/12",
+        "hearts": 4
+      },
+      "errors": []
+    },
+    {
+      "viewport": [
+        390,
+        844
+      ],
+      "first": {
+        "level": 1,
+        "total": 600,
+        "remaining": 600,
+        "speed": 374,
+        "width": 145.6,
+        "exit": 200,
+        "lives": 5,
+        "balls": 1,
+        "hud": "01/12",
+        "hearts": 5
+      },
+      "second": {
+        "level": 2,
+        "total": 1200,
+        "remaining": 1200,
+        "speed": 404.8,
+        "width": 128.79999999999998,
+        "exit": 160,
+        "lives": 4,
+        "balls": 1,
+        "hud": "02/12",
+        "hearts": 4
+      },
+      "third": {
+        "level": 3,
+        "total": 4203,
+        "remaining": 4203,
+        "speed": 440,
+        "width": 112,
+        "exit": 104.6,
+        "lives": 4,
+        "balls": 1,
+        "hud": "03/12",
+        "hearts": 4
+      },
+      "errors": []
+    },
+    {
+      "viewport": [
+        320,
+        568
+      ],
+      "first": {
+        "level": 1,
+        "total": 600,
+        "remaining": 600,
+        "speed": 374,
+        "width": 145.6,
+        "exit": 200,
+        "lives": 5,
+        "balls": 1,
+        "hud": "01/12",
+        "hearts": 5
+      },
+      "second": {
+        "level": 2,
+        "total": 1200,
+        "remaining": 1200,
+        "speed": 404.8,
+        "width": 128.79999999999998,
+        "exit": 160,
+        "lives": 4,
+        "balls": 1,
+        "hud": "02/12",
+        "hearts": 4
+      },
+      "third": {
+        "level": 3,
+        "total": 4203,
+        "remaining": 4203,
+        "speed": 440,
+        "width": 112,
+        "exit": 104.6,
+        "lives": 4,
+        "balls": 1,
+        "hud": "03/12",
+        "hearts": 4
+      },
+      "errors": []
+    }
+  ],
+  "oldBackendFailsClosed": true
+}

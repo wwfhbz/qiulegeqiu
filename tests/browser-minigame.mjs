@@ -1,3 +1,4 @@
+import {RULES_VERSION} from '../shared/Challenge.ts';
 // wx compatibility harness in real Chromium. NOT an official WeChat DevTools or device test.
 import {chromium} from '@playwright/test';
 import {createServer} from 'node:http';
@@ -22,8 +23,8 @@ try{
    const headers=request.headers();delete headers.origin;delete headers.host;const r=await fetch(`http://127.0.0.1:${endpoint}${path}`,{method:request.method(),headers,body:request.postData()||undefined});await route.fulfill({status:r.status,contentType:'application/json',headers:{'access-control-allow-origin':'*'},body:await r.text()});});
   await page.goto(`http://127.0.0.1:${port}`);
   await page.exposeFunction('__captureEnd',()=>page.screenshot({path:`work/minigame/${name}-end.png`}));
-  await page.evaluate(()=>{
-   const doc=document;let canvases=0;window.module={exports:{}};window.__touch={};window.__life={};window.__shares=[];
+  await page.evaluate(version=>{
+   window.__rulesVersion=version;const doc=document;let canvases=0;window.module={exports:{}};window.__touch={};window.__life={};window.__shares=[];
    window.wx={createCanvas(){const c=doc.createElement('canvas');if(canvases++===0){c.style.width=innerWidth+'px';c.style.height=innerHeight+'px';doc.body.append(c);}return c;},getWindowInfo:()=>({windowWidth:innerWidth,windowHeight:innerHeight,pixelRatio:devicePixelRatio,safeArea:{top:44,bottom:innerHeight-34,left:0,right:innerWidth}}),getMenuButtonBoundingClientRect:()=>({bottom:80,left:innerWidth-90}),
     onTouchStart:f=>__touch.down=f,onTouchMove:f=>__touch.move=f,onTouchEnd:f=>__touch.up=f,onTouchCancel:f=>__touch.cancel=f,onHide:f=>__life.hide=f,onShow:f=>__life.show=f,onWindowResize:()=>{},
     login:o=>o.success({code:'browser-harness:'+Math.random()}),request:o=>fetch(o.url,{method:o.method,headers:o.header,body:o.method==='POST'?JSON.stringify(o.data):undefined}).then(async r=>o.success({statusCode:r.status,data:await r.json()})).catch(()=>o.fail()),
@@ -31,7 +32,7 @@ try{
     showModal:o=>o.success?.({confirm:true,content:'兼容测试'+innerWidth}),showToast:()=>{},showActionSheet:()=>{},showShareMenu:()=>{},onShareAppMessage:f=>window.__share=f,shareAppMessage:o=>__shares.push(o),requirePrivacyAuthorize:o=>o.success()};
    // A browser document exists only inside the wx mock; game code must not access it.
    const script=doc.createElement('script');script.src='/game.js';doc.body.append(script);
-  });
+  },RULES_VERSION);
   await page.waitForFunction(()=>window.module?.exports.app?.game.state==='ready');
   await page.waitForTimeout(150);await page.screenshot({path:`work/minigame/${name}-ready.png`});
   const result=await page.evaluate(async()=>{
@@ -46,7 +47,7 @@ try{
    g.start();const hitDeadline=Date.now()+4000;while(g.physics.blocks.removed===0&&Date.now()<hitDeadline)await new Promise(r=>setTimeout(r,20));const playedBricks=g.physics.blocks.removed;if(!playedBricks)throw Error('No actual brick collision in wx host');if(g.state==='ready')g.start();g.physics.triple();const balls=g.physics.balls.length;
    // Do not fabricate production scores. This is an isolated harness; test real loss events.
    g.reset();g.start();for(let round=0;round<5;round++){if(g.state==='ready')g.start();Object.assign(g.physics.balls[0],{x:400,y:940,vx:380,vy:0,outsideArena:true});for(let n=0;n<20;n++)g.update(.1);Object.assign(g.physics.balls[0],{x:400,y:1080,vx:0,vy:760,outsideArena:true});g.update(1/120);}
-   app.sync.lastPump=Date.now();app.sync.observe();await app.sync.run.id;await app.api.request('/__test/advance',{});await new Promise(r=>requestAnimationFrame(()=>{app.frame(performance.now());r();}));await window.__captureEnd();await app.submit();const me=await app.api.me(),board=await app.api.request('/leaderboard?limit=5');
+   app.sync.lastPump=Date.now();app.sync.observe();await app.sync.run.id;await app.api.request('/__test/advance',{});await new Promise(r=>requestAnimationFrame(()=>{app.frame(performance.now());r();}));await window.__captureEnd();await app.submit();const me=await app.api.me(),board=await app.api.request('/leaderboard?limit=5&rulesVersion='+window.__rulesVersion);
    app.online=false;app.frame(performance.now());return {moved,balls,playedBricks,state:g.state,lives:g.lives,best:me.best,boardCount:board.items.length,width:app.canvas.width,share:__share()};
   });
   assert.equal(result.moved,true);assert(result.playedBricks>0);assert.equal(result.balls,3);assert.equal(result.lives,0);assert(result.best);assert(result.boardCount>=1);assert.equal(errors.length,0,errors.join('\n'));

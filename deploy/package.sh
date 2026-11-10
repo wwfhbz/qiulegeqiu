@@ -26,7 +26,7 @@ cp server/.env.example "$stage/deploy/qiulegeqiu-api.env.example"
 node -e 'const fs=require("fs");fs.writeFileSync(process.argv[1]+"/VERSION",JSON.parse(fs.readFileSync("package.json")).version+"\n")' "$stage"
 node --input-type=module - "$stage" <<'JS'
 import {readFileSync,writeFileSync} from 'node:fs';
-const match=readFileSync('shared/Challenge.ts','utf8').match(/RULES_VERSION = '([^']+)'/);if(!match)throw Error('缺少规则版本');writeFileSync(process.argv[2]+'/RULES_VERSION',match[1]+'\n');
+const match=readFileSync('shared/Challenge.ts','utf8').match(/^export const RULES_VERSION = '([^']+)'/m);if(!match)throw Error('缺少规则版本');writeFileSync(process.argv[2]+'/RULES_VERSION',match[1]+'\n');
 JS
 git rev-parse HEAD > "$stage/SOURCE_COMMIT"
 git rev-parse HEAD^{tree} > "$stage/SOURCE_TREE"
