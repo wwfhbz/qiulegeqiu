@@ -1,6 +1,7 @@
 /** All arcade difficulty and scoring constants live here. */
 export const ARCADE = {
-  initialLives: 3,
+  initialLives: 5,
+  powerUpDropMultiplier: { level1: 1, level2AndAbove: .5 },
   blockPoints: 10,
   comboWindow: 1.2,
   clearBonus: 1000,
