@@ -1,6 +1,7 @@
 import { C } from './GameConfig';
 import { Blocks } from './Blocks';
 import { ARENA_WALL, inExitSector } from './ArenaGeometry';
+import { FRAME, isBallInDeathZone } from './WorldGeometry';
 import { Effects } from './Effects';
 import { PowerUps, type PowerKind } from './PowerUps';
 export interface Ball { x: number; y: number; vx: number; vy: number; radius: number; alive: boolean; previousX?: number; previousY?: number; outsideArena?: boolean }
@@ -10,9 +11,10 @@ export function reflect(b: Ball, nx: number, ny: number) {
 }
 export function boundary(b: Ball) {
   const a = C.arena;
-  if (b.y - b.radius > C.height || b.x + b.radius < 0 || b.x - b.radius > C.width) { b.alive = false; return; }
   let dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy);
   const contact = b.radius + ARENA_WALL.halfWidth;
+  // Below the entire circle is unambiguously exterior, even with stale region metadata.
+  if (dy > a.radius + contact) b.outsideArena = true;
   if (inExitSector(dx, dy)) {
     // Inside the open sector, the nearest solid is the nearest rounded arc endpoint.
     const endpointX = dx < 0 ? ARENA_WALL.leftX : ARENA_WALL.rightX;
@@ -37,6 +39,25 @@ export function boundary(b: Ball) {
     b.x = a.x + (d > 0 ? dx / d : 0) * (limit + sign * .01);
     b.y = a.y + (d > 0 ? dy / d : 1) * (limit + sign * .01);
     reflect(b, nx, ny);
+  }
+}
+/** Three solid sides; no segment is ever drawn or simulated across the bottom. */
+export function frameCollision(b: Ball) {
+  const contact = b.radius + FRAME.halfWidth;
+  if (b.y <= FRAME.deathY) {
+    if (b.x < FRAME.left + contact) { b.x = FRAME.left + contact + .01; reflect(b, 1, 0); }
+    else if (b.x > FRAME.right - contact) { b.x = FRAME.right - contact - .01; reflect(b, -1, 0); }
+    if (b.y < FRAME.top + contact) { b.y = FRAME.top + contact + .01; reflect(b, 0, 1); }
+  } else {
+    // The finite side segments have the same rounded lower tips as the renderer.
+    const endpoint = b.x < C.arena.x ? FRAME.left : FRAME.right;
+    let nx = b.x - endpoint, ny = b.y - FRAME.deathY;
+    const distance = Math.hypot(nx, ny);
+    if (distance < contact) {
+      nx /= distance; ny /= distance;
+      b.x = endpoint + nx * (contact + .01); b.y = FRAME.deathY + ny * (contact + .01);
+      reflect(b, nx, ny);
+    }
   }
 }
 export function paddleCollision(b: Ball, x: number, width: number = C.paddle.width) {
@@ -123,8 +144,8 @@ export class Physics {
         if (!source.outsideArena && d > limit) { b.x = C.arena.x + dx / d * limit; b.y = C.arena.y + dy / d * limit; }
         // Nearby solids: keep the child at the safe parent position with a small directional separation.
         if (this.overlapsBlocks(b)) { b.x = source.x; b.y = source.y + sign * .1; }
-        b.outsideArena = source.outsideArena; boundary(b); b.previousX = b.x; b.previousY = b.y;
-        if (b.alive) this.balls.push(b); else this.pool.push(b);
+        b.outsideArena = source.outsideArena; boundary(b); frameCollision(b); b.previousX = b.x; b.previousY = b.y;
+        this.balls.push(b);
       }
     }
   }
@@ -144,6 +165,7 @@ export class Physics {
   }
   /** A lost round clears transient objects while retaining the current block grid. */
   resetRound(spawn = true) {
+    // Administrative disposal for restart/level/life reset; never a gameplay death.
     for (const b of this.balls) b.alive = false;
     this.recycleDead();
     this.paddleX = this.targetX = C.arena.x;
@@ -189,11 +211,13 @@ export class Physics {
       const steps = Math.ceil(bounded * dt / C.maxTravel), h = dt / steps;
       for (let i = 0; i < steps && b.alive; i++) {
         b.x += b.vx * h; b.y += b.vy * h;
-        boundary(b); if (!b.alive) break;
+        boundary(b); frameCollision(b);
         if (paddleCollision(b, this.paddleX, this.paddleWidth)) this.onSound?.('paddle');
         // Resolve a bounded number of simultaneous contacts before the next movement.
         for (let contact = 0; contact < 3; contact++) if (!blockCollision(b, this.blocks)) break;
-        boundary(b);
+        boundary(b); frameCollision(b);
+        // The only gameplay removal condition, evaluated after all contact corrections.
+        if (isBallInDeathZone(b)) b.alive = false;
       }
     }
     this.recycleDead();

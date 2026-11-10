@@ -1,7 +1,7 @@
 import {chromium} from '@playwright/test';
 import {mkdirSync,writeFileSync} from 'node:fs';
 import assert from 'node:assert/strict';
-const base=process.env.BASE_URL||'http://127.0.0.1:4173',out='docs/screenshots';mkdirSync(out,{recursive:true});
+const base=process.env.BASE_URL||'http://127.0.0.1:4173',out='work/regression-exit';mkdirSync(out,{recursive:true});
 const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',args:['--no-sandbox']});
 try{
  const page=await browser.newPage({viewport:{width:1440,height:1450}}),errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto(base);await page.waitForTimeout(100);
@@ -18,5 +18,5 @@ try{
  await page.locator('#reset').click();await page.setViewportSize({width:390,height:844});await page.waitForTimeout(100);assert.equal(await page.locator('.bottom-controls button').count(),2);assert(!await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth));
  await page.screenshot({path:`${out}/exit-after-mobile.png`,fullPage:true});
  await page.locator('#start').click();await page.locator('#pause').click();await page.locator('#start').click();assert(await page.locator('#central-layer').isHidden());assert.deepEqual(errors,[]);
- const report={oldHalfWidth:106,newHalfWidth:53,oldNominalWidth:212,newNominalWidth:106,nominalRatio:.5,newVisibleWidth:104.6,visibleToOldNominalRatio:104.6/212,ballCenterClearanceAtEndpointChord:95.6,arena:{x:400,y:492,radius:360},paddleTop:1012,paddleGap:160,pixels,flight,centralButton:true,bottomButtons:2,errors};writeFileSync('docs/exit-browser-results.json',JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify(report,null,2));
+ const report={oldHalfWidth:106,newHalfWidth:53,oldNominalWidth:212,newNominalWidth:106,nominalRatio:.5,newVisibleWidth:104.6,visibleToOldNominalRatio:104.6/212,ballCenterClearanceAtEndpointChord:95.6,arena:{x:400,y:492,radius:360},paddleTop:1012,paddleGap:160,pixels,flight,centralButton:true,bottomButtons:2,errors};writeFileSync('work/regression-exit/browser-results.json',JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify(report,null,2));
 }finally{await browser.close();}
