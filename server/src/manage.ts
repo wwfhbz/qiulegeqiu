@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { openDb, transaction } from './db.js';
+import { openDb, transaction, rollbackWechatEmpty } from './db.js';
 import { seedRegions } from './regions.js';
 import { moderateNickname } from './moderation.js';
 import { refreshBest } from './leaderboard.js';
@@ -8,6 +8,7 @@ const db=openDb(process.env.DB_PATH||'../work/leaderboard.sqlite');seedRegions(d
 function audit(action:string,id:string,note:string){if(!note||note.length<3)throw new Error('必须提供至少3个字符的审核理由');db.prepare('INSERT INTO admin_audit VALUES(?,?,?,?,?,?)').run(randomUUID(),`os:${process.getuid?.()??'unknown'}`,action,id,note,Date.now());}
 try {
  switch(command){
+  case 'rollback-wechat-empty':if(target!=='--confirm-empty')throw Error('仅空微信表允许结构回退，需--confirm-empty；不要恢复覆盖数据库');rollbackWechatEmpty(db);console.log('空微信扩展结构已回退；玩家、成绩、会话未删除');break;
   case 'migrate': console.log('数据库初始化/迁移完成');break;
   case 'ban': case 'unban':transaction(db,()=>{if(!db.prepare('SELECT id FROM players WHERE id=?').get(target))throw Error('玩家不存在');audit(command,target,value);db.prepare('UPDATE players SET status=?,updated_at=? WHERE id=?').run(command==='ban'?'banned':'active',Date.now(),target);});console.log('玩家状态已更新');break;
   case 'rename': {const name=await moderateNickname(value);transaction(db,()=>{if(!db.prepare('SELECT id FROM players WHERE id=?').get(target))throw Error('玩家不存在');audit('rename',target,reason);db.prepare('UPDATE players SET nickname=?,normalized_nickname=?,updated_at=? WHERE id=?').run(name.nickname,name.normalized,Date.now(),target);});console.log('昵称已更新');break;}

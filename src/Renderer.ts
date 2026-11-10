@@ -3,22 +3,29 @@ import { C } from './GameConfig';
 import { Physics } from './Physics';
 import { ARENA_WALL } from './ArenaGeometry';
 import { FRAME } from './WorldGeometry';
+export interface RendererHost {
+ cache:HTMLCanvasElement;
+ viewport():{width:number;height:number};
+ pixelRatio():number;
+ observe?(resize:()=>void):void;
+}
 export class Renderer {
   private ctx: CanvasRenderingContext2D;
-  private cache = document.createElement('canvas');
+  private cache:HTMLCanvasElement;
   private cachedRevision = -1;
   private ratio = 1;
   private generation = -1; private cleared = 0;
-  constructor(private canvas: HTMLCanvasElement) {
+  constructor(private canvas: HTMLCanvasElement, private host?:RendererHost) {
+    this.cache=host?.cache||document.createElement('canvas');
     this.ctx = canvas.getContext('2d')!;
     this.resize();
-    new ResizeObserver(() => this.resize()).observe(canvas);
+    if(host)host.observe?.(()=>this.resize());else new ResizeObserver(() => this.resize()).observe(canvas);
   }
   resize() {
-    const rect = this.canvas.getBoundingClientRect();
+    const rect = this.host?.viewport()||this.canvas.getBoundingClientRect();
     // Hidden/transitional layouts can report zero size. Keep the last valid buffer.
     if (rect.width <= 0 || rect.height <= 0) return;
-    this.ratio = Math.min(window.devicePixelRatio || 1, 3) * rect.width / C.width;
+    this.ratio = Math.min(this.host?.pixelRatio() || window.devicePixelRatio || 1, 3) * rect.width / C.width;
     this.canvas.width = Math.max(1, Math.round(C.width * this.ratio)); this.canvas.height = Math.max(1, Math.round(C.height * this.ratio));
     this.cache.width = this.canvas.width; this.cache.height = this.canvas.height; this.cachedRevision = -1;
   }
@@ -30,7 +37,7 @@ export class Renderer {
       if (this.cachedRevision === -1 || this.generation !== b.generation) {
       c.clearRect(0, 0, C.width, C.height);
       for (let row = 0; row < b.rows; row++) {
-        c.fillStyle = `hsl(${15 + row * .12} 93% ${59 - row * .13}%)`;
+        c.fillStyle = `hsl(${15 + row * .12},93%,${59 - row * .13}%)`;
         for (let col = 0; col < b.cols; col++) if (b.alive[row * b.cols + col])
           c.fillRect(b.left + col * C.grid.step, b.top + row * C.grid.step, C.grid.size, C.grid.size);
       }

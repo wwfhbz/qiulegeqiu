@@ -148,3 +148,7 @@ SQLite数据默认在根work，不属于dist。生产独立数据库、systemd�
 首次一键部署及依赖权限修复说明见[首次生产安装](docs/FIRST_PRODUCTION_INSTALL.md)。依赖安装完成后会以服务用户运行候选API，验收通过才切换版本；旧发布包需重新生成，不能手动补装fastify绕过检查。
 
 系统Node22与生产Node24并存时，部署测试需显式选择运行时；[完整验证命令与夹具说明](docs/DEPLOY_TEST_RUNTIME.md)。`npm run test:deploy`会校验并使用v24.19.0，不能绕过入口直接用系统22运行测试文件。
+
+## 微信小游戏客户端 V1.0
+
+新增独立小游戏工程，复用现有十关物理与计分核心，网页版和规则版本保持。构建/导入/AppID配置见[minigame说明](minigame/README.md)，认证与追加迁移见[微信接口](docs/WECHAT_API.md)，资质与真机待办见[上线前清单](docs/MINIGAME_RELEASE.md)。未部署生产或声称已通过正式微信审核。
