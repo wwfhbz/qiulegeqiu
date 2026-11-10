@@ -1,3 +1,4 @@
+import {RULES_VERSION} from '../shared/Challenge';
 import {it,expect,vi} from 'vitest';
 import {MiniGameApp} from '../minigame/src/App';
 import {WechatApi} from '../minigame/src/Api';
@@ -15,10 +16,10 @@ function fixture(width=375,height=812,dpr=3){
  const touch=(identifier:number,x:number,y:number):TouchEvent=>({touches:[{identifier,clientX:x,clientY:y}],changedTouches:[{identifier,clientX:x,clientY:y}]});
  return {wx,events,storage,requests,touch,texts};
 }
-it('微信无DOM宿主复用同一十关、五命和物理协调器，不复制规则',()=>{
+it('微信无DOM宿主复用同一十二关、五命和物理协调器，不复制规则',()=>{
  const f=fixture(),app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false}),web=new Game();
- expect(app.game).toBeInstanceOf(Game);expect(app.game.lives).toBe(5);expect(app.game.levels.count).toBe(10);
- for(let i=0;i<10;i++){expect(app.game.levels.current).toEqual(web.levels.current);app.game.levels.next();web.levels.next();}
+ expect(app.game).toBeInstanceOf(Game);expect(app.game.lives).toBe(5);expect(app.game.levels.count).toBe(12);
+ for(let i=0;i<12;i++){expect(app.game.levels.current).toEqual(web.levels.current);app.game.levels.next();web.levels.next();}
  expect(()=>app.frame(100)).not.toThrow();expect(app.canvas.width).toBe(750);
 });
 it.each([[320,568],[375,812],[430,932],[768,1024]])('分辨率%s×%s安全区和逻辑比例保持，挡板及底部按钮完整', (w,h)=>{
@@ -60,7 +61,7 @@ it('生产禁止HTTP、本地开发可显式HTTP；分享不携带凭据或未�
  let share:(()=>{title:string;query?:string})|undefined;f.wx.onShareAppMessage=fn=>{share=fn;};new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});expect(share!().title).toContain('球球出击');expect(share!().query).toBe('source=friend');expect(JSON.stringify(share!())).not.toMatch(/token|openid|session/);
 });
 it('异步微信登录在后台完成时仍保持暂停，不会回到前台自动发射',async()=>{
- const f=fixture();let pending:Parameters<Wx['login']>[0]|undefined;f.wx.login=o=>{pending=o;};f.wx.showModal=o=>o.success?.({confirm:true});f.wx.request=o=>o.success({statusCode:200,data:o.url.endsWith('/wechat/login')?{token:'b'.repeat(43),csrfToken:'csrf',expiresAt:Date.now()+60000}:{player:null,best:null}});
+ const f=fixture();let pending:Parameters<Wx['login']>[0]|undefined;f.wx.login=o=>{pending=o;};f.wx.showModal=o=>o.success?.({confirm:true});f.wx.request=o=>o.success({statusCode:200,data:o.url.endsWith('/wechat/login')?{token:'b'.repeat(43),csrfToken:'csrf',expiresAt:Date.now()+60000}:{rulesVersion:RULES_VERSION,player:null,best:null}});
  const app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});const starting=(app as unknown as {activate():Promise<void>}).activate();await vi.waitFor(()=>expect(pending).toBeDefined());f.events.hide();pending!.success({code:'late-login'});await starting;expect(app.game.state).toBe('paused');expect(app.game.journal.tick).toBe(0);f.events.show();expect(app.game.state).toBe('paused');
 });
 it('选择单机不会继承上一轮联网标记或暗中调用微信登录',async()=>{

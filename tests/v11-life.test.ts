@@ -2,10 +2,10 @@ import {it,expect} from 'vitest';
 import {Game} from '../src/Game';
 import {C} from '../src/GameConfig';
 import {FRAME} from '../src/WorldGeometry';
-import {ARCADE} from '../src/ArcadeRules';
+import {LEGACY_LEVELS} from '../src/LegacyLevels';
 import {LevelManager} from '../src/LevelManager';
 function drop(g:Game,dt=C.step){g.start();for(const b of g.physics.balls)Object.assign(b,{x:C.arena.x,y:FRAME.deathY+b.radius+1,vx:0,vy:C.ball.maxSpeed,outsideArena:true});g.update(dt);}
-const level2=()=>new Game(undefined,undefined,new LevelManager([ARCADE.levels[1]]));
+const level2=()=>new Game(undefined,undefined,new LevelManager([LEGACY_LEVELS[1]]));
 it('全灭后的待拾取生命不能抵消本轮扣命：4→3',()=>{const g=level2();drop(g);expect(g.lives).toBe(4);g.start();g.physics.powers.spawn(g.physics.paddleX,C.paddle.y,'life');drop(g);expect(g.lives).toBe(3);expect(g.journal.events.filter(e=>e.type==='power')).toHaveLength(0);});
 it('最后一命全灭后即使有生命道具也进入Game Over',()=>{const g=level2();for(let i=0;i<4;i++)drop(g);g.start();g.physics.powers.spawn(g.physics.paddleX,C.paddle.y,'life');drop(g);expect(g.lives).toBe(0);expect(g.state).toBe('gameOver');g.physics.collect('life');g.start();g.update(.1);expect(g.lives).toBe(0);});
 it('一次显示帧全灭后，后续固定步的掉落道具不能补命',()=>{const g=level2();drop(g);g.start();g.physics.powers.spawn(g.physics.paddleX,C.paddle.y-C.power.radius-C.paddle.height/2-4,'life');drop(g,.1);expect(g.lives).toBe(3);expect(g.journal.events.filter(e=>e.type==='power')).toHaveLength(0);});

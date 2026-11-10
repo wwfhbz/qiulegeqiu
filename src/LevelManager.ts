@@ -1,4 +1,5 @@
 import { ARCADE } from './ArcadeRules';
+import {dropMultiplier} from './Levels';
 import type { LevelConfig } from './Levels';
 export type { LevelConfig } from './Levels';
 export class LevelManager {
@@ -7,7 +8,7 @@ export class LevelManager {
   }
   private index = 0;
   get current() { return this.configurations[this.index]; }
-  get powerUpDropMultiplier() { return this.current.number === 1 ? ARCADE.powerUpDropMultiplier.level1 : ARCADE.powerUpDropMultiplier.level2AndAbove; }
+  get powerUpDropMultiplier() { return dropMultiplier(this.current); }
   get count() { return this.configurations.length; }
   get isFinal() { return this.index === this.count - 1; }
   reset() { this.index = 0; }

@@ -1,3 +1,4 @@
+import {RULES_VERSION,assertRulesVersion} from '../../shared/Challenge';
 import type {ApiTransport} from '../../shared/ApiTransport';
 import type {Me} from '../../src/online/ApiClient';
 import {storageKey,type Wx,type Config} from './Platform';
@@ -21,7 +22,7 @@ export class WechatApi implements ApiTransport {
   const publicGet=body===undefined&&/^\/(leaderboard|regions(?:\/[^?]+)?|players\/availability)(\?|$)/.test(path);
   if(!publicGet)await this.login();return this.send<T>(path,body,!publicGet||this.authenticated);
  }
- me(){return this.request<Me>('/me');}
+ async me(){const data=await this.request<Me>('/me?rulesVersion='+encodeURIComponent(RULES_VERSION));assertRulesVersion(data.rulesVersion,RULES_VERSION);return data;}
  private async send<T>(path:string,body:unknown,auth:boolean):Promise<T>{
   if(!path.startsWith('/')||path.startsWith('//')||path.includes('\\'))throw Error('无效API路径');
   return new Promise<T>((resolve,reject)=>{

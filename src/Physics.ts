@@ -1,10 +1,11 @@
-import { LEVELS,type LevelConfig } from './Levels';
+import {LEGACY_LEVELS} from './LegacyLevels';
+import {powerProfile, type LevelConfig } from './Levels';
 import { Obstacles } from './Obstacles';
 import { seededRandom,weightedPower } from './PowerRules';
 import type { SoundKind } from './Audio';
 import { C } from './GameConfig';
 import { Blocks } from './Blocks';
-import { ARENA_WALL, inExitSector } from './ArenaGeometry';
+import { ARENA_WALL, inExitSector,wallForLevel } from './ArenaGeometry';
 import { FRAME, isBallInDeathZone } from './WorldGeometry';
 import { Effects } from './Effects';
 import { PowerUps, type PowerKind } from './PowerUps';
@@ -13,21 +14,21 @@ export function reflect(b: Ball, nx: number, ny: number) {
   const dot = b.vx * nx + b.vy * ny;
   if (dot < 0) { b.vx -= 2 * dot * nx; b.vy -= 2 * dot * ny; }
 }
-export function boundary(b: Ball) {
+export function boundary(b: Ball, wall=ARENA_WALL) {
   const a = C.arena;
   let dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy);
-  const contact = b.radius + ARENA_WALL.halfWidth;
+  const contact = b.radius + wall.halfWidth;
   // Below the entire circle is unambiguously exterior, even with stale region metadata.
   if (dy > a.radius + contact) b.outsideArena = true;
-  if (inExitSector(dx, dy)) {
+  if (inExitSector(dx, dy,wall)) {
     // Inside the open sector, the nearest solid is the nearest rounded arc endpoint.
-    const endpointX = dx < 0 ? ARENA_WALL.leftX : ARENA_WALL.rightX;
-    let nx = b.x - endpointX, ny = b.y - ARENA_WALL.endpointY;
+    const endpointX = dx < 0 ? wall.leftX : wall.rightX;
+    let nx = b.x - endpointX, ny = b.y - wall.endpointY;
     const distance = Math.hypot(nx, ny);
     if (distance < contact) {
       if (distance > 1e-8) { nx /= distance; ny /= distance; }
       else { nx = dx < 0 ? 1 : -1; ny = 0; }
-      b.x = endpointX + nx * (contact + .01); b.y = ARENA_WALL.endpointY + ny * (contact + .01);
+      b.x = endpointX + nx * (contact + .01); b.y = wall.endpointY + ny * (contact + .01);
       reflect(b, nx, ny);
       dx = b.x - a.x; dy = b.y - a.y; d = Math.hypot(dx, dy);
     }
@@ -75,7 +76,7 @@ export function paddleCollision(b: Ball, x: number, width: number = C.paddle.wid
   b.vx = Math.sin(angle) * speed; b.vy = -Math.cos(angle) * speed; return true;
 }
 export function blockCollision(b: Ball, blocks: Blocks) {
-  const s = C.grid.step, size = C.grid.size;
+  const s = blocks.step, size = blocks.size;
   const minC = Math.max(0, Math.floor((b.x - b.radius - blocks.left) / s));
   const maxC = Math.min(blocks.cols - 1, Math.floor((b.x + b.radius - blocks.left) / s));
   const minR = Math.max(0, Math.floor((b.y - b.radius - blocks.top) / s));
@@ -103,7 +104,7 @@ export class Physics {
   paddleX: number = C.arena.x; targetX: number = C.arena.x;
   accumulator = 0; ticks = 0; paused = false;
   wideRemaining = 0;
-  level:LevelConfig=LEVELS[0];
+  level:LevelConfig=LEGACY_LEVELS[0];
   readonly obstacles=new Obstacles();
   private random=seededRandom(1);
   setSeed(seed:number){this.random=seededRandom(seed);}
@@ -115,21 +116,22 @@ export class Physics {
   onPowerCollected?: (kind: PowerKind) => void;
   onBlockDestroyed?: (index: number) => void;
   onStep?: (dt: number) => void;
-  get launchSpeed() { return Math.max(C.ball.minSpeed, Math.min(C.ball.maxSpeed, C.ball.speed * this.speedScale)); }
+  get launchSpeed() { return Math.max(Math.min(C.ball.maxSpeed,C.ball.minSpeed*this.speedScale), Math.min(C.ball.maxSpeed, C.ball.speed * this.speedScale)); }
   readonly effects = new Effects();
   readonly powers = new PowerUps();
   private pool: Ball[] = [];
   onSound?: (kind: SoundKind, combo?: number) => void;
-  get paddleWidth() { return C.paddle.width * (this.wideRemaining > 0 ? C.power.wideScale : 1); }
+  get wall(){return wallForLevel(this.level);}
+  get paddleWidth() { return C.paddle.width * (this.level.paddleScale??1) * (this.wideRemaining > 0 ? C.power.wideScale : 1); }
   private destroyed = (index: number) => {
     const b = this.blocks;
-    const x = b.left + index % b.cols * C.grid.step + C.grid.size / 2;
-    const y = b.top + Math.floor(index / b.cols) * C.grid.step + C.grid.size / 2;
+    const x = b.left + index % b.cols * b.step + b.size / 2;
+    const y = b.top + Math.floor(index / b.cols) * b.step + b.size / 2;
     this.effects.burst(x, y);
     this.onBlockDestroyed?.(index);
     this.onSound?.(this.effects.combo > 1 ? 'combo' : 'break', this.effects.combo);
     const interval = this.powerDropEvery;
-    if (b.removed % interval === 0) this.powers.spawn(x, y, weightedPower(this.level.number,this.random));
+    if (b.removed % interval === 0) this.powers.spawn(x, y, weightedPower(powerProfile(this.level),this.random));
   };
   private pickup = (kind: PowerKind) => this.collect(kind);
   collect(kind: PowerKind) {
@@ -172,24 +174,24 @@ export class Physics {
         // Nearby solids: keep the child at the safe parent position with a small directional separation.
         if (this.overlapsBlocks(b)) { b.x = source.x; b.y = source.y + sign * .1; }
         if(this.obstacles.overlaps(b)){b.x=source.x;b.y=source.y;}
-        b.outsideArena = source.outsideArena; boundary(b); frameCollision(b); b.previousX = b.x; b.previousY = b.y;
+        b.outsideArena = source.outsideArena; boundary(b,this.wall); frameCollision(b); b.previousX = b.x; b.previousY = b.y;
         this.balls.push(b);
       }
     }
   }
   private overlapsBlocks(b: Ball) {
-    const g = this.blocks, s = C.grid.step;
+    const g = this.blocks, s = g.step;
     for (let r = Math.max(0, Math.floor((b.y-b.radius-g.top)/s)); r <= Math.min(g.rows-1,Math.floor((b.y+b.radius-g.top)/s)); r++)
       for (let c = Math.max(0,Math.floor((b.x-b.radius-g.left)/s)); c <= Math.min(g.cols-1,Math.floor((b.x+b.radius-g.left)/s)); c++) {
         if (!g.alive[r*g.cols+c]) continue;
         const x=g.left+c*s,y=g.top+r*s;
-        if (Math.hypot(b.x-Math.max(x,Math.min(x+C.grid.size,b.x)),b.y-Math.max(y,Math.min(y+C.grid.size,b.y)))<b.radius) return true;
+        if (Math.hypot(b.x-Math.max(x,Math.min(x+g.size,b.x)),b.y-Math.max(y,Math.min(y+g.size,b.y)))<b.radius) return true;
       }
     return false;
   }
   constructor() { this.blocks.onHit = this.destroyed; this.reset(); }
   reset() {
-    this.obstacles.load(this.level.obstacles??[]);this.blocks.reset(this.level.obstacles??[]); this.resetRound();
+    this.obstacles.load(this.level.obstacles??[]);this.blocks.reset(this.level.obstacles??[],this.level); this.resetRound();
   }
   /** A lost round clears transient objects while retaining the current block grid. */
   resetRound(spawn = true) {
@@ -240,12 +242,12 @@ export class Physics {
       const steps = Math.ceil(C.ball.maxSpeed * dt / C.maxTravel), h = dt / steps;
       for (let i = 0; i < steps && b.alive; i++) {
         b.x += b.vx * h; b.y += b.vy * h;
-        boundary(b); frameCollision(b);
+        boundary(b,this.wall); frameCollision(b);
         if (paddleCollision(b, this.paddleX, this.paddleWidth)) this.onSound?.('paddle');
         // Resolve a bounded number of simultaneous contacts before the next movement.
         for (let contact = 0; contact < 3; contact++) if (!blockCollision(b, this.blocks)) break;
         for(let contact=0;contact<3;contact++)if(!this.obstacles.collide(b,obstacleStart+(i+1)*h))break;
-        boundary(b); frameCollision(b);
+        boundary(b,this.wall); frameCollision(b);
         // The only gameplay removal condition, evaluated after all contact corrections.
         if (isBallInDeathZone(b)) { b.alive = false; this.onBallLost?.(); }
       }

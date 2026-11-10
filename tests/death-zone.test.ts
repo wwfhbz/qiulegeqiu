@@ -1,6 +1,6 @@
 import {describe,it,expect} from 'vitest';
 import {Physics,boundary,frameCollision,type Ball} from '../src/Physics';
-import {Game} from '../src/Game';
+import {LegacyGame as Game} from './helpers/LegacyGame';
 import {C} from '../src/GameConfig';
 import {FRAME,isBallInDeathZone} from '../src/WorldGeometry';
 const ball=(x:number,y:number,vx=0,vy=760,outsideArena=true):Ball=>({x,y,vx,vy,radius:C.ball.radius,alive:true,outsideArena});

@@ -1,6 +1,6 @@
-# 球球出击 · 微信小游戏 V1.1
+# 球球出击 · 微信小游戏 V1.2
 
-这是微信**小游戏**工程，不是web-view或普通小程序页面。网页客户端保留。使用同一个Game、Physics、Blocks、Levels、PowerRules、ScoreSystem及ChallengeJournal，规则版本仍为`0.8.0-arcade-5l-10lv-v1`，不另写游戏规则。
+这是微信**小游戏**工程，不是web-view或普通小程序页面。网页客户端保留。使用同一个Game、Physics、Blocks、Levels、PowerRules、ScoreSystem及ChallengeJournal，当前十二关规则版本为`1.2.0-arcade-5l-12lv-v1`，旧十关排行榜独立保留，不另写游戏规则。
 
 ## 开发与构建
 
@@ -75,3 +75,7 @@ npm run test:browser:minigame
 当前环境没有微信开发者工具、正式AppID/Secret，不能声称已通过实际工具启动、真机登录、好友分享或平台审核。这些项目必须在正式提交前补测，见[上线前清单](../docs/MINIGAME_RELEASE.md)。
 
 [兼容层截图与测试记录](../docs/MINIGAME_VALIDATION.md)。浏览器自动化默认使用`/usr/bin/chromium`，其他位置可设置`CHROMIUM_PATH`。不具备该浏览器不影响开发者工具导入工程；不要把兼容层通过当作真机审核完成。
+
+## V1.2十二关与赛季
+
+两端共用src/Levels.ts，新手600/1200砖、200/160出口、0.85/0.92球速及1.3/1.15挡板一致。前两关自动载入下一关并等待点击发射，生命与积分继承。排行榜可切换新手12关/旧版历史榜，个人最佳与分享读取当前赛季，提交沿用安全身份和服务端事件校验。必须先审核并升级兼容双规则的后端，再发布新客户端；旧后端未返回规则元数据时新榜拒绝显示，游戏仍可单机运行。详见[兼容与回滚说明](../docs/V1_2_TUTORIAL_SEASONS.md)。本次未发布微信或腾讯云。

@@ -91,6 +91,7 @@ export class Game {
         if(this.levels.isFinal)this.journal.record({type:'finish',level:this.levels.current.number});
         this.state = this.levels.isFinal ? 'victory' : 'levelComplete';
         this.physics.paused = true; this.physics.accumulator = 0; this.audio.play('win');
+        if(this.levels.current.autoAdvance&&!this.levels.isFinal)this.nextLevel();
       } else if (this.roundActive && !this.physics.balls.some(b => b.alive)) {
         this.roundActive = false;
         this.journal.record({type:'lost',level:this.levels.current.number});

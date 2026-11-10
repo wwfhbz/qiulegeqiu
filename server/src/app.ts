@@ -8,7 +8,9 @@ import { seedRegions, region, regionView, searchRegions } from './regions.js';
 import { ApiError, moderateNickname } from './moderation.js';
 import { leaderboard, personalBest, refreshBest } from './leaderboard.js';
 import { verifyTrace } from './verifier.js';
-import { RULES_VERSION, type ChallengeEvent } from '../../shared/Challenge.js';
+import { RULES_VERSION,LEGACY_RULES_VERSION,SUPPORTED_RULES_VERSIONS, type ChallengeEvent } from '../../shared/Challenge.js';
+const ruleSchema=z.enum(SUPPORTED_RULES_VERSIONS);
+const selectedRules=(req:FastifyRequest)=>z.object({rulesVersion:ruleSchema.default(LEGACY_RULES_VERSION)}).parse(req.query).rulesVersion;
 const hash=(value:string)=>createHash('sha256').update(value).digest('hex');
 const id=z.string().uuid(), integer=z.number().int().nonnegative().max(100000000);
 const base={tick:integer,level:z.number().int().min(1).max(100)};
@@ -56,7 +58,7 @@ export async function createApp(options:AppOptions={}) {
   if(httpError.statusCode&&httpError.statusCode<500)return reply.status(httpError.statusCode).send({message:'请求格式不正确'});
   app.log.error({err:error},'接口异常');return reply.status(503).send({message:'服务暂不可用，单机游戏不受影响'});
  });
- function challenge(req:FastifyRequest){const s=session(req)!;const cid=id.parse((req.params as {id:string}).id);const c=db.prepare('SELECT * FROM challenges WHERE id=? AND session_id=?').get(cid,s.id) as unknown as Challenge;if(!c)throw new ApiError(404,'挑战不存在或无权访问');if(c.expires_at<now())throw new ApiError(410,'挑战已过期，本次可继续单机游玩');if(c.rules_version!==RULES_VERSION)throw new ApiError(409,'游戏规则版本已更新，请开始新的挑战');return {s,c};}
+ function challenge(req:FastifyRequest){const s=session(req)!;const cid=id.parse((req.params as {id:string}).id);const c=db.prepare('SELECT * FROM challenges WHERE id=? AND session_id=?').get(cid,s.id) as unknown as Challenge;if(!c)throw new ApiError(404,'挑战不存在或无权访问');if(c.expires_at<now())throw new ApiError(410,'挑战已过期，本次可继续单机游玩');if(!SUPPORTED_RULES_VERSIONS.includes(c.rules_version as typeof SUPPORTED_RULES_VERSIONS[number]))throw new ApiError(409,'游戏规则版本已更新，请开始新的挑战');return {s,c};}
  app.post('/api/wechat/login',async(req)=>{
   rate(`wxlogin:${req.ip}`,30,60000);
   const {code}=z.object({code:z.string().min(1).max(256)}).strict().parse(req.body);
@@ -83,12 +85,13 @@ export async function createApp(options:AppOptions={}) {
    return {id:proof.player_id};
   });
  });
- app.get('/api/health',async()=>{db.prepare('SELECT 1').get();return {ok:true,rulesVersion:RULES_VERSION,database:'ready'};});
+ app.get('/api/health',async()=>{db.prepare('SELECT 1').get();return {ok:true,rulesVersion:RULES_VERSION,database:'ready',supportedRulesVersions:SUPPORTED_RULES_VERSIONS};});
  app.get('/api/me',async(req,reply)=>{
+  const rules=selectedRules(req);
   let s=session(req,false);
   if(!s){rate(`bootstrap:${req.ip}`,120,3600000);const token=randomBytes(32).toString('base64url');s={id:randomUUID(),player_id:null,csrf_token:randomBytes(24).toString('base64url')};db.prepare('INSERT INTO sessions VALUES(?,?,?,?,?,?)').run(s.id,null,hash(token),s.csrf_token,now(),now()+90*86400000);reply.setCookie(secure?'__Secure-qlgq':'qlgq_dev',token,{path:'/api',httpOnly:true,secure,sameSite:'strict',maxAge:90*86400});}
   const p=s.player_id?db.prepare('SELECT p.id,p.nickname,p.region_code,p.region_level,p.status,r.prefix FROM players p JOIN regions r ON r.code=p.region_code WHERE p.id=?').get(s.player_id):null;
-  return {csrfToken:s.csrf_token,player:p?{...p,display_name:`${p.prefix}·${p.nickname}`}:null,best:s.player_id?personalBest(db,s.player_id):null};
+  return {rulesVersion:rules,csrfToken:s.csrf_token,player:p?{...p,display_name:`${p.prefix}·${p.nickname}`}:null,best:s.player_id?personalBest(db,s.player_id,rules):null};
  });
  app.get('/api/regions',async(req)=>{const q=z.object({parent:z.string().max(32).optional(),q:z.string().max(40).default(''),offset:z.coerce.number().int().min(0).max(10000).default(0)}).parse(req.query);return searchRegions(db,q.parent,q.q,q.offset);});
  app.get('/api/regions/:code',async(req)=>{const code=z.string().max(32).parse((req.params as {code:string}).code),r=region(db,code);if(!r)throw new ApiError(404,'地区不存在');return regionView(db,r);});
@@ -107,8 +110,8 @@ export async function createApp(options:AppOptions={}) {
   catch(error){if(String(error).includes('UNIQUE constraint failed'))throw new ApiError(409,'该地区的昵称已被使用，请更换地区或昵称。');throw error;}
  });
  app.post('/api/challenges',async(req,reply)=>{
-  const s=session(req)!;if(s.player_id)active(s);rate(`challenge:${s.id}`,30,3600000);const input=z.object({rulesVersion:z.literal(RULES_VERSION),unranked:z.boolean().default(false),seed:z.number().int().min(0).max(4294967295).default(1)}).strict().parse(req.body);
-  const cid=randomUUID();transaction(db,()=>{db.prepare('INSERT INTO challenges(id,session_id,rules_version,created_at,expires_at,unranked,seed) VALUES(?,?,?,?,?,?,?)').run(cid,s.id,input.rulesVersion,now(),now()+6*3600000,input.unranked?1:0,input.seed);});reply.status(201);return {id:cid,expiresAt:now()+6*3600000,rulesVersion:RULES_VERSION};
+  const s=session(req)!;if(s.player_id)active(s);rate(`challenge:${s.id}`,30,3600000);const input=z.object({rulesVersion:ruleSchema,unranked:z.boolean().default(false),seed:z.number().int().min(0).max(4294967295).default(1)}).strict().parse(req.body);
+  const cid=randomUUID();transaction(db,()=>{db.prepare('INSERT INTO challenges(id,session_id,rules_version,created_at,expires_at,unranked,seed) VALUES(?,?,?,?,?,?,?)').run(cid,s.id,input.rulesVersion,now(),now()+6*3600000,input.unranked?1:0,input.seed);});reply.status(201);return {id:cid,expiresAt:now()+6*3600000,rulesVersion:input.rulesVersion};
  });
  app.post('/api/challenges/:id/events',async(req)=>{
   const {c}=challenge(req);const batch=z.object({sequence:integer,events:z.array(event).min(1).max(256)}).strict().parse(req.body);const payload=JSON.stringify(batch.events),digest=hash(payload);
@@ -119,17 +122,17 @@ export async function createApp(options:AppOptions={}) {
   const {s,c}=challenge(req);const p=active(s);rate(`submit:${s.id}`,30,3600000);
   const input=z.object({idempotencyKey:id,summary:z.object({score:integer,reachedLevel:z.number().int().min(1).max(100),bricksDestroyed:integer,durationMs:integer,completedAllLevels:z.boolean()}).strict()}).strict().parse(req.body);const digest=hash(JSON.stringify(input));
   return transaction(db,()=>{
-   const previous=db.prepare('SELECT * FROM scores WHERE challenge_id=? OR (player_id=? AND idempotency_key=?)').get(c.id,p.id,input.idempotencyKey);if(previous){if(previous.player_id!==p.id||previous.challenge_id!==c.id||previous.request_hash!==digest)throw new ApiError(409,'重复提交内容不一致');return {id:previous.id,verificationStatus:previous.verification_status,best:personalBest(db,String(p.id))};}
+   const previous=db.prepare('SELECT * FROM scores WHERE challenge_id=? OR (player_id=? AND idempotency_key=?)').get(c.id,p.id,input.idempotencyKey);if(previous){if(previous.player_id!==p.id||previous.challenge_id!==c.id||previous.request_hash!==digest)throw new ApiError(409,'重复提交内容不一致');return {id:previous.id,verificationStatus:previous.verification_status,best:personalBest(db,String(p.id),c.rules_version)};}
    if(c.state!=='open'||!c.finished_at)throw new ApiError(409,'挑战尚未结束或已被替换');if(c.unranked)throw new ApiError(422,'开发压力测试成绩不能进入排行榜');
-   const events=db.prepare('SELECT payload FROM challenge_batches WHERE challenge_id=? ORDER BY sequence').all(c.id).flatMap(b=>json<ChallengeEvent[]>(b.payload));const verified=verifyTrace(events,c.finished_at-c.created_at,c.seed);
+   const events=db.prepare('SELECT payload FROM challenge_batches WHERE challenge_id=? ORDER BY sequence').all(c.id).flatMap(b=>json<ChallengeEvent[]>(b.payload));const verified=verifyTrace(events,c.finished_at-c.created_at,c.seed,c.rules_version);
    if(Object.keys(verified.summary).some(key=>verified.summary[key as keyof typeof verified.summary]!==input.summary[key as keyof typeof input.summary]))throw new ApiError(422,'成绩与挑战记录不一致');
    const scoreId=randomUUID(),status=verified.suspicious.length?'quarantined':'verified';const v=verified.summary;
    db.prepare('INSERT INTO scores VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)').run(scoreId,p.id,c.id,input.idempotencyKey,digest,v.score,v.reachedLevel,v.bricksDestroyed,v.durationMs,v.completedAllLevels?1:0,c.finished_at,now(),status,verified.suspicious.join('；'));
-   db.prepare('UPDATE challenges SET state=\'submitted\' WHERE id=?').run(c.id);if(status==='verified')refreshBest(db,String(p.id));return {id:scoreId,verificationStatus:status,best:personalBest(db,String(p.id))};
+   db.prepare('UPDATE challenges SET state=\'submitted\' WHERE id=?').run(c.id);if(status==='verified')refreshBest(db,String(p.id),c.rules_version);return {id:scoreId,verificationStatus:status,best:personalBest(db,String(p.id),c.rules_version)};
   });
  });
- app.get('/api/leaderboard',async(req)=>{const q=z.object({offset:z.coerce.number().int().min(0).max(99).default(0),limit:z.coerce.number().int().min(1).max(20).default(20)}).parse(req.query);const limit=Math.min(q.limit,100-q.offset),items=leaderboard(db,q.offset,limit);return {items,nextOffset:items.length===limit&&q.offset+limit<100?q.offset+limit:null};});
- app.get('/api/me/best',async(req)=>{const s=session(req)!;return {best:s.player_id?personalBest(db,s.player_id):null};});
+ app.get('/api/leaderboard',async(req)=>{const q=z.object({offset:z.coerce.number().int().min(0).max(99).default(0),limit:z.coerce.number().int().min(1).max(20).default(20)}).parse(req.query);const limit=Math.min(q.limit,100-q.offset),items=leaderboard(db,q.offset,limit,selectedRules(req));return {rulesVersion:selectedRules(req),items,nextOffset:items.length===limit&&q.offset+limit<100?q.offset+limit:null};});
+ app.get('/api/me/best',async(req)=>{const s=session(req)!,rules=selectedRules(req);return {rulesVersion:rules,best:s.player_id?personalBest(db,s.player_id,rules):null};});
  app.post('/api/appeals',async(req,reply)=>{const s=session(req)!;rate(`appeal:${s.id}`,3,86400000);const {message}=z.object({message:z.string().trim().min(5).max(500)}).strict().parse(req.body);const appealId=randomUUID();db.prepare('INSERT INTO appeals(id,player_id,session_id,message,created_at) VALUES(?,?,?,?,?)').run(appealId,s.player_id,s.id,message,now());reply.status(201);return {id:appealId};});
  app.addHook('onClose',async()=>{if(!options.db)db.close();});return {app,db};
 }

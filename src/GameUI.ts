@@ -17,7 +17,7 @@ export function mountGame(root: HTMLElement) {
         <div class="hud-item"><span class="label">关卡</span><strong id="level"></strong><span id="ball-badge" hidden>球×<span id="balls">1</span></span></div>
         <div class="hud-item"><span class="label">生命</span><span id="hearts" role="img" aria-live="polite"></span><span id="lives" class="sr-only"></span></div>
         <div class="hud-item"><span class="label">分数</span><strong id="score">0</strong></div>
-        <div class="hud-item"><span class="label">剩余方块</span><strong id="remaining">4203</strong></div>
+        <div class="hud-item"><span class="label">剩余方块</span><strong id="remaining">0</strong></div>
       </div>
       <div class="canvas-wrap"><canvas id="arena-canvas" aria-label="圆形弹球竞技场，移动鼠标或拖动控制挡板"></canvas>
         <span id="status" class="sr-only" role="status"></span><span id="removed" class="sr-only"></span><span id="total" class="sr-only"></span>

@@ -1,6 +1,6 @@
 {
   "name": "ball-core",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -30,7 +30,8 @@
     "build:minigame": "npm run typecheck:minigame && node minigame/scripts/build.mjs",
     "dev:minigame": "npm run typecheck:minigame && node minigame/scripts/build.mjs --dev",
     "test:browser:minigame": "npm run build:minigame && node tests/browser-minigame.mjs",
-    "test:minigame": "npm run build:minigame && node --test minigame/scripts/build.test.mjs"
+    "test:minigame": "npm run build:minigame && node --test minigame/scripts/build.test.mjs",
+    "test:browser:tutorial": "node tests/browser-v12.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.56.1",
