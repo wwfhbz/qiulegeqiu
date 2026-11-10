@@ -25,12 +25,13 @@ export class Game {
 
   // Without a canvas this is the same coordinator, driven deterministically by tests.
   constructor(canvas?: HTMLCanvasElement, private onChange: (game: Game) => void = () => {}, readonly levels = new LevelManager()) {
-    this.configureLevel();
+    this.configureLevel();this.physics.setSeed(this.journal.seed);this.physics.reset();
     this.physics.onSound = this.audio.play;
     this.physics.onStep = dt => { if (this.state === 'running') { this.score.update(dt); this.journal.tick++; } };
     this.physics.onBlockDestroyed = index => { if (this.state === 'running' && this.score.hit(index)>0) this.journal.record({type:'hit',level:this.levels.current.number,index}); };
     this.physics.onBallLost = () => { if(this.state==='running')this.journal.record({type:'ballLost',level:this.levels.current.number}); };
-    this.physics.onPowerCollected = kind => { if(this.state==='running')this.journal.record({type:'power',level:this.levels.current.number,kind}); };
+    this.physics.onPowerCollected = kind => { if(this.state==='running'){if(kind==='life')this.remainingLives=Math.min(ARCADE.maxLives,this.remainingLives+1);this.journal.record({type:'power',level:this.levels.current.number,kind});} };
+    this.physics.onBomb = target => { if(this.state==='running'){if(target===null)this.score.addBombCompensation();this.journal.record({type:'bomb',level:this.levels.current.number,target});} };
     if (!canvas) return;
     this.renderer = new Renderer(canvas);
     const move = (e: PointerEvent) => {
@@ -56,7 +57,7 @@ export class Game {
   }
   reset() {
     this.roundActive = false;
-    this.journal.reset();
+    this.journal.reset();this.physics.setSeed(this.journal.seed);
     this.levels.reset(); this.remainingLives = ARCADE.initialLives; this.score.reset(); this.result = undefined;
     this.configureLevel();
     this.physics.reset(); this.state = 'ready'; this.readyReason = 'initial'; this.onChange(this);
@@ -109,6 +110,7 @@ export class Game {
     this.onChange(this);
   }
   private configureLevel() {
+    this.physics.level=this.levels.current;
     this.physics.speedScale = this.levels.current.speedScale;
     this.physics.powerUpDropMultiplier = this.levels.powerUpDropMultiplier;
   }

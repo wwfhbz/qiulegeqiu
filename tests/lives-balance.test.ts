@@ -68,7 +68,7 @@ describe('五命、当前关卡续玩与立即通知', () => {
 
 describe('统一道具掉落平衡', () => {
   for (const number of [1, 2, 3, 5, 10]) {
-    it(`第${number}关4200次有效销毁，间隔和两种道具长期数量正确`, () => {
+    it(`第${number}关4200次有效销毁，总体间隔正确、道具种类遵循当前关卡规则`, () => {
       const g = new Game(undefined, undefined, new LevelManager([{ number, name: '掉落测试', speedScale: 1 }]));
       const originalSpawn = g.physics.powers.spawn.bind(g.physics.powers);
       const generated: string[] = [];
@@ -82,14 +82,14 @@ describe('统一道具掉落平衡', () => {
       hit(g, 4200);
       const expected = number === 1 ? 300 : 150;
       expect(g.physics.powerDropEvery).toBe(number === 1 ? 14 : 28); expect(spawn).toHaveBeenCalledTimes(expected); expect(generated.length).toBe(expected);
-      expect(spawn.mock.calls.filter(call=>call[2]==='triple').length).toBe(expected/2);
-      expect(spawn.mock.calls.filter(call=>call[2]==='wide').length).toBe(expected/2);
+      const allowed=number===1?['triple','wide']:['halve','triple','wide','life','bomb'];
+      expect(spawn.mock.calls.every(call=>allowed.includes(call[2]))).toBe(true);
     });
   }
   it('切关从新网格计数，无立即重复掉落', () => {
     const g = new Game(); clear(g); g.nextLevel(); const spawn = vi.spyOn(g.physics.powers, 'spawn');
     hit(g,27); expect(spawn).not.toHaveBeenCalled(); hit(g,1); expect(spawn).toHaveBeenCalledTimes(1);
-    expect(spawn.mock.calls[0][2]).toBe('triple');
+    expect(['halve','triple','wide','life','bomb']).toContain(spawn.mock.calls[0][2]);
   });
   it('丢命保留消块触发进度，已消除块不重复掉落，重开恢复首关频率', () => {
     const g = new Game(); g.start(); hit(g,13); const spawn = vi.spyOn(g.physics.powers, 'spawn'); lose(g); activateCentralAction(g);

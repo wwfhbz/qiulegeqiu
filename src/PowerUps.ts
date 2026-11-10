@@ -1,5 +1,6 @@
 import { C } from './GameConfig';
-export type PowerKind = 'triple' | 'wide';
+import type { PowerKind } from './PowerRules';
+export type { PowerKind } from './PowerRules';
 export class PowerUps {
   readonly items = Array.from({length:C.power.maxDrops},()=>({x:0,y:0,alive:false,kind:'triple' as PowerKind}));
   reset(){for(const item of this.items)item.alive=false;}

@@ -1,4 +1,6 @@
 import { C } from './GameConfig';
+import type { ObstacleConfig } from './Levels';
+import { reservedByObstacle } from './ObstacleGeometry';
 export class Blocks {
   readonly cols = Math.ceil(C.arena.radius * 2 / C.grid.step);
   readonly rows = this.cols;
@@ -10,7 +12,7 @@ export class Blocks {
   total = 0; remaining = 0; revision = 0;
   constructor() { this.reset(); }
   get removed() { return this.total - this.remaining; }
-  reset() {
+  reset(obstacles:readonly ObstacleConfig[] = []) {
     this.destroyed.length = 0; this.generation++;
     this.alive.fill(0); this.total = 0;
     const { x: cx, y: cy, radius: r } = C.arena;
@@ -20,6 +22,7 @@ export class Blocks {
       let inside = true;
       for (const dx of [0, C.grid.size]) for (const dy of [0, C.grid.size])
         if ((x + dx - cx) ** 2 + (y + dy - cy) ** 2 > r * r) inside = false;
+      if (inside && reservedByObstacle(x,y,C.grid.size,obstacles,C.ball.radius*2+2))inside=false;
       if (inside) { this.alive[row * this.cols + col] = 1; this.total++; }
     }
     this.remaining = this.total; this.revision++;

@@ -1,6 +1,9 @@
+import { LEVELS } from './Levels';
 /** All arcade difficulty and scoring constants live here. */
 export const ARCADE = {
   initialLives: 5,
+  maxLives: 5,
+  emptyBombPoints: 100,
   powerUpDropMultiplier: { level1: 1, level2AndAbove: .5 },
   blockPoints: 10,
   comboWindow: 1.2,
@@ -12,9 +15,5 @@ export const ARCADE = {
     { combo: 5, value: 1.5 },
     { combo: 1, value: 1 },
   ],
-  levels: [
-    { number: 1, name: '核心初探', speedScale: 1 },
-    { number: 2, name: '加速突破', speedScale: 1.1 },
-    { number: 3, name: '最终核心', speedScale: 1.2 },
-  ],
+  levels: LEVELS,
 } as const;

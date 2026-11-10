@@ -1,0 +1,109 @@
+{
+  "levels": [
+    {
+      "number": 1,
+      "name": "初试身手",
+      "speed": 1,
+      "blocks": 4203,
+      "obstacles": []
+    },
+    {
+      "number": 2,
+      "name": "横梁阻击",
+      "speed": 1,
+      "blocks": 4203,
+      "obstacles": [
+        "fixed"
+      ]
+    },
+    {
+      "number": 3,
+      "name": "双重防线",
+      "speed": 1.05,
+      "blocks": 4203,
+      "obstacles": [
+        "fixed",
+        "fixed"
+      ]
+    },
+    {
+      "number": 4,
+      "name": "移动封锁",
+      "speed": 1.05,
+      "blocks": 4203,
+      "obstacles": [
+        "moving"
+      ]
+    },
+    {
+      "number": 5,
+      "name": "十字迷阵",
+      "speed": 1.1,
+      "blocks": 4199,
+      "obstacles": [
+        "fixed",
+        "fixed"
+      ]
+    },
+    {
+      "number": 6,
+      "name": "双轨夹击",
+      "speed": 1.1,
+      "blocks": 4203,
+      "obstacles": [
+        "moving",
+        "moving"
+      ]
+    },
+    {
+      "number": 7,
+      "name": "旋转屏障",
+      "speed": 1.15,
+      "blocks": 4103,
+      "obstacles": [
+        "rotating"
+      ]
+    },
+    {
+      "number": 8,
+      "name": "机关走廊",
+      "speed": 1.15,
+      "blocks": 4203,
+      "obstacles": [
+        "fixed",
+        "fixed",
+        "moving"
+      ]
+    },
+    {
+      "number": 9,
+      "name": "动态迷宫",
+      "speed": 1.2,
+      "blocks": 4175,
+      "obstacles": [
+        "fixed",
+        "moving",
+        "rotating"
+      ]
+    },
+    {
+      "number": 10,
+      "name": "终极突破",
+      "speed": 1.2,
+      "blocks": 4161,
+      "obstacles": [
+        "fixed",
+        "fixed",
+        "moving",
+        "rotating"
+      ]
+    }
+  ],
+  "fiveFallingPowers": true,
+  "lifeCap": 5,
+  "bombPersistsAfterLoss": true,
+  "tenLevelVictory": true,
+  "touch": true,
+  "errors": [],
+  "note": "十关清场通过真实销毁事件快速构造；道具通过实际下落拾取，100球性能为开发注入并持续补球，不是可提交成绩。未手工打完所有方块。"
+}

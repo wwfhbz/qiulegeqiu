@@ -14,10 +14,11 @@ const base={tick:integer,level:z.number().int().min(1).max(100)};
 const event=z.union([
  z.object({...base,type:z.enum(['launch','ballLost','lost','clear','next','finish'])}).strict(),
  z.object({...base,type:z.literal('hit'),index:integer}).strict(),
- z.object({...base,type:z.literal('power'),kind:z.enum(['triple','wide'])}).strict()
+ z.object({...base,type:z.literal('power'),kind:z.enum(['halve','triple','wide','life','bomb'])}).strict(),
+ z.object({...base,type:z.literal('bomb'),target:z.string().max(50).nullable()}).strict()
 ]);
 type Session={id:string;player_id:string|null;csrf_token:string};
-type Challenge={id:string;session_id:string;rules_version:string;created_at:number;expires_at:number;finished_at:number|null;next_sequence:number;event_count:number;state:string;unranked:number};
+type Challenge={id:string;session_id:string;rules_version:string;created_at:number;expires_at:number;finished_at:number|null;next_sequence:number;event_count:number;state:string;unranked:number;seed:number};
 export interface AppOptions { db?:Db; dbPath?:string; origin?:string; secure?:boolean; now?:()=>number; rateLimit?:boolean }
 export async function createApp(options:AppOptions={}) {
  const db=options.db||openDb(options.dbPath||process.env.DB_PATH||'../work/leaderboard.sqlite'); seedRegions(db);
@@ -72,8 +73,8 @@ export async function createApp(options:AppOptions={}) {
   catch(error){if(String(error).includes('UNIQUE constraint failed'))throw new ApiError(409,'该地区的昵称已被使用，请更换地区或昵称。');throw error;}
  });
  app.post('/api/challenges',async(req,reply)=>{
-  const s=session(req)!;if(s.player_id)active(s);rate(`challenge:${s.id}`,30,3600000);const input=z.object({rulesVersion:z.literal(RULES_VERSION),unranked:z.boolean().default(false)}).strict().parse(req.body);
-  const cid=randomUUID();transaction(db,()=>{db.prepare('INSERT INTO challenges(id,session_id,rules_version,created_at,expires_at,unranked) VALUES(?,?,?,?,?,?)').run(cid,s.id,input.rulesVersion,now(),now()+6*3600000,input.unranked?1:0);});reply.status(201);return {id:cid,expiresAt:now()+6*3600000,rulesVersion:RULES_VERSION};
+  const s=session(req)!;if(s.player_id)active(s);rate(`challenge:${s.id}`,30,3600000);const input=z.object({rulesVersion:z.literal(RULES_VERSION),unranked:z.boolean().default(false),seed:z.number().int().min(0).max(4294967295).default(1)}).strict().parse(req.body);
+  const cid=randomUUID();transaction(db,()=>{db.prepare('INSERT INTO challenges(id,session_id,rules_version,created_at,expires_at,unranked,seed) VALUES(?,?,?,?,?,?,?)').run(cid,s.id,input.rulesVersion,now(),now()+6*3600000,input.unranked?1:0,input.seed);});reply.status(201);return {id:cid,expiresAt:now()+6*3600000,rulesVersion:RULES_VERSION};
  });
  app.post('/api/challenges/:id/events',async(req)=>{
   const {c}=challenge(req);const batch=z.object({sequence:integer,events:z.array(event).min(1).max(256)}).strict().parse(req.body);const payload=JSON.stringify(batch.events),digest=hash(payload);
@@ -86,7 +87,7 @@ export async function createApp(options:AppOptions={}) {
   return transaction(db,()=>{
    const previous=db.prepare('SELECT * FROM scores WHERE challenge_id=? OR (player_id=? AND idempotency_key=?)').get(c.id,p.id,input.idempotencyKey);if(previous){if(previous.player_id!==p.id||previous.challenge_id!==c.id||previous.request_hash!==digest)throw new ApiError(409,'重复提交内容不一致');return {id:previous.id,verificationStatus:previous.verification_status,best:personalBest(db,String(p.id))};}
    if(c.state!=='open'||!c.finished_at)throw new ApiError(409,'挑战尚未结束或已被替换');if(c.unranked)throw new ApiError(422,'开发压力测试成绩不能进入排行榜');
-   const events=db.prepare('SELECT payload FROM challenge_batches WHERE challenge_id=? ORDER BY sequence').all(c.id).flatMap(b=>json<ChallengeEvent[]>(b.payload));const verified=verifyTrace(events,c.finished_at-c.created_at);
+   const events=db.prepare('SELECT payload FROM challenge_batches WHERE challenge_id=? ORDER BY sequence').all(c.id).flatMap(b=>json<ChallengeEvent[]>(b.payload));const verified=verifyTrace(events,c.finished_at-c.created_at,c.seed);
    if(Object.keys(verified.summary).some(key=>verified.summary[key as keyof typeof verified.summary]!==input.summary[key as keyof typeof input.summary]))throw new ApiError(422,'成绩与挑战记录不一致');
    const scoreId=randomUUID(),status=verified.suspicious.length?'quarantined':'verified';const v=verified.summary;
    db.prepare('INSERT INTO scores VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)').run(scoreId,p.id,c.id,input.idempotencyKey,digest,v.score,v.reachedLevel,v.bricksDestroyed,v.durationMs,v.completedAllLevels?1:0,c.finished_at,now(),status,verified.suspicious.join('；'));
