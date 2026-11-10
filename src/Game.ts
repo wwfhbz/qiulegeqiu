@@ -5,7 +5,7 @@ import { AudioSystem } from './Audio';
 import { ARCADE } from './ArcadeRules';
 import { LevelManager } from './LevelManager';
 import { ScoreSystem, type LevelScore } from './ScoreSystem';
-import type { GameState } from './GameState';
+import type { GameState, ReadyReason } from './GameState';
 
 /** Coordinates the arcade session; physics and rendering remain independent. */
 export class Game {
@@ -15,6 +15,7 @@ export class Game {
   readonly score = new ScoreSystem(this.physics.blocks.alive.length);
   lives: number = ARCADE.initialLives;
   state: GameState = 'ready';
+  readyReason: ReadyReason = 'initial';
   result?: Readonly<LevelScore>;
   private renderer?: Renderer;
   private previous = 0;
@@ -50,13 +51,13 @@ export class Game {
   reset() {
     this.levels.reset(); this.lives = ARCADE.initialLives; this.score.reset(); this.result = undefined;
     this.physics.speedScale = this.levels.current.speedScale;
-    this.physics.reset(); this.state = 'ready'; this.onChange(this);
+    this.physics.reset(); this.state = 'ready'; this.readyReason = 'initial'; this.onChange(this);
   }
   nextLevel() {
     if (this.state !== 'levelComplete' || !this.levels.next()) return;
     this.score.beginLevel(); this.result = undefined;
     this.physics.speedScale = this.levels.current.speedScale;
-    this.physics.reset(); this.state = 'ready'; this.onChange(this);
+    this.physics.reset(); this.state = 'ready'; this.readyReason = 'levelStart'; this.onChange(this);
   }
   stress() {
     this.reset();
@@ -78,6 +79,7 @@ export class Game {
         this.lives--;
         this.score.resetCombo(); this.physics.resetRound(this.lives > 0);
         this.state = this.lives > 0 ? 'ready' : 'gameOver';
+        this.readyReason = 'lifeLost';
         this.physics.paused = this.lives === 0;
       }
     } else if (this.state === 'ready') {
