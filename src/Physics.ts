@@ -100,6 +100,8 @@ export class Physics {
   accumulator = 0; ticks = 0; paused = false;
   wideRemaining = 0;
   speedScale = 1;
+  powerUpDropMultiplier = 1;
+  get powerDropEvery() { return Math.max(1, Math.round(C.power.dropEvery / this.powerUpDropMultiplier)); }
   onBlockDestroyed?: (index: number) => void;
   onStep?: (dt: number) => void;
   get launchSpeed() { return Math.max(C.ball.minSpeed, Math.min(C.ball.maxSpeed, C.ball.speed * this.speedScale)); }
@@ -115,7 +117,8 @@ export class Physics {
     this.effects.burst(x, y);
     this.onBlockDestroyed?.(index);
     this.onSound?.(this.effects.combo > 1 ? 'combo' : 'break', this.effects.combo);
-    if (b.removed % C.power.dropEvery === 0) this.powers.spawn(x, y, Math.floor(b.removed / C.power.dropEvery) % 2 ? 'triple' : 'wide');
+    const interval = this.powerDropEvery;
+    if (b.removed % interval === 0) this.powers.spawn(x, y, Math.floor(b.removed / interval) % 2 ? 'triple' : 'wide');
   };
   private pickup = (kind: PowerKind) => this.collect(kind);
   collect(kind: PowerKind) {

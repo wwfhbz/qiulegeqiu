@@ -13,7 +13,7 @@ export function mountGame(root: HTMLElement) {
     <div class="stage-room"><section class="game-panel" aria-label="游戏区域">
       <div class="hud" aria-label="游戏状态">
         <div class="hud-item"><span class="label">关卡</span><strong id="level"></strong><span id="ball-badge" hidden>球×<span id="balls">1</span></span></div>
-        <div class="hud-item"><span class="label">生命</span><span id="hearts" role="img"></span><span id="lives" class="sr-only"></span></div>
+        <div class="hud-item"><span class="label">生命</span><span id="hearts" role="img" aria-live="polite"></span><span id="lives" class="sr-only"></span></div>
         <div class="hud-item"><span class="label">分数</span><strong id="score">0</strong></div>
         <div class="hud-item"><span class="label">剩余方块</span><strong id="remaining">4203</strong></div>
       </div>

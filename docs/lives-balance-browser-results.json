@@ -1,0 +1,91 @@
+{
+  "base": "http://127.0.0.1:4173",
+  "results": [
+    {
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "initial": {
+        "lives": 5,
+        "hearts": 5,
+        "lit": 5,
+        "hud": 5,
+        "fits": true,
+        "overflow": false
+      },
+      "immediate": {
+        "lives": 4,
+        "hud": 4,
+        "hearts": 4,
+        "label": "▶ 继续挑战"
+      },
+      "continuation": {
+        "level": 2,
+        "removed": 2000,
+        "score": 188580,
+        "lives": 3,
+        "preserved": true
+      },
+      "gameOverAndRetry": true
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "initial": {
+        "lives": 5,
+        "hearts": 5,
+        "lit": 5,
+        "hud": 5,
+        "fits": true,
+        "overflow": false
+      },
+      "immediate": {
+        "lives": 4,
+        "hud": 4,
+        "hearts": 4,
+        "label": "▶ 继续挑战"
+      },
+      "continuation": {
+        "level": 2,
+        "removed": 2000,
+        "score": 188580,
+        "lives": 3,
+        "preserved": true
+      },
+      "gameOverAndRetry": true
+    },
+    {
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "initial": {
+        "lives": 5,
+        "hearts": 5,
+        "lit": 5,
+        "hud": 5,
+        "fits": true,
+        "overflow": false
+      },
+      "immediate": {
+        "lives": 4,
+        "hud": 4,
+        "hearts": 4,
+        "label": "▶ 继续挑战"
+      },
+      "continuation": {
+        "level": 2,
+        "removed": 2000,
+        "score": 188580,
+        "lives": 3,
+        "preserved": true
+      },
+      "gameOverAndRetry": true
+    }
+  ],
+  "errors": [],
+  "fifthLevel": "使用单元测试专用5关配置验证，正式main只有3关，未虚构第5关浏览器结果"
+}
