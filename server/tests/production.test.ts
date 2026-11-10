@@ -1,0 +1,10 @@
+import {it,expect} from 'vitest';
+import {createApp} from '../src/app';
+import {mkdtempSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+it('生产Cookie与同源约束、数据库健康、关闭重启后身份持久化',async()=>{
+ const dir=mkdtempSync(join(tmpdir(),'qiulegeqiu-production-'));const dbPath=join(dir,'leaderboard.sqlite'),oldEnv=process.env.NODE_ENV;let current:Awaited<ReturnType<typeof createApp>>|undefined;
+ try {process.env.NODE_ENV='production';current=await createApp({dbPath,origin:'https://ball.gmgnclaw.com'});const health=await current.app.inject({url:'/api/health'});expect(health.json().database).toBe('ready');const initial=await current.app.inject({url:'/api/me'});expect(initial.headers['set-cookie']).toContain('HttpOnly');expect(initial.headers['set-cookie']).toContain('Secure');expect(initial.headers['set-cookie']).toContain('SameSite=Strict');expect(initial.headers['access-control-allow-origin']).toBeUndefined();const headers={cookie:`__Secure-qlgq=${initial.cookies[0].value}`,origin:'https://ball.gmgnclaw.com','x-csrf-token':initial.json().csrfToken};const registered=await current.app.inject({method:'POST',url:'/api/players',headers,payload:{nickname:'持久化验收',regionCode:'ISO:CN'}});expect(registered.statusCode).toBe(201);const playerId=registered.json().id;await current.app.close();current=undefined;current=await createApp({dbPath,origin:'https://ball.gmgnclaw.com'});const after=await current.app.inject({url:'/api/me',headers});expect(after.json().player.id).toBe(playerId);expect(current.db.prepare('PRAGMA journal_mode').get()!.journal_mode).toBe('wal');expect(Number(current.db.prepare('PRAGMA busy_timeout').get()!.timeout)).toBe(5000);expect((await current.app.inject({method:'POST',url:'/api/players',headers:{...headers,origin:'https://evil.invalid'},payload:{nickname:'其他玩家',regionCode:'ISO:US'}})).statusCode).toBe(403);}
+ finally {if(current)await current.app.close();if(oldEnv===undefined)delete process.env.NODE_ENV;else process.env.NODE_ENV=oldEnv;rmSync(dir,{recursive:true,force:true});}
+});

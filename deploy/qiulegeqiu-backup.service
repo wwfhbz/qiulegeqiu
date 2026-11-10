@@ -1,0 +1,17 @@
+[Unit]
+Description=球了个球SQLite在线备份
+After=qiulegeqiu-api.service
+
+[Service]
+Type=oneshot
+User=qiulegeqiu
+Group=qiulegeqiu
+ExecStart=/usr/bin/flock --exclusive /var/lib/qiulegeqiu/.maintenance.lock /opt/qiulegeqiu-api/node/bin/node /opt/qiulegeqiu-api/current/deploy/backup.mjs
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/qiulegeqiu /var/backups/qiulegeqiu
+MemoryMax=192M
+TimeoutStartSec=300

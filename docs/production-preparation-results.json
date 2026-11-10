@@ -1,0 +1,18 @@
+{
+  "status": "本地上线准备完成，未部署，等待服务器只读检查和生产变更确认",
+  "frontendTests": 154,
+  "backendTests": 35,
+  "deploymentTests": 11,
+  "typechecks": "前后端通过",
+  "builds": "前后端通过",
+  "regions": "只校验通过",
+  "serverInspection": "未完成：没有SSH凭据/agent，未取得服务器只读报告",
+  "publicChecks": "未完成：ball、API、game的CONNECT请求被环境代理403拒绝，不是确认网站403",
+  "productionMutations": false,
+  "baseCommit": "5a4185c36928e43d50dcdde2718e5e1541ca0f59",
+  "gameVersion": "0.8.0",
+  "runtime": "独立Node v24.19.0，官方SHA已核验，不改变系统Node",
+  "nginxScope": "仅ball HTTPS块增加include，其他站点字节不变的规划测试通过",
+  "backup": "SQLite在线backup，完整性/外键，7天自有文件保留；维护锁协调恢复",
+  "scope": "上线工具、日志、健康检查；不重开发游戏/排行榜，不改统帅三国"
+}

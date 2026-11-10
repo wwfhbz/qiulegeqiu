@@ -138,3 +138,9 @@ SQLite数据默认在根work，不属于dist。生产独立数据库、systemd�
 [完整十关/道具表、物理与测试说明](docs/V08_RULES.md) · [10关截图目录](docs/screenshots/) · [手机截图](docs/screenshots/v08-mobile.png) · [炸弹反馈](docs/screenshots/v08-bomb.png)。新增37项前端和8项后端测试，当前总计154/34通过。浏览器十关/五种实际下落拾取/生命HUD/炸毁状态保留/胜利/触摸/联网回归通过，百球+4机关本机约60 FPS，真机性能尚待验收。
 
 前后端版本均0.8.0，排行榜规则标识和seed追加迁移同步更新。npm run test:browser:v08复现十关浏览器验收；完整清关为事件快速构造，未宣称手工玩完41856块。当前未收到可读取设计图，依据文字表完成并提供实际截图供核对；未合并或部署。
+
+## 排行榜生产上线准备（等待确认）
+
+当前保留main的V0.8游戏，仅补齐上线工具。生产审批的完整步骤、拟执行命令、Nginx差异、systemd、旧数据保护、每日7天备份、回滚与验收见[生产上线审批单](docs/PRODUCTION_ROLLOUT.md)。不在未确认时连接写入生产。
+
+新增只读preflight、独立Node24运行时安装、ball-only Nginx规划/激活、发布前在线备份与失败代码回退、每日备份unit/timer、恢复额外确认及安全日志。运行 `npm run regions`（只校验，不重新下载数据）和 `npm run test:deploy`；前后端原检查命令不变。运行 `bash deploy/package.sh` 前必须提交所有源码，产物包含SOURCE_TREE/规则版本，可审计核对。备份/恢复和Nginx/systemd生产效果仍须服务器授权后验收。
