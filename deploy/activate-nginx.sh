@@ -8,8 +8,12 @@ scripts=$(cd "$(dirname "$0")" && pwd)
 backup_dir=/var/backups/qiulegeqiu-config
 snippet=/etc/nginx/snippets/qiulegeqiu-api.conf
 [[ ! -L "$snippet" && ! -L "$backup_dir" && -f "$site_file" ]]
-exec 9>/run/lock/qiulegeqiu-rollout.lock
-flock -n 9
+if [[ ${QIULEGEQIU_LOCK_HELD:-} = 1 ]]; then
+ [[ $(readlink /proc/self/fd/9) = /run/lock/qiulegeqiu-rollout.lock ]] && flock -n 9
+else
+ exec 9>/run/lock/qiulegeqiu-rollout.lock
+ flock -n 9
+fi
 nginx -t
 stage=$(mktemp -d)
 "$runtime" "$scripts/nginx-plan.mjs" "$site_file" "$stage/proposed.conf"

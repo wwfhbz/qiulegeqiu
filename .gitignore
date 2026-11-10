@@ -27,3 +27,7 @@ server/build/
 *.sqlite-*
 *.db
 *.db-*
+
+# Python deployment verifier cache
+__pycache__/
+*.pyc
