@@ -16,8 +16,12 @@ db=/var/lib/qiulegeqiu/leaderboard.sqlite
 [[ -f /etc/systemd/system/qiulegeqiu-api.service && ! -L /etc/systemd/system/qiulegeqiu-api.service && ! -L /etc/qiulegeqiu-api.env && -x "$runtime/node" ]]
 [[ $("$runtime/node" --version) = v24.19.0 ]]
 "$runtime/node" "$source_dir/deploy/check-production-env.mjs"
-exec 9>/run/lock/qiulegeqiu-rollout.lock
-flock -n 9 || { echo '本项目另一次发布尚未结束';exit 1; }
+if [[ ${QIULEGEQIU_LOCK_HELD:-} = 1 ]]; then
+ [[ $(readlink /proc/self/fd/9) = /run/lock/qiulegeqiu-rollout.lock ]] && flock -n 9
+else
+ exec 9>/run/lock/qiulegeqiu-rollout.lock
+ flock -n 9
+fi || { echo '本项目另一次发布尚未结束';exit 1; }
 if [[ ! -f "$db" ]]; then
  legacy=$(find /home/ubuntu/qiulegeqiu -maxdepth 5 -type f \( -name '*.sqlite' -o -name '*.db' \) -not -path '*/node_modules/*' -print -quit)
  [[ -z "$legacy" ]] || { echo '发现旧数据库，先确认迁移源；不创建空榜覆盖旧数据';exit 1; }

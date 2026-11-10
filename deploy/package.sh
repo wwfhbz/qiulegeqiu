@@ -16,7 +16,7 @@ install -d "$stage/server"
 cp -r dist "$stage/dist"
 cp -r server/build server/data server/migrations "$stage/server/"
 cp server/package.json server/package-lock.json "$stage/server/"
-cp -r deploy "$stage/deploy"
+git archive HEAD deploy | tar -x -C "$stage"
 cp server/.env.example "$stage/deploy/qiulegeqiu-api.env.example"
 # Explicit whitelist excludes DBs, .env, source files and all node_modules.
 node -e 'const fs=require("fs");fs.writeFileSync(process.argv[1]+"/VERSION",JSON.parse(fs.readFileSync("package.json")).version+"\n")' "$stage"
@@ -26,7 +26,8 @@ const match=readFileSync('shared/Challenge.ts','utf8').match(/RULES_VERSION = '(
 JS
 git rev-parse HEAD > "$stage/SOURCE_COMMIT"
 git rev-parse HEAD^{tree} > "$stage/SOURCE_TREE"
-tar -C "$stage" -czf work/qiulegeqiu-release.tar.gz dist server deploy VERSION RULES_VERSION SOURCE_COMMIT SOURCE_TREE
+python3 deploy/release-integrity.py --manifest "$stage"
+tar -C "$stage" -czf work/qiulegeqiu-release.tar.gz dist server deploy VERSION RULES_VERSION SOURCE_COMMIT SOURCE_TREE RELEASE_MANIFEST.json
 tar -tzf work/qiulegeqiu-release.tar.gz > work/release-files.txt
 if rg '(^|/)(node_modules|\.env|[^/]*\.sqlite[^/]*|[^/]*\.db)$' work/release-files.txt; then exit 1; fi
 sha256sum work/qiulegeqiu-release.tar.gz
