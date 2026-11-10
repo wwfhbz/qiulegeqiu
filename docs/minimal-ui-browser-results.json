@@ -1,0 +1,210 @@
+{
+  "results": [
+    {
+      "viewport": [
+        1366,
+        768
+      ],
+      "hud": {
+        "x": 468,
+        "y": 30,
+        "width": 430,
+        "height": 52,
+        "bottom": 82
+      },
+      "canvas": {
+        "x": 468,
+        "y": 82,
+        "width": 430,
+        "height": 602,
+        "bottom": 684
+      },
+      "controls": {
+        "x": 468,
+        "y": 712,
+        "width": 430,
+        "height": 48,
+        "bottom": 760
+      },
+      "scroll": [
+        1366,
+        768
+      ],
+      "items": 4,
+      "level": "01/03",
+      "expected": "01/03",
+      "sync": {
+        "score": true,
+        "remaining": true,
+        "hearts": true
+      },
+      "startPauseResumeReset": true,
+      "touch": false
+    },
+    {
+      "viewport": [
+        1920,
+        1080
+      ],
+      "hud": {
+        "x": 633.578125,
+        "y": 30,
+        "width": 652.84375,
+        "height": 52,
+        "bottom": 82
+      },
+      "canvas": {
+        "x": 633.578125,
+        "y": 82,
+        "width": 652.84375,
+        "height": 914,
+        "bottom": 996
+      },
+      "controls": {
+        "x": 633.578125,
+        "y": 1024,
+        "width": 652.84375,
+        "height": 48,
+        "bottom": 1072
+      },
+      "scroll": [
+        1920,
+        1080
+      ],
+      "items": 4,
+      "level": "01/03",
+      "expected": "01/03",
+      "sync": {
+        "score": true,
+        "remaining": true,
+        "hearts": true
+      },
+      "startPauseResumeReset": true,
+      "touch": false
+    },
+    {
+      "viewport": [
+        1024,
+        600
+      ],
+      "hud": {
+        "x": 357,
+        "y": 30,
+        "width": 310,
+        "height": 52,
+        "bottom": 82
+      },
+      "canvas": {
+        "x": 357,
+        "y": 82,
+        "width": 310,
+        "height": 434,
+        "bottom": 516
+      },
+      "controls": {
+        "x": 357,
+        "y": 544,
+        "width": 310,
+        "height": 48,
+        "bottom": 592
+      },
+      "scroll": [
+        1024,
+        600
+      ],
+      "items": 4,
+      "level": "01/03",
+      "expected": "01/03",
+      "sync": {
+        "score": true,
+        "remaining": true,
+        "hearts": true
+      },
+      "startPauseResumeReset": true,
+      "touch": false
+    },
+    {
+      "viewport": [
+        390,
+        844
+      ],
+      "hud": {
+        "x": 8,
+        "y": 26,
+        "width": 374,
+        "height": 48,
+        "bottom": 74
+      },
+      "canvas": {
+        "x": 8,
+        "y": 74,
+        "width": 373.984375,
+        "height": 523.59375,
+        "bottom": 597.59375
+      },
+      "controls": {
+        "x": 8,
+        "y": 625.59375,
+        "width": 374,
+        "height": 48,
+        "bottom": 673.59375
+      },
+      "scroll": [
+        390,
+        844
+      ],
+      "items": 4,
+      "level": "01/03",
+      "expected": "01/03",
+      "sync": {
+        "score": true,
+        "remaining": true,
+        "hearts": true
+      },
+      "startPauseResumeReset": true,
+      "touch": true
+    },
+    {
+      "viewport": [
+        320,
+        568
+      ],
+      "hud": {
+        "x": 13.578125,
+        "y": 26,
+        "width": 292.84375,
+        "height": 48,
+        "bottom": 74
+      },
+      "canvas": {
+        "x": 13.578125,
+        "y": 74,
+        "width": 292.84375,
+        "height": 410,
+        "bottom": 484
+      },
+      "controls": {
+        "x": 13.578125,
+        "y": 512,
+        "width": 292.84375,
+        "height": 48,
+        "bottom": 560
+      },
+      "scroll": [
+        320,
+        568
+      ],
+      "items": 4,
+      "level": "01/03",
+      "expected": "01/03",
+      "sync": {
+        "score": true,
+        "remaining": true,
+        "hearts": true
+      },
+      "startPauseResumeReset": true,
+      "touch": true
+    }
+  ],
+  "errors": []
+}

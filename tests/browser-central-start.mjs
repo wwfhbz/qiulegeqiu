@@ -5,6 +5,7 @@ const base=process.env.BASE_URL||'http://127.0.0.1:4173',out='work/regression-ce
 const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',args:['--no-sandbox']});
 const errors=[];
 async function geometry(page){
+ await page.waitForFunction(()=>{const c=document.querySelector("canvas").getBoundingClientRect(),b=document.querySelector("#start").getBoundingClientRect();return Math.abs(b.x+b.width/2-c.x-c.width/2)<1.5&&Math.abs(b.y+b.height/2-c.y-c.height*492/1120)<1.5;});
  const canvas=await page.locator('canvas').boundingBox(),button=await page.locator('#start').boundingBox();
  assert(button.width>=44&&button.height>=44);
  assert(Math.abs(button.x+button.width/2-(canvas.x+canvas.width*.5))<1.5);

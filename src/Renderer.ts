@@ -21,7 +21,7 @@ export class Renderer {
     this.canvas.width = Math.max(1, Math.round(C.width * this.ratio)); this.canvas.height = Math.max(1, Math.round(C.height * this.ratio));
     this.cache.width = this.canvas.width; this.cache.height = this.canvas.height; this.cachedRevision = -1;
   }
-  draw(p: Physics, ready: boolean) {
+  draw(p: Physics, _ready: boolean) {
     if (this.cachedRevision !== p.blocks.revision) {
       const c = this.cache.getContext('2d')!;
       c.setTransform(this.ratio, 0, 0, this.ratio, 0, 0);
@@ -55,8 +55,6 @@ export class Renderer {
     // An amber dashed marker, not a collider or a bottom wall.
     c.beginPath(); c.setLineDash([6, 8]); c.moveTo(FRAME.left, FRAME.deathY); c.lineTo(FRAME.right, FRAME.deathY);
     c.strokeStyle = '#ad6e6555'; c.lineWidth = 1; c.stroke(); c.setLineDash([]);
-    c.fillStyle = '#9c7776'; c.font = '14px sans-serif'; c.textAlign = 'center';
-    c.fillText('漏球线', C.arena.x, FRAME.deathY + 18);
 
     c.fillStyle = '#d7f7ff'; c.shadowColor = '#68d9ef'; c.shadowBlur = 15;
     c.beginPath(); c.roundRect(p.paddleX - p.paddleWidth / 2, C.paddle.y - C.paddle.height / 2, p.paddleWidth, C.paddle.height, 6); c.fill();
@@ -70,12 +68,5 @@ export class Renderer {
     c.globalAlpha=1;
     c.textAlign='center';c.font='bold 15px sans-serif';
     for(const item of p.powers.items)if(item.alive){c.fillStyle=item.kind==='wide'?'#91e9d4':'#ffc28b';c.beginPath();c.roundRect(item.x-23,item.y-14,46,28,7);c.fill();c.fillStyle='#0b1525';c.fillText(item.kind==='wide'?'加宽':'×3',item.x,item.y+5);}
-    c.textAlign = 'center'; c.font = '17px sans-serif'; c.fillStyle = '#74869e';
-    c.fillText('底部出口', a.x, a.y + a.radius + 22);
-    if (ready) {
-      c.fillStyle = '#b6c6da'; c.font = '18px sans-serif'; c.fillText('移动挡板，准备突破', a.x, C.paddle.y + 47);
-      c.setLineDash([4, 8]); c.strokeStyle = '#36506b'; c.beginPath();
-      c.moveTo(a.x, C.paddle.y - 35); c.lineTo(a.x + 12, C.paddle.y - 43); c.stroke(); c.setLineDash([]);
-    }
   }
 }

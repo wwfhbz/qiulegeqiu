@@ -1,4 +1,4 @@
-# 球了个球 V0.5.1 · 唯一漏球区域
+# 球了个球 V0.6.0 · 极简街机界面
 
 Vite + TypeScript + HTML5 Canvas 2D 原创弹球游戏，无大型引擎或付费素材。在圆形核心中击碎方块，使用圆外水平挡板接球，用 3 条生命挑战 3 关。
 
@@ -37,7 +37,7 @@ CentralAction.ts 统一中央动作与标签，Game.ts 协调状态，Physics.ts
 
 方块仍使用 Uint8Array 网格、脏格清除和离屏缓存。固定步长 1/120 秒，每个子步移动不超过 2 逻辑像素。球对象复用，粒子池容量 384。没有为每个方块创建 DOM 或独立刚体。
 
-95 项单元测试通过，保留原有75项回归并新增20项外框、唯一死亡区域与生命批次结算测试。类型检查和生产构建通过。
+100 项单元测试通过，保留原有95项回归并新增5项视口适配测试。类型检查和生产构建通过。
 
 先启动生产预览，再按顺序验证：
 
@@ -86,3 +86,11 @@ V0.5 在 feature/central-start-v05 开发，基于 main 48b0994beea1968d5a08d8d9
 [完整规则与移除入口审计](docs/DEATH_ZONE.md) · [PC截图](docs/screenshots/death-zone-desktop.png) · [手机截图](docs/screenshots/death-zone-mobile.png) · [浏览器证据](docs/death-zone-browser-results.json)
 
 分支feature/death-zone-v051以PR #4的窄出口源码dbbd798为起点（该基线已进入main），只提交独立PR等待确认，不合并main、不部署腾讯云、不修改其他项目。
+
+## V0.6 极简界面
+
+顶部仅保留品牌与48～52像素HUD：实际配置关卡、爱心生命、累计分数、剩余方块。多球徽标不增加行高。中央按钮沿用原状态映射，底部仅暂停/继续和重开，静音位于小型反馈行。
+
+画布按可用视口等比例缩放，保持800×1120逻辑坐标与160挡板间距。结算改为仅在结算时出现的画布内提示，不挤压游戏区域。当前实际配置为三关，HUD从LevelManager读取总数。
+
+[首屏前后截图与验证](docs/MINIMAL_UI.md)。启动生产预览后运行 `node tests/browser-minimal-ui.mjs`。
