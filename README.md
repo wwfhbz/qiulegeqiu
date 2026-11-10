@@ -146,3 +146,5 @@ SQLite数据默认在根work，不属于dist。生产独立数据库、systemd�
 新增只读preflight、独立Node24运行时安装、ball-only Nginx规划/激活、发布前在线备份与失败代码回退、每日备份unit/timer、恢复额外确认及安全日志。运行 `npm run regions`（只校验，不重新下载数据）和 `npm run test:deploy`；前后端原检查命令不变。运行 `bash deploy/package.sh` 前必须提交所有源码，产物包含SOURCE_TREE/规则版本，可审计核对。备份/恢复和Nginx/systemd生产效果仍须服务器授权后验收。
 
 首次一键部署及依赖权限修复说明见[首次生产安装](docs/FIRST_PRODUCTION_INSTALL.md)。依赖安装完成后会以服务用户运行候选API，验收通过才切换版本；旧发布包需重新生成，不能手动补装fastify绕过检查。
+
+系统Node22与生产Node24并存时，部署测试需显式选择运行时；[完整验证命令与夹具说明](docs/DEPLOY_TEST_RUNTIME.md)。`npm run test:deploy`会校验并使用v24.19.0，不能绕过入口直接用系统22运行测试文件。

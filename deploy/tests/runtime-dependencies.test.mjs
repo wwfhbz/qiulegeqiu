@@ -1,10 +1,12 @@
-import test from 'node:test';
+import test,{after} from 'node:test';
+import {createRuntimeFixture} from './runtime-fixture.mjs';
 import assert from 'node:assert/strict';
 import {execFileSync,spawnSync} from 'node:child_process';
 import {mkdtempSync,mkdirSync,cpSync,copyFileSync,readFileSync,writeFileSync,statSync,chmodSync,renameSync,rmSync,existsSync,readdirSync,symlinkSync} from 'node:fs';
 import {join,resolve} from 'node:path';
 import {tmpdir} from 'node:os';
 import {DatabaseSync} from 'node:sqlite';
+const runtime=createRuntimeFixture();after(()=>runtime.cleanup());
 const root=process.cwd(),installer=resolve('deploy/install-production-deps.sh'),verifier=resolve('deploy/verify-runtime.mjs');
 function fixture(){
  const dir=mkdtempSync(join(tmpdir(),'qlgq-runtime-')),server=join(dir,'server');mkdirSync(server);
@@ -12,21 +14,22 @@ function fixture(){
  for(const name of ['build','data','migrations'])cpSync(join(root,'server',name),join(server,name),{recursive:true});
  return {dir,server};
 }
-function verify(server,start=false){return spawnSync(process.execPath,[verifier,server,...(start?['--start']:[])],{cwd:server,encoding:'utf8',env:{PATH:process.env.PATH},timeout:25000});}
+function verify(server,start=false){return spawnSync(runtime.node,[verifier,server,...(start?['--start']:[])],{cwd:server,encoding:'utf8',env:{PATH:process.env.PATH},timeout:25000});}
 test('真实npm ci在077下复现51个包仍不可供其他UID读取；缺fastify阻止切换，修复安装后实际入口可启动',()=>{
  const f=fixture();try{
-  const npm=join(process.execPath,'../../lib/node_modules/npm/bin/npm-cli.js');
-  const old=execFileSync('bash',['-c','umask 077; exec "$1" "$2" ci --omit=dev --ignore-scripts --no-audit --no-fund','sh',process.execPath,npm],{cwd:f.server,encoding:'utf8'});
+  const npm=runtime.npm;
+  const oldEnv={...process.env,HOME:f.dir};for(const key of Object.keys(oldEnv))if(/^npm_config_/i.test(key)||['NODE_OPTIONS','NODE_PATH'].includes(key))delete oldEnv[key];
+  const old=execFileSync('bash',['-c','umask 077; exec "$1" "$2" ci --prefix "$PWD" --global=false --workspaces=false --omit=dev --ignore-scripts --no-audit --no-fund --cache "$HOME/.cache"','sh',runtime.node,npm],{cwd:f.server,encoding:'utf8',env:oldEnv});
   assert.match(old,/added \d+ packages/);
   assert.equal(statSync(join(f.server,'node_modules')).mode&0o777,0o700);
   assert.equal(statSync(join(f.server,'node_modules/fastify')).mode&0o777,0o700);
   // Non-root process with no traversal access sees the same missing-package failure.
   chmodSync(join(f.server,'node_modules/fastify'),0);
-  try{const denied=verify(f.server);assert.notEqual(denied.status,0);assert.match(denied.stderr,/fastify|EACCES|MODULE_NOT_FOUND/);}finally{chmodSync(join(f.server,'node_modules/fastify'),0o700);}
+  try{const denied=process.getuid()===0?spawnSync('setpriv',['--bounding-set=-dac_override,-dac_read_search',runtime.node,verifier,f.server],{cwd:f.server,encoding:'utf8',env:{PATH:process.env.PATH},timeout:25000}):verify(f.server);assert.equal(denied.error,undefined,denied.error?.message);assert.notEqual(denied.status,0);assert.match(denied.stderr,/fastify|EACCES|MODULE_NOT_FOUND/);}finally{chmodSync(join(f.server,'node_modules/fastify'),0o700);}
   renameSync(join(f.server,'node_modules/fastify'),join(f.server,'node_modules/fastify-missing'));
   const missing=verify(f.server);assert.notEqual(missing.status,0);assert.match(missing.stderr,/fastify/);
   // Explicit prefix + clean environment defeats inherited global/prefix redirection.
-  execFileSync('bash',[installer,process.execPath,f.server],{cwd:'/',encoding:'utf8',env:{...process.env,npm_config_global:'true',npm_config_prefix:join(f.dir,'wrong-prefix')},timeout:60000});
+  execFileSync('bash',[installer,runtime.node,f.server],{cwd:'/',encoding:'utf8',env:{...process.env,npm_config_global:'true',npm_config_prefix:join(f.dir,'wrong-prefix')},timeout:60000});
   assert(!existsSync(join(f.dir,'wrong-prefix')));
   function permissions(dir){for(const item of readdirSync(dir,{withFileTypes:true})){const p=join(dir,item.name),m=statSync(p).mode;if(item.isSymbolicLink())continue;if(item.isDirectory()){assert.equal(m&0o777,0o755,p);permissions(p);}else assert.equal(m&0o044,0o044,p);}}
   permissions(join(f.server,'node_modules'));
@@ -93,7 +96,7 @@ test('完整publish缺包回归：假成功安装不能切换版本；旧库在�
   const dbpath=join(data,'leaderboard.sqlite'),db=new DatabaseSync(dbpath);db.exec("CREATE TABLE players(id TEXT PRIMARY KEY);CREATE TABLE scores(id TEXT PRIMARY KEY);INSERT INTO players VALUES('existing');INSERT INTO scores VALUES('best')");db.close();
   const original=readFileSync(dbpath),inode=statSync(dbpath).ino;
   const previous=join(base,'releases/previous');mkdirSync(join(previous,'server/build'),{recursive:true});writeFileSync(join(previous,'server/build/index.js'),'old');symlinkSync(previous,join(base,'current'));
-  mkdirSync(join(base,'node/bin'),{recursive:true});symlinkSync(process.execPath,join(base,'node/bin/node'));
+  mkdirSync(join(base,'node/bin'),{recursive:true});copyFileSync(runtime.node,join(base,'node/bin/node'));chmodSync(join(base,'node/bin/node'),0o755);
   writeFileSync(join(site,'index.html'),'old html');writeFileSync(join(etc,'qiulegeqiu-api.service'),'owned unit');
   const envfile=join(etc,'qiulegeqiu-api.env');writeFileSync(envfile,`NODE_ENV=production\nPORT=8091\nPUBLIC_ORIGIN=https://ball.gmgnclaw.com\nDB_PATH=${dbpath}\n`);
   cpSync(f.server,join(source,'server'),{recursive:true});cpSync(join(root,'deploy'),join(source,'deploy'),{recursive:true});
@@ -108,12 +111,17 @@ test('完整publish缺包回归：假成功安装不能切换版本；旧库在�
   // Fault injection: mimic npm exit 0/"added packages" but provide no runtime packages.
   writeFileSync(join(source,'deploy/install-production-deps.sh'),'#!/bin/bash\necho "added 51 packages (fault fixture: missing dependency tree)"\n');
   function executable(name,body){const p=join(bin,name);writeFileSync(p,'#!/bin/sh\n'+body);chmodSync(p,0o755);}
+  executable('node','echo "错误：意外调用系统Node22夹具" >&2\nexit 97\n');
   executable('id',`if [ "$1" = -u ] && [ "$2" = qiulegeqiu ];then echo ${process.getuid()};else exec /usr/bin/id "$@";fi\n`);
   executable('runuser','shift 3\nexec "$@"\n');
   executable('systemctl','printf "%s\\n" "$*" >> "$COMMAND_LOG"\nexit 0\n');
   writeFileSync(log,'');
-  const r=spawnSync('bash',[publisher,'--apply',source],{encoding:'utf8',env:{...process.env,PATH:bin+':'+process.env.PATH,COMMAND_LOG:log,QIULEGEQIU_LOCK_HELD:''},timeout:30000});
-  assert.notEqual(r.status,0,r.stdout+r.stderr);assert.match(r.stderr,/fastify/);assert.equal(readFileSync(join(site,'index.html'),'utf8'),'old html');
+  const launch=()=>spawnSync('bash',[publisher,'--apply',source],{encoding:'utf8',env:{...process.env,PATH:bin+':'+process.env.PATH,COMMAND_LOG:log,QIULEGEQIU_LOCK_HELD:''},timeout:30000});
+  const runtimeNode=join(base,'node/bin/node'),savedNode=runtimeNode+'.verified24';renameSync(runtimeNode,savedNode);
+  writeFileSync(runtimeNode,'#!/bin/sh\necho v22.23.4\n');chmodSync(runtimeNode,0o755);
+  try{const wrong=launch();assert.equal(wrong.error,undefined);assert.equal(wrong.status,1);assert.match(wrong.stderr,/运行时必须为生产Node v24.19.0/);assert.doesNotMatch(wrong.stdout,/added 51 packages/);assert.deepEqual(readFileSync(dbpath),original);}finally{rmSync(runtimeNode);renameSync(savedNode,runtimeNode);}
+  const r=launch();
+  assert.equal(r.error,undefined,r.error?.message);assert.equal(r.signal,null);assert.equal(r.status,1,r.stdout+r.stderr);assert.match(r.stdout,/added 51 packages/);assert.match(r.stderr,/候选版本运行时验收失败/);assert.match(r.stderr,/fastify/);assert.equal(readFileSync(join(site,'index.html'),'utf8'),'old html');
   assert.equal(execFileSync('readlink',['-f',join(base,'current')],{encoding:'utf8'}).trim(),previous);
   assert.equal(readFileSync(log,'utf8'),'');assert.deepEqual(readFileSync(dbpath),original);assert.equal(statSync(dbpath).ino,inode);
   assert(readdirSync(backups).some(n=>n.endsWith('.sqlite')));

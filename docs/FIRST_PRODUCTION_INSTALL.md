@@ -96,3 +96,8 @@ sudo systemctl status qiulegeqiu-api.service --no-pager
 5. 任一步失败即停止，尚未切换API版本。首次安装回退按逐项变更记录执行，原本不存在且未创建的服务不执行stop/disable。
 
 这修复了可复现的部署权限缺陷，并阻断安装位置、依赖解析、ABI或实际启动异常；没有通过SSH读取生产机器权限，不能声称已完成生产现场验证。旧包必须重新生成，新旧安装器不能混用。
+
+
+## Node22系统上的部署测试
+
+测试入口现为`node deploy/run-tests.mjs`，通过`QIULEGEQIU_TEST_NODE`及`QIULEGEQIU_TEST_NPM_CLI`显式选择v24.19.0；受控夹具复制真实运行时，不复用系统Node22。完整服务器验证命令和两项失败原因见[部署测试运行时隔离](DEPLOY_TEST_RUNTIME.md)。不要绕过入口直接用系统22运行测试文件。
