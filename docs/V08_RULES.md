@@ -61,7 +61,9 @@
 
 前端154项、后端34项测试通过；类型检查和两端生产构建通过。新增37项十关/空间/权重/碰撞/道具/续玩测试与8项后端新规则/种子/迁移备份测试；原物理、窄出口、五命和状态测试保留，仅更新三关/交替道具的旧预期。
 
-浏览器完成十关加载、真实移动/旋转与暂停、五种下落道具拾取、生命HUD、炸毁后丢命保持、十关胜利、手机触摸和联网榜单回归。[浏览器结果](v08-browser-results.json) · [炸弹反馈](screenshots/v08-bomb.png) · [手机](screenshots/v08-mobile.png) · [最终胜利](screenshots/v08-victory.png)。清关由真实Blocks.hit事件快速构造，未宣称人工玩完41856块；新五道具拾取采用测试注入掉落，未将此场景登记到排行榜。
+浏览器完成十关加载、真实移动/旋转与暂停、五种下落道具拾取、生命HUD、炸毁后丢命保持、十关胜利、手机触摸和联网榜单回归。[浏览器结果](v08-browser-results.json) · [真实点击与联网回归](v08-leaderboard-browser-results.json) · [炸弹反馈](screenshots/v08-bomb.png) · [手机](screenshots/v08-mobile.png) · [最终胜利](screenshots/v08-victory.png)。清关由真实Blocks.hit事件快速构造，未宣称人工玩完41856块；新五道具拾取采用测试注入掉落，未将此场景登记到排行榜。
+
+同时修复地区列表真实鼠标点击首项和返回父级选择的交互（不改变地区数据与身份规则），联网浏览器回归使用真实option点击。
 
 主要代码：Levels、ObstacleGeometry、Obstacles、PowerRules、Blocks、Physics、Game、PowerUps、Effects、Audio、Renderer、ScoreSystem、ChallengeJournal、共享事件、挑战同步、服务端验证器和002迁移；另有测试、版本/锁、文档与截图。main.ts仍只挂载游戏，未堆积业务逻辑。
 

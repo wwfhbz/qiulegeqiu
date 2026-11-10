@@ -1,6 +1,6 @@
 # V0.8 实际修改文件
 
-56个文件（相对V0.7）：
+59个文件（相对V0.7）：
 
 - [CHANGELOG.md](../CHANGELOG.md)
 - [README.md](../README.md)
@@ -23,6 +23,7 @@
 - [docs/screenshots/v08-mobile.png](../docs/screenshots/v08-mobile.png)
 - [docs/screenshots/v08-victory.png](../docs/screenshots/v08-victory.png)
 - [docs/v08-browser-results.json](../docs/v08-browser-results.json)
+- [docs/v08-leaderboard-browser-results.json](../docs/v08-leaderboard-browser-results.json)
 - [docs/v08-performance.json](../docs/v08-performance.json)
 - [package-lock.json](../package-lock.json)
 - [package.json](../package.json)
@@ -51,9 +52,11 @@
 - [src/Renderer.ts](../src/Renderer.ts)
 - [src/ScoreSystem.ts](../src/ScoreSystem.ts)
 - [src/online/ChallengeSync.ts](../src/online/ChallengeSync.ts)
+- [src/online/RegionPicker.ts](../src/online/RegionPicker.ts)
 - [tests/arcade.test.ts](../tests/arcade.test.ts)
 - [tests/browser-arcade.mjs](../tests/browser-arcade.mjs)
 - [tests/browser-central-start.mjs](../tests/browser-central-start.mjs)
+- [tests/browser-leaderboard.mjs](../tests/browser-leaderboard.mjs)
 - [tests/browser-v08.mjs](../tests/browser-v08.mjs)
 - [tests/central-action.test.ts](../tests/central-action.test.ts)
 - [tests/lives-balance.test.ts](../tests/lives-balance.test.ts)
