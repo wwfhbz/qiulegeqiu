@@ -62,7 +62,7 @@ export function mountGame(root: HTMLElement) {
       el('result-tip').textContent = g.state === 'gameOver' ? '生命已耗尽。重新开始，再挑战一次。' : g.state === 'victory' ? '最终核心已击碎，你完成了这次挑战。' : `保留 ${g.lives} 条生命和累计分数，迎接下一关。`;
       el('result-label').textContent = g.state === 'levelComplete' ? '本关得分' : '最终分数';
       el('result-score').textContent = String(g.state === 'levelComplete' ? g.result!.levelTotal : g.score.total);
-      el('score-details').textContent = completed ? `方块 ${g.result!.blockScore} + 通关 ${g.result!.clearBonus} + 生命 ${g.result!.lifeBonus}　累计 ${g.score.total}` : `本次到达第${level.number}关 · 累计 ${g.score.total} 分`;
+      el('score-details').textContent = completed ? `本关得分 ${g.result!.blockScore} + 通关 ${g.result!.clearBonus} + 生命 ${g.result!.lifeBonus}　累计 ${g.score.total}` : `本次到达第${level.number}关 · 累计 ${g.score.total} 分`;
     }
   };
   el('central-layer').style.setProperty('--arena-x', `${C.arena.x / C.width * 100}%`);

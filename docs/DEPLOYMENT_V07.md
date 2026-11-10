@@ -52,3 +52,7 @@ limit_req_zone $binary_remote_addr zone=qiulegeqiu_api:10m rate=20r/s;
 - sudo bash deploy/rollback.sh --apply：恢复上一API release与旧HTML，保留当前数据库和全部资源。首次上线没有旧API时，仅停止本排行榜API并恢复旧HTML。当前001迁移为新增独立数据库，未来破坏性迁移需先制作向后兼容迁移与备份恢复计划，不自动降级数据库。
 
 开发验证范围：脚本bash -n、包内容检查、内存SQLite与文件SQLite API、实际浏览器联网；systemd/Nginx/生产路径权限与远程备份恢复需在授权服务器验收，不能将本地通过描述为已经上线。
+
+## V0.8兼容补充
+
+V0.8需同步更新前后端，002追加challenge.seed列且仅执行一次，001旧库可平滑升级，原玩家/成绩保留。旧规则挑战不能用新计分器提交，已验证历史最佳不重算。回滚到V0.7仍可读取增加seed列的数据库；不自动降级schema。新版本打包脚本复用本流程，仍未执行线上操作。

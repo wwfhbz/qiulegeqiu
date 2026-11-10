@@ -1,5 +1,6 @@
 import { ARCADE } from './ArcadeRules';
-export interface LevelConfig { readonly number: number; readonly name: string; readonly speedScale: number }
+import type { LevelConfig } from './Levels';
+export type { LevelConfig } from './Levels';
 export class LevelManager {
   constructor(private readonly configurations: readonly LevelConfig[] = ARCADE.levels) {
     if (configurations.length === 0) throw new Error('关卡配置不能为空');

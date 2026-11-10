@@ -26,6 +26,7 @@ export class ScoreSystem {
     const points = Math.round(ARCADE.blockPoints * this.multiplier);
     this.total += points; return points;
   }
+  addBombCompensation() { if(!this.completed)this.total+=ARCADE.emptyBombPoints; }
   complete(lives: number): Readonly<LevelScore> {
     if (this.completed) return this.completed;
     const blockScore = this.levelPoints;

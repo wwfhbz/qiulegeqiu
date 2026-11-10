@@ -1,3 +1,4 @@
+import { POWER_LABELS,POWER_COLORS } from './PowerRules';
 import { C } from './GameConfig';
 import { Physics } from './Physics';
 import { ARENA_WALL } from './ArenaGeometry';
@@ -45,8 +46,11 @@ export class Renderer {
     }
     const c = this.ctx, a = C.arena;
     c.setTransform(this.ratio, 0, 0, this.ratio, 0, 0); c.clearRect(0, 0, C.width, C.height);
+    if(p.effects.explosionRemaining>0)c.translate(Math.sin(p.effects.explosionRemaining*110)*3,Math.cos(p.effects.explosionRemaining*140)*2);
     c.beginPath(); c.arc(a.x, a.y, a.radius, 0, Math.PI * 2); c.fillStyle = '#0b1525'; c.fill();
     c.drawImage(this.cache, 0, 0, C.width, C.height);
+    for(const obstacle of p.obstacles.items){if(obstacle.destroyed)continue;const o=obstacle.config,half=(o.length-o.thickness)/2;c.save();c.translate(obstacle.x,obstacle.y);c.rotate(obstacle.angle);c.beginPath();c.moveTo(-half,0);c.lineTo(half,0);c.lineWidth=o.thickness;c.lineCap='round';c.strokeStyle=o.kind==='rotating'?'#a7a8c3':o.kind==='moving'?'#849aaf':'#7a899b';c.stroke();c.beginPath();c.moveTo(-half+3,0);c.lineTo(half-3,0);c.lineWidth=1;c.strokeStyle='#d6e6ef66';c.stroke();c.restore();}
+    if(p.effects.explosionRemaining>0){c.beginPath();c.arc(p.effects.explosionX,p.effects.explosionY,(.24-p.effects.explosionRemaining)*240,0,Math.PI*2);c.lineWidth=2;c.strokeStyle='#ffb46e';c.stroke();}
     c.beginPath(); c.arc(a.x, a.y, a.radius, ARENA_WALL.startAngle, ARENA_WALL.endAngle);
     c.strokeStyle = '#7e94ac'; c.lineWidth = ARENA_WALL.width; c.lineCap = 'round'; c.stroke(); c.lineCap = 'butt';
     c.beginPath(); c.moveTo(FRAME.left, FRAME.deathY); c.lineTo(FRAME.left, FRAME.top);
@@ -66,7 +70,8 @@ export class Renderer {
     for(const f of p.effects.flashes) if(f.life>0){c.globalAlpha=f.life/.12;c.fillStyle='#ffe3be';c.fillRect(f.x-6,f.y-6,12,12);}
     for(const q of p.effects.particles)if(q.life>0){c.globalAlpha=q.life/.35;c.fillStyle='#ffaf6d';c.fillRect(q.x-1,q.y-1,2,2);}
     c.globalAlpha=1;
+    if(p.effects.powerRemaining>0&&p.effects.powerKind){c.fillStyle=POWER_COLORS[p.effects.powerKind];c.textAlign='center';c.font='bold 24px sans-serif';c.fillText(POWER_LABELS[p.effects.powerKind],a.x,a.y+a.radius+65);}
     c.textAlign='center';c.font='bold 15px sans-serif';
-    for(const item of p.powers.items)if(item.alive){c.fillStyle=item.kind==='wide'?'#91e9d4':'#ffc28b';c.beginPath();c.roundRect(item.x-23,item.y-14,46,28,7);c.fill();c.fillStyle='#0b1525';c.fillText(item.kind==='wide'?'加宽':'×3',item.x,item.y+5);}
+    for(const item of p.powers.items)if(item.alive){c.fillStyle=POWER_COLORS[item.kind];c.beginPath();c.roundRect(item.x-23,item.y-14,46,28,7);c.fill();c.fillStyle='#0b1525';c.fillText(item.kind==='life'?'生命':item.kind==='bomb'?'炸弹':POWER_LABELS[item.kind],item.x,item.y+5);}
   }
 }

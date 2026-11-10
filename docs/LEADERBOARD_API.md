@@ -1,4 +1,4 @@
-# V0.7 API、数据库与安全边界
+# V0.8 API、数据库与安全边界（沿用V0.7接口）
 
 ## 运行
 
@@ -8,14 +8,14 @@ Node.js 24 LTS + TypeScript + Fastify + 内置SQLite，无需Redis或额外数�
 
 ## 数据模型
 
-迁移server/migrations/001-initial.sql，npm run migrate --prefix server可初始化/幂等重跑。
+迁移server/migrations/001-initial.sql与002-challenge-seed.sql，npm run migrate --prefix server可初始化/幂等重跑。
 
 | 表 | 职责与关键约束 |
 |---|---|
 | regions | canonical code主键、parent外键、级别、名称、服务端前缀 |
 | players | 随机UUID、昵称/规范昵称、地区、状态；UNIQUE(region_code,normalized_nickname) |
 | sessions | 随机UUID、可空player_id、仅保存凭据SHA-256、CSRF、创建/过期时间 |
-| challenges | 会话绑定、规则版本、开始/结束/过期、事件序号、计数、调试标记 |
+| challenges | 会话绑定、规则版本、开始/结束/过期、事件序号、计数、调试标记、公开本局随机种子 |
 | challenge_batches | PRIMARY KEY(challenge_id,sequence)、原始事件与内容哈希，用于幂等和后续物理回放 |
 | scores | 随机ID、玩家/挑战、摘要、首次达成/提交时间、校验状态；UNIQUE(challenge_id)、UNIQUE(player_id,idempotency_key) |
 | player_bests | 每玩家唯一best引用，只从verified中选择最佳 |
@@ -42,7 +42,7 @@ Node.js 24 LTS + TypeScript + Fastify + 内置SQLite，无需Redis或额外数�
 | GET /api/regions/:code | canonical code、prefix、level、hasChildren与上级辅助路径 |
 | GET /api/players/availability?nickname=创世玩家&region=CN:341222 | 后端规范/审核后返回baseTaken、available及精确中文提示 |
 | POST /api/players | {nickname,regionCode}，唯一事务注册并绑定当前会话；同身份重复请求返回同ID |
-| POST /api/challenges | {rulesVersion,unranked:false}，开局创建服务端挑战，不需先注册昵称 |
+| POST /api/challenges | {rulesVersion,unranked:false,seed:本局32bit整数}，开局创建服务端挑战，不需先注册昵称 |
 | POST /api/challenges/:id/events | {sequence:0,events:[...]}，连续序号，重复同内容幂等，内容冲突409 |
 | POST /api/challenges/:id/submit | {idempotencyKey:UUID,summary:{score,reachedLevel,bricksDestroyed,durationMs,completedAllLevels}}，必须结束且绑定玩家；服务端重算 |
 | GET /api/leaderboard?offset=0&limit=20 | 全球TOP100服务端分页，单页最多20；仅一玩家最佳verified成绩 |
@@ -57,12 +57,13 @@ Node.js 24 LTS + TypeScript + Fastify + 内置SQLite，无需Redis或额外数�
 
 - launch：准备状态发射。
 - hit：附index，必须为本关真实可生成网格且未销毁。
-- power：附triple/wide，须有对应掉落且经过最早下落时间，×3最多100。
+- power：附halve/triple/wide/life/bomb，按本局seed及关卡权重重算种类，须有对应掉落和最早下落时间；÷2不低于1、×3最多100、生命最多5。
+- bomb：附target（机关ID或null），验证固定圆心到当前机关表面的最近目标，已毁状态跨丢命保留；空目标补100。
 - ballLost：场上球数减1；lost仅可在0球时扣1命。
-- clear：本关4203格均销毁后才奖励；next才开始新关，保留分数和生命。
+- clear：本关真实网格全部销毁（避开完整机关运动范围）后才奖励；next才开始新关，保留分数和生命。
 - finish：仅五命耗尽或末关胜利可提交。
 
-服务端复用计分规则、原始网格和连击窗口重算；验证有效关卡、重复销毁、剩余生命、通关奖励、单步击碎上限、球数、掉落时序和持续时间不超过服务端时钟。摘要不一致/不可能状态拒绝；结构成立但速度异常/时间过短入quarantined，不进入排行榜。调试压力测试成绩拒绝。事件原文保留，未来可增加带服务器随机种子、输入轨迹的确定性物理回放worker。
+服务端复用计分规则、原始网格和连击窗口重算；验证有效关卡、重复销毁、剩余生命、通关奖励、单步击碎上限、球数、掉落时序和持续时间不超过服务端时钟。摘要不一致/不可能状态拒绝；结构成立但速度异常/时间过短入quarantined，不进入排行榜。调试压力测试成绩拒绝。事件原文保留，未来可增加服务端发放不可挑选的种子及输入轨迹的确定性物理回放worker。
 
 **当前不是完整防作弊**：物理在客户端，攻击者仍可构造看似合理的事件。没有声称签名、混淆或客户端隐藏密钥能证明真实游玩。正式高价值奖励前需加入服务端物理回放/裁决、设备/IP风控和人工审核；本阶段verified表示通过规则/异常校验，不等同服务器物理验证。
 
@@ -80,3 +81,5 @@ NFKC、Unicode码点2～12、大小写/空白标准化；拒绝控制/隐藏字�
 - appeals / resolve 申诉ID 处理说明
 
 所有变更写admin_audit；封禁从榜单排除，禁止新挑战/提交，保留会话用于申诉。不提供普通玩家编辑他人成绩接口。昵称/申诉输出JSON转义，排行榜用户内容使用textContent而非HTML。
+
+V0.8规则版本为0.8.0-arcade-5l-10lv-v1；002仅追加seed列、幂等迁移。种子由客户端声明并在服务端会话中绑定，用于可复现校验，不是安全凭据或服务端权威随机性保证。前后端需同步升级；存量已验证成绩保留，旧规则未提交挑战拒绝。单步击碎预算按本步曾存活最大球数计算，避免同帧部分球死亡导致误判；总消除速度阈值考虑本局有效峰值球数。
