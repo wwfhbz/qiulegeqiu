@@ -19,7 +19,7 @@ async function layout(page){
 }
 async function miss(page){
  if(await page.evaluate(()=>window.ballCore.state)==='ready')await page.locator('#start').click();
- await page.evaluate(()=>{for(const b of window.ballCore.physics.balls)Object.assign(b,{x:400,y:1050,vx:0,vy:440,outsideArena:true});});
+ await page.evaluate(()=>{for(const b of window.ballCore.physics.balls)Object.assign(b,{x:400,y:1130,vx:0,vy:440,outsideArena:true});});
  await page.waitForFunction(()=>['ready','gameOver'].includes(window.ballCore.state));
 }
 async function clear(page){
@@ -36,17 +36,17 @@ try{
  if(await page.evaluate(()=>window.ballCore.state)==='ready')await page.locator('#start').click();await page.waitForFunction(()=>Number(document.querySelector('#removed').textContent)>0);
  assert(Number(await page.locator('#score').textContent())>0);
  const audioState=await page.evaluate(()=>window.ballCore.audio.context?.state);assert.equal(audioState,'running');
- await page.evaluate(()=>{const p=window.ballCore.physics;p.powers.spawn(p.paddleX,923,'wide');p.powers.spawn(p.paddleX,923,'triple');});
+ await page.evaluate(()=>{const p=window.ballCore.physics;p.powers.spawn(p.paddleX,1003,'wide');p.powers.spawn(p.paddleX,1003,'triple');});
  await page.waitForFunction(()=>window.ballCore.physics.balls.length>=3&&window.ballCore.physics.wideRemaining>0);
  await page.getByRole('button',{name:'暂停',exact:true}).click();
  const data=()=>page.evaluate(()=>JSON.stringify([window.ballCore.physics.balls,window.ballCore.score.total,window.ballCore.score.combo,window.ballCore.score.remaining,window.ballCore.physics.wideRemaining,window.ballCore.physics.powers.items]));const frozen=await data();await page.waitForTimeout(250);assert.equal(await data(),frozen);
  await page.screenshot({path:`${out}/v04-desktop.png`,fullPage:true});
  await page.getByRole('button',{name:'静音',exact:true}).click();assert.equal(await page.locator('#mute').getAttribute('aria-pressed'),'true');assert.equal(await page.evaluate(()=>window.ballCore.audio.master.gain.value),0);
  await page.getByRole('button',{name:'继续',exact:true}).click();
- await page.evaluate(()=>{const p=window.ballCore.physics;Object.assign(p.balls[0],{x:400,y:1050,vx:0,vy:440,outsideArena:true});});
+ await page.evaluate(()=>{const p=window.ballCore.physics;Object.assign(p.balls[0],{x:400,y:1130,vx:0,vy:440,outsideArena:true});});
  await page.waitForFunction(()=>window.ballCore.physics.balls.length===2);assert.equal(await page.locator('#lives').textContent(),'3');
  const progress=await page.evaluate(()=>({removed:window.ballCore.physics.blocks.removed,score:window.ballCore.score.total}));
- await page.evaluate(()=>{for(const b of window.ballCore.physics.balls)Object.assign(b,{x:400,y:1050,vx:0,vy:440,outsideArena:true});});
+ await page.evaluate(()=>{for(const b of window.ballCore.physics.balls)Object.assign(b,{x:400,y:1130,vx:0,vy:440,outsideArena:true});});
  await page.waitForFunction(()=>window.ballCore.state==='ready');assert.equal(await page.locator('#lives').textContent(),'2');
  const afterLoss=await page.evaluate(()=>({removed:window.ballCore.physics.blocks.removed,score:window.ballCore.score.total,wide:window.ballCore.physics.wideRemaining,drops:window.ballCore.physics.powers.items.some(x=>x.alive)}));assert(afterLoss.removed>=progress.removed&&afterLoss.score>=progress.score);assert.equal(afterLoss.wide,0);assert.equal(afterLoss.drops,false);
  await miss(page);await miss(page);assert.equal(await page.locator('#lives').textContent(),'0');assert.equal(await page.locator('#start').textContent(),'重新挑战');assert.equal(await page.locator('#next').count(),0);

@@ -1,5 +1,6 @@
 import { C } from './GameConfig';
 import { Blocks } from './Blocks';
+import { ARENA_WALL, inExitSector } from './ArenaGeometry';
 import { Effects } from './Effects';
 import { PowerUps, type PowerKind } from './PowerUps';
 export interface Ball { x: number; y: number; vx: number; vy: number; radius: number; alive: boolean; previousX?: number; previousY?: number; outsideArena?: boolean }
@@ -8,24 +9,33 @@ export function reflect(b: Ball, nx: number, ny: number) {
   if (dot < 0) { b.vx -= 2 * dot * nx; b.vy -= 2 * dot * ny; }
 }
 export function boundary(b: Ball) {
-  const a = C.arena, dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy);
+  const a = C.arena;
   if (b.y - b.radius > C.height || b.x + b.radius < 0 || b.x - b.radius > C.width) { b.alive = false; return; }
-  const opening = dy > 0 && Math.abs(dx) + b.radius < a.exitHalfWidth;
-  const inner = a.radius - b.radius, outer = a.radius + b.radius;
-  if (b.outsideArena) {
-    if (opening) { if (d < inner) b.outsideArena = false; return; }
-    // Outside balls meet the outer face of the wall; never snap them inside.
-    if (d < outer && d > 0) {
-      const nx = dx / d, ny = dy / d;
-      b.x = a.x + nx * (outer + .01); b.y = a.y + ny * (outer + .01);
+  let dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy);
+  const contact = b.radius + ARENA_WALL.halfWidth;
+  if (inExitSector(dx, dy)) {
+    // Inside the open sector, the nearest solid is the nearest rounded arc endpoint.
+    const endpointX = dx < 0 ? ARENA_WALL.leftX : ARENA_WALL.rightX;
+    let nx = b.x - endpointX, ny = b.y - ARENA_WALL.endpointY;
+    const distance = Math.hypot(nx, ny);
+    if (distance < contact) {
+      if (distance > 1e-8) { nx /= distance; ny /= distance; }
+      else { nx = dx < 0 ? 1 : -1; ny = 0; }
+      b.x = endpointX + nx * (contact + .01); b.y = ARENA_WALL.endpointY + ny * (contact + .01);
       reflect(b, nx, ny);
+      dx = b.x - a.x; dy = b.y - a.y; d = Math.hypot(dx, dy);
     }
+    // Hysteresis preserves which wall face to use until the whole disk clears it.
+    if (d > a.radius + contact) b.outsideArena = true;
+    else if (d < a.radius - contact) b.outsideArena = false;
     return;
   }
-  if (opening && d > inner) { b.outsideArena = true; return; }
-  if (d > inner) {
-    const nx = -dx / d, ny = -dy / d;
-    b.x = a.x - nx * (inner - .01); b.y = a.y - ny * (inner - .01);
+  const limit = a.radius + (b.outsideArena ? contact : -contact);
+  if ((b.outsideArena && d < limit) || (!b.outsideArena && d > limit)) {
+    const sign = b.outsideArena ? 1 : -1;
+    const nx = d > 0 ? sign * dx / d : 0, ny = d > 0 ? sign * dy / d : sign;
+    b.x = a.x + (d > 0 ? dx / d : 0) * (limit + sign * .01);
+    b.y = a.y + (d > 0 ? dy / d : 1) * (limit + sign * .01);
     reflect(b, nx, ny);
   }
 }

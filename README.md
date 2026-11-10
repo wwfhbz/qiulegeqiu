@@ -69,3 +69,9 @@ BASE_URL=http://127.0.0.1:4173 npm run test:browser:central
 V0.5 在 feature/central-start-v05 开发，基于 main 48b0994beea1968d5a08d8d92ce33ddfc8dcad68。经用户确认，保持现有三关，本次只改交互。本次创建 PR 等待审核，不自动合并 main，不修改腾讯云或《统帅三国》。
 
 腾讯云部署步骤见 [DEPLOYMENT.md](DEPLOYMENT.md)。旧版本 DEPLOYMENT_CHECK.md 与历史压缩包校验值不适用于本次构建；审核合并后需重新构建、打包并单独发布。本项目无云端存档和排行榜。
+
+## 待审核：底部出口缩小
+
+基于 d8950ea 的中央按钮代码（已进入 main），将出口半宽 106→53、端点弦宽 212→106，使用 ArenaGeometry.ts 统一圆弧、描边和端盖碰撞。按本次要求将圆外挡板间距改为160，Canvas 加高至800×1120；原来的80间距说明属于此前版本。关卡仍保持已确认的三关，其他街机规则不变。
+
+75 项单元测试、类型检查、构建和实际浏览器回归通过。[几何定义、审核关系及前后截图](docs/NARROW_EXIT.md)。运行 `BASE_URL=http://127.0.0.1:4173 npm run test:browser:exit` 复现出口验证。新旧图片按相同视口拍摄；半宽减半的口径为圆弧路径端点的水平弦宽，新圆端盖后的可见净宽约104.6。
