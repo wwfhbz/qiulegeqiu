@@ -25,7 +25,7 @@
     "test:browser:leaderboard": "node tests/browser-leaderboard.mjs",
     "test:browser:v08": "node tests/browser-v08.mjs",
     "regions": "npm run regions:check",
-    "test:deploy": "node --test deploy/tests/*.test.mjs"
+    "test:deploy": "node deploy/run-tests.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.56.1",

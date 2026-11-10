@@ -14,7 +14,7 @@ db=/var/lib/qiulegeqiu/leaderboard.sqlite
 [[ $(realpath "$site") = "$site" && -d "$site" && ! -L "$base" && $(realpath "$base") = "$base" ]]
 [[ -z $(find "$site" -type l -print -quit) && ! -L /var/lib/qiulegeqiu && ! -L "$db" ]]
 [[ -f /etc/systemd/system/qiulegeqiu-api.service && ! -L /etc/systemd/system/qiulegeqiu-api.service && ! -L /etc/qiulegeqiu-api.env && -x "$runtime/node" ]]
-[[ $("$runtime/node" --version) = v24.19.0 ]]
+[[ $("$runtime/node" --version) = v24.19.0 ]] || { echo '候选API运行时必须为生产Node v24.19.0，尚未切换版本' >&2;exit 1; }
 "$runtime/node" "$source_dir/deploy/check-production-env.mjs"
 if [[ ${QIULEGEQIU_LOCK_HELD:-} = 1 ]]; then
  [[ $(readlink /proc/self/fd/9) = /run/lock/qiulegeqiu-rollout.lock ]] && flock -n 9
