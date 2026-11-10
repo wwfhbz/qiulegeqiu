@@ -21,12 +21,14 @@ async function miss(page){
  if(await page.evaluate(()=>window.ballCore.state)==='ready')await page.locator('#start').click();
  await page.evaluate(()=>{for(const b of window.ballCore.physics.balls)Object.assign(b,{x:400,y:1130,vx:0,vy:440,outsideArena:true});});
  await page.waitForFunction(()=>['ready','gameOver'].includes(window.ballCore.state));
+ if(await page.locator('.ranking-dialog[open]').count())await page.locator('[data-online-close]').click();
 }
 async function clear(page){
  if(await page.evaluate(()=>window.ballCore.state)==='ready')await page.locator('#start').click();
  // Exercise the real destruction events and same-frame clear/miss precedence.
  await page.evaluate(()=>{const g=window.ballCore;for(let i=0;i<g.physics.blocks.alive.length;i++)g.physics.blocks.hit(i);for(const b of g.physics.balls)b.alive=false;g.update(1/120);});
  await page.waitForFunction(()=>['levelComplete','victory'].includes(window.ballCore.state));
+ if(await page.locator('.ranking-dialog[open]').count())await page.locator('[data-online-close]').click();
  await page.waitForFunction(()=>document.querySelector('#start').textContent===(window.ballCore.state==='levelComplete'?'下一关':'重新挑战'));
 }
 try{

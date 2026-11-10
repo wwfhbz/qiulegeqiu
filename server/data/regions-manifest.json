@@ -1,0 +1,31 @@
+{
+  "version": "MCA-derived-2025-12-31+ISO3166-1-7.14.0",
+  "upstreamCommit": "e2c2b2e1fb4ce1fb76e879aa0b80e229adaf950c",
+  "upstream": "https://raw.githubusercontent.com/yescallop/areacodes/e2c2b2e1fb4ce1fb76e879aa0b80e229adaf950c/data/2025.txt",
+  "sha256": "73520f533c8e3f1aadb3bb55166656a491fb1e7703b2e2172e5694ec8845bab0",
+  "officialSources": [
+    "https://dmfw.mca.gov.cn/XzqhVersionPublish.html",
+    "https://www.mca.gov.cn/mzsj/xzqh/2025/202401xzqh.html",
+    "https://www.iso.org/obp/ui/#search/code/"
+  ],
+  "mirrorLicense": "CC0-1.0",
+  "countrySource": "i18n-iso-countries@7.14.0 (MIT), ISO 3166-1 alpha-2",
+  "counts": {
+    "countries": 249,
+    "province": 34,
+    "prefecture": 333,
+    "county": 2845,
+    "total": 3459
+  },
+  "aliases": {
+    "TW": "710000",
+    "HK": "810000",
+    "MO": "820000"
+  },
+  "limitations": [
+    "使用可复现的2025年末民政部来源社区快照，未经直连官方逐条复核，不宣称2026最新。",
+    "台湾、香港、澳门在此民政部口径仅提供省级代码，不编造县级/非同口径划分。",
+    "直辖市及省直辖县级单位直接挂省级，不虚构市辖区等地级实体。",
+    "地区标签由玩家自选，不验证真实所在地。"
+  ]
+}

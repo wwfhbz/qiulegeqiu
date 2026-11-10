@@ -1,0 +1,1 @@
+{"compilerOptions": {"target": "ES2022", "module": "ESNext", "moduleResolution": "Bundler", "strict": true, "skipLibCheck": true, "outDir": "build", "rootDir": "..", "types": ["node"], "esModuleInterop": true, "noEmit": true}, "include": ["src", "../shared", "../src/ArcadeRules.ts", "../src/GameConfig.ts", "../src/Blocks.ts", "../src/ScoreSystem.ts"]}

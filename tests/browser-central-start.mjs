@@ -21,11 +21,13 @@ async function geometry(page){
 async function clear(page){
  await page.evaluate(()=>{const g=window.ballCore;for(let i=0;i<g.physics.blocks.alive.length;i++)g.physics.blocks.hit(i);for(const b of g.physics.balls)b.alive=false;g.update(1/120);});
  await page.waitForFunction(()=>['levelComplete','victory'].includes(window.ballCore.state));
+ if(await page.locator('.ranking-dialog[open]').count())await page.locator('[data-online-close]').click();
  await page.waitForFunction(()=>document.querySelector('#start').textContent===(window.ballCore.state==='levelComplete'?'下一关':'重新挑战'));
 }
 async function lose(page){
  await page.evaluate(()=>{for(const b of window.ballCore.physics.balls)Object.assign(b,{x:400,y:1130,vx:0,vy:440,outsideArena:true});});
  await page.waitForFunction(()=>['ready','gameOver'].includes(window.ballCore.state));
+ if(await page.locator('.ranking-dialog[open]').count())await page.locator('[data-online-close]').click();
 }
 try{
  const page=await browser.newPage({viewport:{width:1440,height:1300}});page.on('pageerror',e=>errors.push(e.message));await page.goto(base);

@@ -1,0 +1,17 @@
+CREATE TABLE IF NOT EXISTS schema_migrations(version INTEGER PRIMARY KEY, applied_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS regions(code TEXT PRIMARY KEY, parent TEXT REFERENCES regions(code), level TEXT NOT NULL, name TEXT NOT NULL, prefix TEXT NOT NULL, country TEXT NOT NULL, priority INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS regions_parent ON regions(parent,priority,code);
+CREATE TABLE IF NOT EXISTS players(id TEXT PRIMARY KEY, nickname TEXT NOT NULL, normalized_nickname TEXT NOT NULL, region_code TEXT NOT NULL REFERENCES regions(code), region_level TEXT NOT NULL, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, status TEXT NOT NULL CHECK(status IN ('active','banned')), UNIQUE(region_code,normalized_nickname));
+CREATE INDEX IF NOT EXISTS players_nickname ON players(normalized_nickname);
+CREATE TABLE IF NOT EXISTS sessions(id TEXT PRIMARY KEY, player_id TEXT REFERENCES players(id), session_token_hash TEXT NOT NULL UNIQUE, csrf_token TEXT NOT NULL, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS sessions_expiry ON sessions(expires_at);
+CREATE TABLE IF NOT EXISTS challenges(id TEXT PRIMARY KEY, session_id TEXT NOT NULL REFERENCES sessions(id), rules_version TEXT NOT NULL, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, finished_at INTEGER, next_sequence INTEGER NOT NULL DEFAULT 0, event_count INTEGER NOT NULL DEFAULT 0, state TEXT NOT NULL DEFAULT 'open' CHECK(state IN ('open','submitted','abandoned')), unranked INTEGER NOT NULL DEFAULT 0);
+CREATE INDEX IF NOT EXISTS challenges_session ON challenges(session_id,created_at);
+CREATE TABLE IF NOT EXISTS challenge_batches(challenge_id TEXT NOT NULL REFERENCES challenges(id), sequence INTEGER NOT NULL, payload TEXT NOT NULL, payload_hash TEXT NOT NULL, received_at INTEGER NOT NULL, PRIMARY KEY(challenge_id,sequence));
+CREATE TABLE IF NOT EXISTS scores(id TEXT PRIMARY KEY, player_id TEXT NOT NULL REFERENCES players(id), challenge_id TEXT NOT NULL UNIQUE REFERENCES challenges(id), idempotency_key TEXT NOT NULL, request_hash TEXT NOT NULL, score INTEGER NOT NULL CHECK(score>=0), reached_level INTEGER NOT NULL, bricks_destroyed INTEGER NOT NULL, duration_ms INTEGER NOT NULL, completed_all_levels INTEGER NOT NULL, achieved_at INTEGER NOT NULL, submitted_at INTEGER NOT NULL, verification_status TEXT NOT NULL CHECK(verification_status IN ('verified','quarantined','rejected')), review_reason TEXT NOT NULL DEFAULT '', UNIQUE(player_id,idempotency_key));
+CREATE INDEX IF NOT EXISTS scores_player ON scores(player_id,submitted_at DESC);
+CREATE INDEX IF NOT EXISTS scores_order ON scores(verification_status,score DESC,reached_level DESC,duration_ms,achieved_at,id);
+CREATE TABLE IF NOT EXISTS player_bests(player_id TEXT PRIMARY KEY REFERENCES players(id), score_id TEXT NOT NULL UNIQUE REFERENCES scores(id));
+CREATE TABLE IF NOT EXISTS appeals(id TEXT PRIMARY KEY,player_id TEXT REFERENCES players(id),session_id TEXT NOT NULL REFERENCES sessions(id),message TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'open',resolution TEXT,created_at INTEGER NOT NULL,resolved_at INTEGER);
+CREATE TABLE IF NOT EXISTS admin_audit(id TEXT PRIMARY KEY,actor TEXT NOT NULL,action TEXT NOT NULL,target_id TEXT NOT NULL,reason TEXT NOT NULL,created_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS rate_limits(key TEXT PRIMARY KEY,count INTEGER NOT NULL,expires_at INTEGER NOT NULL);

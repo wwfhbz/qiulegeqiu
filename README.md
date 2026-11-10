@@ -1,10 +1,10 @@
-# 球了个球 V0.6.1 · 五命续玩与道具平衡
+# 球了个球 V0.7.0 · 全球挑战排行榜
 
 Vite + TypeScript + HTML5 Canvas 2D 原创弹球游戏，无大型引擎或付费素材。在圆形核心中击碎方块，使用圆外水平挡板接球，用 5 条生命挑战 3 关。
 
 ## 本地运行
 
-需要 Node.js 20.19+ 或 22.12+。
+需要Node.js 24 LTS（前后端统一，后端使用内置SQLite）。
 
 ```sh
 npm install
@@ -103,3 +103,30 @@ V0.5 在 feature/central-start-v05 开发，基于 main 48b0994beea1968d5a08d8d9
 - 当前正式配置仍是三关。第5关保留2000个消除格的场景使用测试专用5关配置验证，未新增或虚构正式关卡/障碍。
 
 [修复说明、文件清单及验收结果](docs/LIVES_BALANCE.md)。生产预览启动后运行 `npm run test:browser:lives`；其余浏览器测试默认将新回归产物写入work，保留旧版本历史截图。
+
+## V0.7 全球挑战排行榜
+
+新增奖杯入口和结束挑战登记弹窗，不占据常驻游戏画面。昵称+自选最终一级地区展示，后端唯一约束防同地区重名，安全HttpOnly会话保持身份；可跳过提交直接重试。全球TOP100按个人历史最佳分页显示，我的排名可超过100名。API不可用不阻塞单机玩法。
+
+```sh
+npm ci
+npm ci --prefix server
+# 终端1（生产预览同源Origin；开发5173则相应修改）
+PUBLIC_ORIGIN=http://127.0.0.1:4173 npm run api:dev
+# 终端2
+npm run build
+npm run preview -- --port 4173
+npm run typecheck
+npm test
+npm run typecheck --prefix server
+npm test --prefix server
+npm run build --prefix server
+npm run regions:check
+npm run test:browser:leaderboard
+```
+
+SQLite数据默认在根work，不属于dist。生产独立数据库、systemd、/api代理、打包/发布/备份/恢复/回滚说明见[部署文档](docs/DEPLOYMENT_V07.md)。原DEPLOYMENT.md为历史静态版本说明，不能替代后端部署。
+
+[数据库/API/安全边界](docs/LEADERBOARD_API.md) · [地区来源与更新](docs/REGION_DATA.md) · [浏览器联网结果](docs/leaderboard-browser-results.json) · [桌面截图](docs/screenshots/leaderboard-desktop.png) · [手机截图](docs/screenshots/leaderboard-mobile.png)。当前地区使用2025年末MCA来源社区快照，非2026最新；港澳台仅选数据实际提供层级。昵称词库仅后端，支持私有内容安全网关。
+
+前端117项、后端26项测试，含真实游戏日志重算、40并发唯一注册、身份隔离、幂等、排序/分页、异常隔离和原关续玩。浏览器真实联网两名玩家完成消块、地区选择、登记、提交、查榜及刷新身份；模拟断网仍可跳过并重新开始。verified表示通过事件/规则验证，不代表服务端物理回放已防止所有作弊；完整限制见API文档。未部署线上，未改其他游戏。

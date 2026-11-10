@@ -1,3 +1,4 @@
+import { LeaderboardUI } from './online/LeaderboardUI';
 import { Game } from './Game';
 import { C } from './GameConfig';
 import { activateCentralAction, centralActionFor } from './CentralAction';
@@ -32,7 +33,9 @@ export function mountGame(root: HTMLElement) {
   </main>`;
   const el = (id: string) => root.querySelector<HTMLElement>(`#${id}`)!;
   const button = (id: string) => el(id) as HTMLButtonElement;
+  let online: LeaderboardUI | undefined;
   const update = (g: Game) => {
+    online?.observe(g);
     const blocks = g.physics.blocks, level = g.levels.current;
     el('level').textContent = `${String(level.number).padStart(2, '0')}/${String(g.levels.count).padStart(2, '0')}`;
     el('hearts').setAttribute('aria-label', `剩余${g.lives}条生命`);
@@ -79,5 +82,6 @@ export function mountGame(root: HTMLElement) {
   };
   button('stress').hidden = new URLSearchParams(location.search).get('debug') !== '1';
   button('stress').onclick = () => game.stress();
+  online = new LeaderboardUI(root,game);
   update(game); return game;
 }
