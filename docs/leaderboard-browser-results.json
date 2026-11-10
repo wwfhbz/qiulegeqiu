@@ -1,0 +1,36 @@
+{
+  "base": "http://127.0.0.1:4173",
+  "results": [
+    {
+      "viewport": [
+        1366,
+        768
+      ],
+      "nickname": "街机13668387",
+      "score": 20,
+      "rank": 2,
+      "region": "CN:341222",
+      "registered": true,
+      "reloadKeepsIdentity": true,
+      "pagination": true,
+      "overflow": false
+    },
+    {
+      "viewport": [
+        390,
+        844
+      ],
+      "nickname": "街机3903969",
+      "score": 20,
+      "rank": 4,
+      "region": "CN:341222",
+      "registered": true,
+      "reloadKeepsIdentity": true,
+      "pagination": true,
+      "overflow": false
+    }
+  ],
+  "offlineSkipAndRetry": true,
+  "errors": [],
+  "note": "真实RAF消块及球死亡后向本地SQLite API提交，未mock排行榜；地区为用户自选标签。"
+}

@@ -1,0 +1,24 @@
+[Unit]
+Description=球了个球排行榜API
+After=network.target
+
+[Service]
+Type=simple
+User=qiulegeqiu
+Group=qiulegeqiu
+WorkingDirectory=/opt/qiulegeqiu-api/current/server
+EnvironmentFile=/etc/qiulegeqiu-api.env
+ExecStart=/usr/bin/node build/index.js
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/qiulegeqiu
+UMask=0077
+MemoryMax=256M
+TasksMax=64
+
+[Install]
+WantedBy=multi-user.target

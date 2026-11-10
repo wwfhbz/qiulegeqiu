@@ -102,6 +102,8 @@ export class Physics {
   speedScale = 1;
   powerUpDropMultiplier = 1;
   get powerDropEvery() { return Math.max(1, Math.round(C.power.dropEvery / this.powerUpDropMultiplier)); }
+  onBallLost?: () => void;
+  onPowerCollected?: (kind: PowerKind) => void;
   onBlockDestroyed?: (index: number) => void;
   onStep?: (dt: number) => void;
   get launchSpeed() { return Math.max(C.ball.minSpeed, Math.min(C.ball.maxSpeed, C.ball.speed * this.speedScale)); }
@@ -124,6 +126,7 @@ export class Physics {
   collect(kind: PowerKind) {
     if (kind === 'wide') { this.wideRemaining = C.power.duration; this.clampPaddle(); }
     else this.triple();
+    this.onPowerCollected?.(kind);
     this.onSound?.('power');
   }
   private clampPaddle() { this.setTarget(this.targetX); const target = this.targetX; this.setTarget(this.paddleX); this.paddleX = this.targetX; this.targetX = target; }
@@ -220,7 +223,7 @@ export class Physics {
         for (let contact = 0; contact < 3; contact++) if (!blockCollision(b, this.blocks)) break;
         boundary(b); frameCollision(b);
         // The only gameplay removal condition, evaluated after all contact corrections.
-        if (isBallInDeathZone(b)) b.alive = false;
+        if (isBallInDeathZone(b)) { b.alive = false; this.onBallLost?.(); }
       }
     }
     this.recycleDead();

@@ -1,3 +1,4 @@
+import { ChallengeJournal } from './ChallengeJournal';
 import { C } from './GameConfig';
 import { Physics } from './Physics';
 import { Renderer } from './Renderer';
@@ -10,6 +11,7 @@ import type { GameState, ReadyReason } from './GameState';
 /** Coordinates the arcade session; physics and rendering remain independent. */
 export class Game {
   readonly physics = new Physics();
+  readonly journal = new ChallengeJournal();
   readonly audio = new AudioSystem();
   readonly score = new ScoreSystem(this.physics.blocks.alive.length);
   private remainingLives: number = ARCADE.initialLives;
@@ -25,8 +27,10 @@ export class Game {
   constructor(canvas?: HTMLCanvasElement, private onChange: (game: Game) => void = () => {}, readonly levels = new LevelManager()) {
     this.configureLevel();
     this.physics.onSound = this.audio.play;
-    this.physics.onStep = dt => { if (this.state === 'running') this.score.update(dt); };
-    this.physics.onBlockDestroyed = index => { if (this.state === 'running') this.score.hit(index); };
+    this.physics.onStep = dt => { if (this.state === 'running') { this.score.update(dt); this.journal.tick++; } };
+    this.physics.onBlockDestroyed = index => { if (this.state === 'running' && this.score.hit(index)>0) this.journal.record({type:'hit',level:this.levels.current.number,index}); };
+    this.physics.onBallLost = () => { if(this.state==='running')this.journal.record({type:'ballLost',level:this.levels.current.number}); };
+    this.physics.onPowerCollected = kind => { if(this.state==='running')this.journal.record({type:'power',level:this.levels.current.number,kind}); };
     if (!canvas) return;
     this.renderer = new Renderer(canvas);
     const move = (e: PointerEvent) => {
@@ -42,7 +46,7 @@ export class Game {
 
   start() {
     if (this.lives <= 0 || (this.state !== 'ready' && this.state !== 'paused')) return;
-    if (this.state === 'ready') { this.roundActive = true; for (const b of this.physics.balls) this.physics.aimLaunch(b); }
+    if (this.state === 'ready') { this.journal.record({type:'launch',level:this.levels.current.number}); this.roundActive = true; for (const b of this.physics.balls) this.physics.aimLaunch(b); }
     this.audio.unlock(); this.physics.paused = false; this.physics.accumulator = 0;
     this.state = 'running'; this.onChange(this);
   }
@@ -52,19 +56,22 @@ export class Game {
   }
   reset() {
     this.roundActive = false;
+    this.journal.reset();
     this.levels.reset(); this.remainingLives = ARCADE.initialLives; this.score.reset(); this.result = undefined;
     this.configureLevel();
     this.physics.reset(); this.state = 'ready'; this.readyReason = 'initial'; this.onChange(this);
   }
   nextLevel() {
+    const previousLevel=this.levels.current.number;
     if (this.state !== 'levelComplete' || !this.levels.next()) return;
     this.roundActive = false;
+    this.journal.record({type:'next',level:previousLevel});
     this.score.beginLevel(); this.result = undefined;
     this.configureLevel();
     this.physics.reset(); this.state = 'ready'; this.readyReason = 'levelStart'; this.onChange(this);
   }
   stress() {
-    this.reset();
+    this.reset(); this.journal.unranked=true;
     for (let i = 1; i < C.maxBalls; i++) {
       const b = this.physics.newBall(); b.x += (i % 20 - 10) * 10; b.y += Math.floor(i / 20) * 2;
       this.physics.balls.push(b);
@@ -78,15 +85,19 @@ export class Game {
       if (this.physics.blocks.remaining === 0) {
         this.roundActive = false;
         this.result = this.score.complete(this.lives);
+        this.journal.record({type:'clear',level:this.levels.current.number});
+        if(this.levels.isFinal)this.journal.record({type:'finish',level:this.levels.current.number});
         this.state = this.levels.isFinal ? 'victory' : 'levelComplete';
         this.physics.paused = true; this.physics.accumulator = 0; this.audio.play('win');
       } else if (this.roundActive && !this.physics.balls.some(b => b.alive)) {
         this.roundActive = false;
+        this.journal.record({type:'lost',level:this.levels.current.number});
         this.remainingLives = Math.max(0, this.remainingLives - 1);
         this.score.resetCombo(); this.physics.resetRound(this.lives > 0);
         this.state = this.lives > 0 ? 'ready' : 'gameOver';
         this.readyReason = 'lifeLost';
         this.physics.paused = this.lives === 0;
+        if(this.lives===0)this.journal.record({type:'finish',level:this.levels.current.number});
       }
     } else if (this.state === 'ready') {
       const maxMove = C.paddle.speed * Math.min(C.maxFrame, Math.max(0, dt));
