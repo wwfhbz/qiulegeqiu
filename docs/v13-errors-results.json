@@ -1,0 +1,21 @@
+[
+  {
+    "oldBackendDetected": true,
+    "identityRegistrationWorks": true,
+    "unsupportedChallengeNotPosted": true,
+    "legacyHistoryVisible": true,
+    "legacyRankNotMislabelled": true,
+    "skipWorks": true
+  },
+  {
+    "html502Accurate": true,
+    "refreshRecovers": true
+  },
+  {
+    "partialUpgradeSavedNotice": true,
+    "scoreActuallySaved": true
+  },
+  {
+    "expiredIdentityUnlocksRegistration": true
+  }
+]

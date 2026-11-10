@@ -33,7 +33,7 @@ export function verifyTrace(events: ChallengeEvent[], wallMs: number,seed=1,rule
         if(destroyedThisLevel%interval===0){const kind=weightedPower(powerProfile(levels[level-1]),random);if(drops.length<C.power.maxDrops)drops.push({kind,tick:e.tick,y:blocks.top+Math.floor(e.index/blocks.cols)*blocks.step+blocks.size/2});}break;
       }
       case 'power':{
-        if(phase!=='running')throw new ApiError(422,'道具拾取状态无效');
+        if(phase!=='running'||balls<=0)throw new ApiError(422,'道具拾取状态无效');
         const index=drops.findIndex(d=>d.kind===e.kind&&(e.tick-d.tick)*C.step*C.power.fallSpeed>=C.paddle.y-C.paddle.height/2-C.power.radius-d.y-C.power.fallSpeed*C.step-.02&&(e.tick-d.tick)*C.step*C.power.fallSpeed<=C.height+C.power.radius-d.y+.02);
         if(index<0)throw new ApiError(422,'无对应可拾取道具');drops.splice(index,1);
         if(e.kind==='triple')balls=Math.min(C.maxBalls,balls*3);

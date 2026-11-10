@@ -61,7 +61,7 @@ it('生产禁止HTTP、本地开发可显式HTTP；分享不携带凭据或未�
  let share:(()=>{title:string;query?:string})|undefined;f.wx.onShareAppMessage=fn=>{share=fn;};new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});expect(share!().title).toContain('球球出击');expect(share!().query).toBe('source=friend');expect(JSON.stringify(share!())).not.toMatch(/token|openid|session/);
 });
 it('异步微信登录在后台完成时仍保持暂停，不会回到前台自动发射',async()=>{
- const f=fixture();let pending:Parameters<Wx['login']>[0]|undefined;f.wx.login=o=>{pending=o;};f.wx.showModal=o=>o.success?.({confirm:true});f.wx.request=o=>o.success({statusCode:200,data:o.url.endsWith('/wechat/login')?{token:'b'.repeat(43),csrfToken:'csrf',expiresAt:Date.now()+60000}:{rulesVersion:RULES_VERSION,player:null,best:null}});
+ const f=fixture();let pending:Parameters<Wx['login']>[0]|undefined;f.wx.login=o=>{pending=o;};f.wx.showModal=o=>o.success?.({confirm:true});f.wx.request=o=>o.success({statusCode:200,data:o.url.endsWith('/wechat/login')?{token:'b'.repeat(43),csrfToken:'csrf',expiresAt:Date.now()+60000}:{csrfToken:'csrf',rulesVersion:RULES_VERSION,player:null,best:null}});
  const app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});const starting=(app as unknown as {activate():Promise<void>}).activate();await vi.waitFor(()=>expect(pending).toBeDefined());f.events.hide();pending!.success({code:'late-login'});await starting;expect(app.game.state).toBe('paused');expect(app.game.journal.tick).toBe(0);f.events.show();expect(app.game.state).toBe('paused');
 });
 it('选择单机不会继承上一轮联网标记或暗中调用微信登录',async()=>{
@@ -75,4 +75,12 @@ it('新版品牌与Canvas HUD读取同一个真实生命源，逐轮立即显示
  const f=fixture(),app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});let now=100;app.frame(now);expect(f.texts).toContain('球球出击');
  for(let lives=4;lives>=0;lives--){app.game.start();for(const b of app.game.physics.balls)Object.assign(b,{x:400,y:1080,vx:0,vy:760,outsideArena:true});app.game.physics.powers.spawn(400,C.paddle.y,'life');f.texts.length=0;now+=20;app.frame(now);expect(app.game.lives).toBe(lives);expect(f.texts.some(s=>s.includes('生命 ♥×'+lives))).toBe(true);}
  expect(app.game.state).toBe('gameOver');
+});
+it('微信个人会话失效不能隐藏公开全球榜，只有一个榜单且可刷新',async()=>{
+ const f=fixture();f.wx.login=o=>o.success({code:'login-code'});f.wx.request=o=>{
+  if(o.url.endsWith('/wechat/login'))return o.success({statusCode:200,data:{token:'c'.repeat(43),csrfToken:'proof',expiresAt:Date.now()+60000}});
+  if(o.url.includes('/leaderboard?'))return o.success({statusCode:200,data:{board:'global',rankingRulesVersion:RULES_VERSION,items:[{rank:1,display_name:'中国·公开榜玩家',score:10,reached_level:1}],nextOffset:null}});
+  o.success({statusCode:401,data:{message:'登录状态失效'}});
+ };const app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});await app.api.login();await (app as unknown as {board():Promise<void>}).board();
+ expect(app.panel.title).toContain('全球历史排行榜');expect(app.panel.lines.join('')).toContain('中国·公开榜玩家');expect(app.panel.lines.join('')).toContain('重新登录');expect(app.panel.actions.map(a=>a.label)).toContain('刷新');expect(app.panel.actions.some(a=>/赛季|旧版/.test(a.label))).toBe(false);expect(app.api.authenticated).toBe(false);
 });

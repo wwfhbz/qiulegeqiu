@@ -106,3 +106,9 @@ it('同一绑定码并发消费只成功一个，微信注册不能绕过昵称�
  const a=(await login(s,'race-one:a')).json(),b=(await login(s,'race-two:a')).json();const results=await Promise.all([a,b].map(c=>s.app.inject({method:'POST',url:'/api/wechat/bind',headers:headers(c),payload:{ticket}})));expect(results.map(r=>r.statusCode).sort()).toEqual([200,409]);expect(s.db.prepare('SELECT COUNT(*) n FROM wechat_identities WHERE player_id IS NOT NULL').get()!.n).toBe(1);
  const bad=(await login(s,'moderation:a')).json();expect((await register(s,headers(bad),'官方管理员')).statusCode).toBe(400);
 });
+it('绑定尝试按微信身份限流，不能反复探测或靠更换会话绕过',async()=>{
+ const s=await setup(),a=(await login(s,'probe:a')).json();
+ for(let n=0;n<10;n++)expect((await s.app.inject({method:'POST',url:'/api/wechat/bind',headers:headers(a),payload:{ticket:'x'.repeat(43)}})).statusCode).toBe(409);
+ const b=(await login(s,'probe:b')).json();expect((await s.app.inject({method:'POST',url:'/api/wechat/bind',headers:headers(b),payload:{ticket:'y'.repeat(43)}})).statusCode).toBe(429);
+ expect(s.db.prepare('SELECT COUNT(*) n FROM players').get()!.n).toBe(0);
+});

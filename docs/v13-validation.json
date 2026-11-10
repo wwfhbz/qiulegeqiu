@@ -1,0 +1,32 @@
+{
+  "version": "1.3.0",
+  "gameRules": "1.2.0-arcade-5l-12lv-v1",
+  "date": "2026-11-10",
+  "timezone": "Asia/Shanghai",
+  "automatedTests": {
+    "client": 194,
+    "server": 59,
+    "deployment": 26,
+    "minigamePackage": 3
+  },
+  "typecheck": [
+    "web",
+    "server",
+    "minigame"
+  ],
+  "build": [
+    "web",
+    "server",
+    "minigame"
+  ],
+  "browser": {
+    "mainWebClients": 2,
+    "v12Viewports": 3,
+    "layoutViewports": 5,
+    "wechatCompatibilityViewports": 3,
+    "errorsScenarios": 4
+  },
+  "productionReadAttempt": "health request blocked by environment proxy 403; source server not reached",
+  "productionChanged": false,
+  "officialWechatDeviceTested": false
+}

@@ -1,4 +1,4 @@
-import { RULES_VERSION, type ChallengeEvent } from '../../shared/Challenge';
+import { RULES_VERSION,assertChallengeSupport, type ChallengeEvent } from '../../shared/Challenge';
 import type { Game } from '../Game';
 import type { ApiTransport } from '../../shared/ApiTransport';
 interface Run { generation:number; id:Promise<string>; sequence:number; acknowledged:number; pending?:ChallengeEvent[]; key:string; pumping?:Promise<void>; error?:string }
@@ -9,7 +9,7 @@ export class ChallengeSync {
   observe(){const journal=this.game.journal;if(!journal.events.length)return;
     if(!this.run||this.run.generation!==journal.generation){
       const run:Run={generation:journal.generation,id:Promise.resolve(''),sequence:0,acknowledged:0,key:this.clientId()};
-      run.id=this.api.request<{id:string}>('/challenges',{rulesVersion:RULES_VERSION,unranked:journal.unranked,seed:journal.seed}).then(r=>r.id).catch(error=>{run.error=String(error.message);return '';});this.run=run;
+      run.id=this.api.request<Parameters<typeof assertChallengeSupport>[0]>('/health').then(health=>{assertChallengeSupport(health);return this.api.request<{id:string;rulesVersion:string}>('/challenges',{rulesVersion:RULES_VERSION,unranked:journal.unranked,seed:journal.seed});}).then(r=>{if(r.rulesVersion!==RULES_VERSION||typeof r.id!=='string'||!r.id)throw Error('挑战接口返回的规则版本或标识无效，本次不能登记成绩');return r.id;}).catch(error=>{run.error=String(error.message);return '';});this.run=run;
     }
     if(this.clock()-this.lastPump>1500||journal.events.length-this.run.acknowledged>=128){this.lastPump=this.clock();void this.flush().catch(()=>{});}
   }
@@ -22,7 +22,12 @@ export class ChallengeSync {
       }
     })().catch(error=>{run.error=error.message;throw error;}).finally(()=>{run.pumping=undefined;});return run.pumping;
   }
-  async submit(){if(this.game.journal.truncated)throw new Error('记录数量超限，本次仅保留本机成绩');await this.flush();const run=this.run!;if(run.generation!==this.game.journal.generation)throw new Error('挑战已重新开始');const id=await run.id;
+  async submit(){
+    const run=this.run,generation=this.game.journal.generation;
+    if(!run||run.generation!==generation)throw new Error('本次未建立联网挑战，仍可直接重新挑战');
+    if(this.game.state!=='gameOver'&&this.game.state!=='victory')throw new Error('本次挑战尚未结束');
+    if(this.game.journal.truncated)throw new Error('记录数量超限，本次仅保留本机成绩');
+    await this.flush();if(this.run!==run||run.generation!==this.game.journal.generation)throw new Error('挑战已重新开始');const id=await run.id;
     return this.api.request<{verificationStatus:string}>(`/challenges/${id}/submit`,{idempotencyKey:run.key,summary:this.game.journal.summary(this.game.score.total,this.game.levels.current.number,this.game.state==='victory')});
   }
 }

@@ -1,4 +1,4 @@
-import {RULES_VERSION,LEGACY_RULES_VERSION,assertRulesVersion} from '../../shared/Challenge';
+import {assertGlobalBoard,type LeaderboardMetadata} from '../../shared/Challenge';
 import {GAME_NAME} from '../../shared/Brand';
 import {Game} from '../../src/Game';
 import {C} from '../../src/GameConfig';
@@ -21,7 +21,7 @@ export class MiniGameApp {
  private arena:Canvas;private renderer:Renderer;private ctx:CanvasRenderingContext2D;private sync:ChallengeSync;
  private view=layout(375,667);private dpr=1;private previous=0;private active=true;private online=false;private offlinePreference=false;private busy=false;private lastEnd=-1;
  private touch?:{id:number;x:number;y:number;moved:boolean;drag:boolean};private actions:{rect:Rect;run:()=>void}[]=[];
- private season:string=RULES_VERSION;private me?:Me;private nicknameDraft='';private region:Region={code:'ISO:CN',prefix:'中国',name:'中国',hasChildren:true,path:''};private shareImage?:string;
+ private boardRevision=0;private me?:Me;private nicknameDraft='';private region:Region={code:'ISO:CN',prefix:'中国',name:'中国',hasChildren:true,path:''};private shareImage?:string;
  constructor(private wx:Wx,config:Config){
   this.canvas=wx.createCanvas();this.arena=wx.createCanvas();const cache=wx.createCanvas();
   this.ctx=context(this.canvas);context(this.arena);context(cache);
@@ -84,7 +84,7 @@ export class MiniGameApp {
   {label:'提交本次成绩',run:()=>void this.submit()}, {label:'查看全球排行榜',run:()=>void this.board()},
   {label:'跳过提交，重新挑战',run:()=>{this.panel.close();g.reset();}}, {label:'关闭结算',run:()=>this.panel.close()}
  ]);}
- private async submit(){this.season=RULES_VERSION;return this.task(async()=>{if(!this.online)throw Error('本轮单机成绩无法登记；下一轮开始时可选择联网');
+ private async submit(){return this.task(async()=>{if(!this.online)throw Error('本轮单机成绩无法登记；下一轮开始时可选择联网');
   this.me=await this.api.me();if(!this.me.player){const name=await this.modal('登记玩家昵称','允许中文、英文、数字及安全字符，2～12个字符。','下一步','取消',true,this.nicknameDraft);if(!name.confirm)return;const nickname=name.content||'';this.nicknameDraft=nickname;
    const check=await this.api.request<{message:string;available:boolean}>('/players/availability?nickname='+encodeURIComponent(nickname)+'&region='+encodeURIComponent(this.region.code));
    if(!check.available){const change=await this.modal('昵称查重',check.message,'换地区','换昵称');if(change.confirm)await this.regions(undefined,()=>void this.submit());return;}
@@ -92,13 +92,14 @@ export class MiniGameApp {
    if(!ok.confirm){await this.regions(undefined,()=>void this.submit());return;}
    await this.api.request('/players',{nickname,regionCode:this.region.code});this.me=await this.api.me();
   }
-  const result=await this.sync.submit();this.me=await this.api.me();this.toast(result.verificationStatus==='verified'?'成绩已登记':'成绩待复核');await this.board();
+  const result=await this.sync.submit();let refreshed=true;try{this.me=await this.api.me();}catch{this.me=undefined;refreshed=false;}this.toast((result.verificationStatus==='verified'?'成绩已登记':'成绩待复核')+(refreshed?'':'，个人记录暂无法刷新'));await this.board();
  });}
- private async board(offset=0){this.game.pause();const pageSize=this.view.height<650?3:5,season=this.season;try{const result=await this.api.request<{items:BestScore[];nextOffset:number|null;rulesVersion?:string}>(`/leaderboard?offset=${offset}&limit=${pageSize}&rulesVersion=${encodeURIComponent(season)}`);
-  assertRulesVersion(result.rulesVersion,season);const me=this.api.authenticated?await this.api.request<Me>('/me?rulesVersion='+encodeURIComponent(season)):undefined;if(season!==this.season)return;if(season===RULES_VERSION)this.me=me;
-  const lines=[me?.best?`我的排名 ${me.best.rank}　最高分 ${me.best.score}`:'个人最高分：暂无已验证记录',...result.items.map(r=>`${r.rank}. ${r.display_name}　${r.score}分　${r.reached_level}关`)];
-  this.panel.show(GAME_NAME+' · 全球榜单',[this.season===RULES_VERSION?'赛季：新手12关':'赛季：旧版历史榜',...lines],[{label:'切换新旧赛季',run:()=>{this.season=this.season===RULES_VERSION?LEGACY_RULES_VERSION:RULES_VERSION;void this.board();}},{label:'上一页',run:()=>void this.board(Math.max(0,offset-pageSize)),half:true},{label:'下一页',run:()=>{if(result.nextOffset!==null)void this.board(result.nextOffset);},half:true},{label:'关闭排行榜',run:()=>this.panel.close()}]);
- }catch(error){this.toast((error as Error).message);}}
+ private async board(offset=0){this.game.pause();const pageSize=this.view.height<650?3:5,revision=++this.boardRevision;try{
+  const result=await this.api.request<{items:BestScore[];nextOffset:number|null}&LeaderboardMetadata>(`/leaderboard?offset=${offset}&limit=${pageSize}&board=global`);assertGlobalBoard(result);
+  let me:Me|undefined,identityError='';try{if(this.api.authenticated)me=await this.api.me();}catch{this.me=undefined;identityError='个人记录暂不可用，请重新登录；全球榜单仍可查看';}if(revision!==this.boardRevision)return;if(me)this.me=me;
+  const lines=[...(identityError?[identityError]:[]),me?.best?`我的排名 ${me.best.rank}　历史最高 ${me.best.score}`:'我的排名：未上榜',...(me?.historicalBest?[`旧版记录 ${me.historicalBest.score}分（保留，需新版重赛上榜）`]:[]),...result.items.map(r=>`${r.rank}. ${r.display_name}　${r.score}分　${r.reached_level}关`)];
+  this.panel.show(GAME_NAME+' · 全球历史排行榜',lines,[{label:'刷新',run:()=>void this.board(offset)},{label:'上一页',run:()=>void this.board(Math.max(0,offset-pageSize)),half:true},{label:'下一页',run:()=>{if(result.nextOffset!==null)void this.board(result.nextOffset);},half:true},{label:'关闭排行榜',run:()=>this.panel.close()}]);
+ }catch(error){if(revision===this.boardRevision)this.toast((error as Error).message);}}
  private async regions(parent:Region|undefined,done:()=>void,query='',offset=0){
   try{const q=`q=${encodeURIComponent(query)}&offset=${offset}${parent?'&parent='+encodeURIComponent(parent.code):''}`;const result=await this.api.request<{items:Region[];nextOffset:number|null}>('/regions?'+q);this.regionPage(result.items,0,parent,done,query,offset,result.nextOffset);}catch(error){this.toast((error as Error).message);}
  }

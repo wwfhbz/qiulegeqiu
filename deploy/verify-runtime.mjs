@@ -1,3 +1,4 @@
+import {verifyLeaderboardHealth,verifyLeaderboardPage} from './leaderboard-contract.mjs';
 // Run as the production service user, with cwd exactly the new release/server.
 import {readFileSync,realpathSync} from 'node:fs';
 import {resolve,join,sep} from 'node:path';
@@ -48,6 +49,8 @@ async function smokeStart(server){
   const port=Number(new URL(address).port);if(port===8080||port===8091)throw Error('预检不能占用正式或其他游戏端口');
   const response=await fetch(address+'/api/health',{signal:AbortSignal.timeout(3000)}),body=await response.json();
   if(!response.ok||!body.ok||body.database!=='ready')throw Error('候选API健康检查失败');
+  verifyLeaderboardHealth(body);
+  const boardResponse=await fetch(address+'/api/leaderboard?board=global&limit=20',{signal:AbortSignal.timeout(3000)});if(!boardResponse.ok)throw Error('候选API统一榜单不可用');verifyLeaderboardPage(await boardResponse.json(),body.rulesVersion);
   healthy=true;
  }finally{
   if(!exit)child.kill('SIGTERM');

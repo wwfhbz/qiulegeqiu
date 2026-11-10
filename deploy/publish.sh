@@ -34,6 +34,11 @@ release_id=$(date -u +%Y%m%dT%H%M%SZ)-$$
 release="$base/releases/$release_id"
 previous=''
 if [[ -e "$base/current" ]];then [[ -L "$base/current" ]];previous=$(readlink -f "$base/current");[[ "$previous" = "$base/releases/"* && -f "$previous/server/build/index.js" ]];fi
+if [[ -n "$previous" && -f "$db" ]];then
+ "$runtime/node" --input-type=module - "$source_dir/deploy/leaderboard-contract.mjs" "$source_dir/RULES_VERSION" "$previous/RULES_VERSION" <<'JS'
+import {readFileSync,existsSync} from 'node:fs';import {pathToFileURL} from 'node:url';const {verifyRollbackCompatibility}=await import(pathToFileURL(process.argv[2]));verifyRollbackCompatibility(readFileSync(process.argv[3],'utf8'),existsSync(process.argv[4])?readFileSync(process.argv[4],'utf8'):undefined);
+JS
+fi
 install -d -m 755 "$release"
 cp -r "$source_dir/server" "$source_dir/deploy" "$release/"
 cp "$source_dir/VERSION" "$source_dir/RULES_VERSION" "$release/"
@@ -76,8 +81,8 @@ mv -Tf "$base/current.new-$$" "$base/current"
 switched=1
 systemctl restart qiulegeqiu-api
 curl --fail --max-time 3 --retry 5 --retry-connrefused --retry-delay 1 http://127.0.0.1:8091/api/health > "$release/health.json"
-"$runtime/node" --input-type=module - "$release/health.json" "$release/RULES_VERSION" <<'JS'
-import {readFileSync} from 'node:fs';const data=JSON.parse(readFileSync(process.argv[2],'utf8'));if(!data.ok||data.database!=='ready'||data.rulesVersion!==readFileSync(process.argv[3],'utf8').trim())throw Error('API与前端规则版本或数据库检查不一致');
+"$runtime/node" --input-type=module - "$release/health.json" "$release/RULES_VERSION" "$release/deploy/leaderboard-contract.mjs" <<'JS'
+import {readFileSync} from 'node:fs';import {pathToFileURL} from 'node:url';const {verifyLeaderboardHealth}=await import(pathToFileURL(process.argv[4]));verifyLeaderboardHealth(JSON.parse(readFileSync(process.argv[2],'utf8')),readFileSync(process.argv[3],'utf8').trim());
 JS
 main_pid=$(systemctl show qiulegeqiu-api -p MainPID --value)
 listeners=$(ss -H -lntp '( sport = :8091 )')
