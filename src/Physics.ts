@@ -13,6 +13,8 @@ export function boundary(b: Ball) {
   const a = C.arena;
   let dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy);
   const contact = b.radius + ARENA_WALL.halfWidth;
+  // Below the entire circle is unambiguously exterior, even with stale region metadata.
+  if (dy > a.radius + contact) b.outsideArena = true;
   if (inExitSector(dx, dy)) {
     // Inside the open sector, the nearest solid is the nearest rounded arc endpoint.
     const endpointX = dx < 0 ? ARENA_WALL.leftX : ARENA_WALL.rightX;
