@@ -1,0 +1,122 @@
+{
+  "harness": "Chromium wx API compatibility mock; not official DevTools",
+  "reports": [
+    {
+      "name": "phone",
+      "width": 750,
+      "height": 812,
+      "moved": true,
+      "balls": 3,
+      "playedBricks": 1,
+      "state": "gameOver",
+      "lives": 0,
+      "best": {
+        "id": "886795a5-7229-4cfd-97d6-732bd34ea6fb",
+        "score": 0,
+        "reached_level": 1,
+        "bricks_destroyed": 0,
+        "duration_ms": 10042,
+        "completed_all_levels": 0,
+        "achieved_at": 1794319449037,
+        "player_id": "b77615ab-17c1-42ad-86bc-1df3e496dcfe",
+        "nickname": "兼容测试375",
+        "region_label": "中国",
+        "region_code": "ISO:CN",
+        "rules_version": "1.2.0-arcade-5l-12lv-v1",
+        "rank": 1,
+        "display_name": "中国·兼容测试375"
+      },
+      "boardCount": 1,
+      "share": {
+        "title": "球球出击：我的最高纪录 0 分，一起突破！",
+        "query": "source=friend"
+      },
+      "stress": {
+        "frames": 90,
+        "elapsedMs": 1488.6,
+        "averageFps": 60.45949214026602,
+        "maxFrameMs": 16.800000000000182,
+        "ballsAtEnd": 100
+      },
+      "errors": []
+    },
+    {
+      "name": "small-phone",
+      "width": 640,
+      "height": 568,
+      "moved": true,
+      "balls": 3,
+      "playedBricks": 1,
+      "state": "gameOver",
+      "lives": 0,
+      "best": {
+        "id": "62f9e5b8-ee6b-48bc-ab1c-7e4783b50eae",
+        "score": 0,
+        "reached_level": 1,
+        "bricks_destroyed": 0,
+        "duration_ms": 10042,
+        "completed_all_levels": 0,
+        "achieved_at": 1794319469037,
+        "player_id": "8ad5065e-c772-4085-9823-87a5c08b9634",
+        "nickname": "兼容测试320",
+        "region_label": "中国",
+        "region_code": "ISO:CN",
+        "rules_version": "1.2.0-arcade-5l-12lv-v1",
+        "rank": 2,
+        "display_name": "中国·兼容测试320"
+      },
+      "boardCount": 2,
+      "share": {
+        "title": "球球出击：我的最高纪录 0 分，一起突破！",
+        "query": "source=friend"
+      },
+      "stress": {
+        "frames": 90,
+        "elapsedMs": 1481.09999999702,
+        "averageFps": 60.76564715426446,
+        "maxFrameMs": 16.800000000000182,
+        "ballsAtEnd": 100
+      },
+      "errors": []
+    },
+    {
+      "name": "tablet",
+      "width": 1536,
+      "height": 1024,
+      "moved": true,
+      "balls": 3,
+      "playedBricks": 1,
+      "state": "gameOver",
+      "lives": 0,
+      "best": {
+        "id": "e895c0ab-6eac-456f-b037-cda05d12f277",
+        "score": 0,
+        "reached_level": 1,
+        "bricks_destroyed": 0,
+        "duration_ms": 10042,
+        "completed_all_levels": 0,
+        "achieved_at": 1794319489037,
+        "player_id": "f3b2052d-13a9-4d1f-a01e-78bb732f64fc",
+        "nickname": "兼容测试768",
+        "region_label": "中国",
+        "region_code": "ISO:CN",
+        "rules_version": "1.2.0-arcade-5l-12lv-v1",
+        "rank": 3,
+        "display_name": "中国·兼容测试768"
+      },
+      "boardCount": 3,
+      "share": {
+        "title": "球球出击：我的最高纪录 0 分，一起突破！",
+        "query": "source=friend"
+      },
+      "stress": {
+        "frames": 90,
+        "elapsedMs": 1484.59999999702,
+        "averageFps": 60.62238986944676,
+        "maxFrameMs": 16.800000000000182,
+        "ballsAtEnd": 100
+      },
+      "errors": []
+    }
+  ]
+}

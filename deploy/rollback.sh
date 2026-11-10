@@ -13,6 +13,9 @@ if [[ ! -f "$current/PREVIOUS" ]]; then
 fi
 previous=$(cat "$current/PREVIOUS")
 [[ "$previous" = "$base/releases/"* && -f "$previous/server/build/index.js" ]]
+"$base/node/bin/node" --input-type=module - "$current/deploy/leaderboard-contract.mjs" "$current/RULES_VERSION" "$previous/RULES_VERSION" <<'JS'
+import {readFileSync,existsSync} from 'node:fs';import {pathToFileURL} from 'node:url';const {verifyRollbackCompatibility}=await import(pathToFileURL(process.argv[2]));verifyRollbackCompatibility(readFileSync(process.argv[3],'utf8'),existsSync(process.argv[4])?readFileSync(process.argv[4],'utf8'):undefined);
+JS
 ln -s "$previous" "$base/current.rollback"
 mv -Tf "$base/current.rollback" "$base/current"
 systemctl restart qiulegeqiu-api

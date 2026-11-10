@@ -1,4 +1,4 @@
-# V1.2 API、数据库与安全边界（兼容旧客户端）
+# V1.3 API、数据库与安全边界（兼容旧客户端）
 
 ## 运行
 
@@ -85,7 +85,7 @@ NFKC、Unicode码点2～12、大小写/空白标准化；拒绝控制/隐藏字�
 
 旧十关规则版本0.8.0-arcade-5l-10lv-v1继续接受；新十二关为1.2.0-arcade-5l-12lv-v1。按挑战存储版本选择冻结十关或十二关配置、网格和掉落规则，未知版本拒绝。种子由客户端声明并绑定，不是安全凭据。单步击碎预算按本步曾存活最大球数计算，避免同帧部分球死亡导致误判；总消除速度阈值考虑本局有效峰值球数。
 
-## V1.2分赛季查询与兼容
+## 历史V1.2分赛季查询与兼容（V1.3客户端改用global）
 
 `GET /api/leaderboard`、`GET /api/me`、`GET /api/me/best`接受可选`rulesVersion`。省略时为旧版历史榜，保障缓存中的旧网页客户端继续运行；新网页/小游戏显式发送`1.2.0-arcade-5l-12lv-v1`。这三个响应均包含所选`rulesVersion`，榜单行另含`rules_version`。新客户端必须匹配响应赛季，不能把旧后端忽略参数的结果当成新榜。
 
@@ -100,3 +100,9 @@ POST挑战明确声明任一支持版本，提交校验严格使用该挑战存�
 004只追加空的season_player_bests表，不更新历史scores或player_bests，不把旧十关分数折算成新分。旧榜保留原有历史归属（包含原本已在旧榜的更早记录），新十二关只选择精确版本。后台审核按成绩原挑战版本刷新对应best，不能跨榜。
 
 发布顺序与回滚限制见[V1.2说明](V1_2_TUTORIAL_SEASONS.md)。这次没有执行生产迁移、发布或数据库操作。
+
+## V1.3统一榜协议
+
+新界面不再使用赛季查询，固定为`GET /api/leaderboard?board=global&offset=0&limit=20`、`/api/me?board=global`、`/api/me/best?board=global`。返回board=global和rankingRulesVersion=1.2.0-arcade-5l-12lv-v1，me附historicalBest。统一榜按十二关verified有效记录派生，不依赖best缓存，个人rank不限TOP100。旧原分保留，不换算，采用经确认的新版重赛上榜。无参数及旧rulesVersion接口仅为旧客户端兼容保留，新UI没有入口。V1.3无新迁移、无历史回填。
+
+health新增leaderboard协议元数据；不支持的挑战版本返回UNSUPPORTED_RULES。新客户端不再拿me缺少rulesVersion阻止身份初始化，健康检查不支持十二关则阻止联网挑战，不影响单机。完整排查与安全/发布/回滚见[V1.3说明](V1_3_GLOBAL_LEADERBOARD.md)。

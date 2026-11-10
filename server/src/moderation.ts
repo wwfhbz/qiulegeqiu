@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { resource } from './db.js';
-export class ApiError extends Error { constructor(public statusCode: number, message: string) { super(message); } }
+export class ApiError extends Error { constructor(public statusCode: number, message: string,public code?:string) { super(message); } }
 const rules = JSON.parse(readFileSync(resource('data/nickname-rules.json'),'utf8')) as { version:string; categories: Record<string,string[]> };
 export function normalizeNickname(input: string) {
   if (/[\p{Cc}\p{Cf}\p{Cs}]/u.test(input)) throw new ApiError(400,'昵称不能包含控制字符或隐藏字符');

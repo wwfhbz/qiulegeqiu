@@ -95,7 +95,7 @@ test('完整publish缺包回归：假成功安装不能切换版本；旧库在�
   for(const d of [base,site,data,backups,etc,bin,source])mkdirSync(d);
   const dbpath=join(data,'leaderboard.sqlite'),db=new DatabaseSync(dbpath);db.exec("CREATE TABLE players(id TEXT PRIMARY KEY);CREATE TABLE scores(id TEXT PRIMARY KEY);INSERT INTO players VALUES('existing');INSERT INTO scores VALUES('best')");db.close();
   const original=readFileSync(dbpath),inode=statSync(dbpath).ino;
-  const previous=join(base,'releases/previous');mkdirSync(join(previous,'server/build'),{recursive:true});writeFileSync(join(previous,'server/build/index.js'),'old');symlinkSync(previous,join(base,'current'));
+  const previous=join(base,'releases/previous');mkdirSync(join(previous,'server/build'),{recursive:true});writeFileSync(join(previous,'server/build/index.js'),'old');writeFileSync(join(previous,'RULES_VERSION'),'test-rules');symlinkSync(previous,join(base,'current'));
   mkdirSync(join(base,'node/bin'),{recursive:true});copyFileSync(runtime.node,join(base,'node/bin/node'));chmodSync(join(base,'node/bin/node'),0o755);
   writeFileSync(join(site,'index.html'),'old html');writeFileSync(join(etc,'qiulegeqiu-api.service'),'owned unit');
   const envfile=join(etc,'qiulegeqiu-api.env');writeFileSync(envfile,`NODE_ENV=production\nPORT=8091\nPUBLIC_ORIGIN=https://ball.gmgnclaw.com\nDB_PATH=${dbpath}\n`);

@@ -77,6 +77,12 @@ if [[ ! -f /var/lib/qiulegeqiu/leaderboard.sqlite ]]; then
  ! systemctl is-active --quiet qiulegeqiu-api.service || fail '旧API运行但标准数据库不存在'
 fi
 curl --fail --silent --show-error --max-time 15 https://game.gmgnclaw.com/ -o /dev/null
+if [[ -L /opt/qiulegeqiu-api/current && -f /var/lib/qiulegeqiu/leaderboard.sqlite ]];then
+ reviewed_rules=$(tar -xOf "$archive" RULES_VERSION)
+ node --input-type=module - "$scripts/leaderboard-contract.mjs" "$reviewed_rules" /opt/qiulegeqiu-api/current/RULES_VERSION <<'JS'
+import {readFileSync,existsSync} from 'node:fs';import {pathToFileURL} from 'node:url';const {verifyRollbackCompatibility}=await import(pathToFileURL(process.argv[2]));verifyRollbackCompatibility(process.argv[3],existsSync(process.argv[4])?readFileSync(process.argv[4],'utf8'):undefined);
+JS
+fi
 say '检查完成：将保留既有环境和数据库；新增独立Node、API服务、ball站点代理及每日备份'
 [[ "$mode" = apply ]] || { say 'dry-run完成；未安装、未备份、未重启或发布。只有--apply才会写入';exit 0; }
 # A second independent installer cannot interleave; legacy helpers retain their own rollout locks.
@@ -171,21 +177,23 @@ systemctl start qiulegeqiu-backup.service
 say '验证正式网页、API、TOP100、匿名身份查询和数据库重启持久性；不创建虚假玩家或分数'
 curl --fail --silent --show-error --max-time 15 https://ball.gmgnclaw.com/ -o "$scratch/page"
 curl --fail --silent --show-error --max-time 15 https://ball.gmgnclaw.com/api/health -o "$scratch/health"
-curl --fail --silent --show-error --max-time 15 'https://ball.gmgnclaw.com/api/leaderboard?limit=20&offset=0' -o "$scratch/board"
-curl --fail --silent --show-error --max-time 15 -c "$scratch/cookies" https://ball.gmgnclaw.com/api/me -o "$scratch/me-before"
-curl --fail --silent --show-error --max-time 15 -b "$scratch/cookies" https://ball.gmgnclaw.com/api/me/best -o "$scratch/best"
+curl --fail --silent --show-error --max-time 15 'https://ball.gmgnclaw.com/api/leaderboard?board=global&limit=20&offset=0' -o "$scratch/board"
+curl --fail --silent --show-error --max-time 15 -c "$scratch/cookies" 'https://ball.gmgnclaw.com/api/me?board=global' -o "$scratch/me-before"
+curl --fail --silent --show-error --max-time 15 -b "$scratch/cookies" 'https://ball.gmgnclaw.com/api/me/best?board=global' -o "$scratch/best"
 [[ -s /var/lib/qiulegeqiu/leaderboard.sqlite ]]
 db_inode=$(stat -c %i /var/lib/qiulegeqiu/leaderboard.sqlite)
 systemctl restart qiulegeqiu-api.service
-curl --fail --silent --show-error --retry 5 --retry-connrefused --retry-delay 1 --max-time 10 -b "$scratch/cookies" https://ball.gmgnclaw.com/api/me -o "$scratch/me-after"
+curl --fail --silent --show-error --retry 5 --retry-connrefused --retry-delay 1 --max-time 10 -b "$scratch/cookies" 'https://ball.gmgnclaw.com/api/me?board=global' -o "$scratch/me-after"
 [[ "$db_inode" = "$(stat -c %i /var/lib/qiulegeqiu/leaderboard.sqlite)" ]]
 for offset in 20 40 60 80; do
- curl --fail --silent --show-error --max-time 15 "https://ball.gmgnclaw.com/api/leaderboard?limit=20&offset=$offset" -o "$scratch/board-$offset"
+ curl --fail --silent --show-error --max-time 15 "https://ball.gmgnclaw.com/api/leaderboard?board=global&limit=20&offset=$offset" -o "$scratch/board-$offset"
 done
-"$runtime" --input-type=module - "$scratch" <<'JS'
-import {readFileSync} from 'node:fs';const dir=process.argv[2],load=n=>JSON.parse(readFileSync(`${dir}/${n}`));
-for(const offset of [20,40,60,80])if(!Array.isArray(load(`board-${offset}`).items))throw Error('TOP100分页异常');
-if(!load('health').ok||load('health').database!=='ready'||!Array.isArray(load('board').items)||!('best' in load('best'))||JSON.stringify(load('me-before'))!==JSON.stringify(load('me-after')))throw Error('API响应或身份持久性校验失败');
+"$runtime" --input-type=module - "$scratch" "$scripts/leaderboard-contract.mjs" <<'JS'
+import {readFileSync} from 'node:fs';import {pathToFileURL} from 'node:url';const dir=process.argv[2],load=n=>JSON.parse(readFileSync(`${dir}/${n}`));const {verifyLeaderboardHealth,verifyLeaderboardPage,verifyIdentityPersistence}=await import(pathToFileURL(process.argv[3]));
+const health=load('health');verifyLeaderboardHealth(health);verifyLeaderboardPage(load('board'),health.rulesVersion);
+for(const offset of [20,40,60,80])verifyLeaderboardPage(load(`board-${offset}`),health.rulesVersion,offset);
+if(load('best').board!=='global'||!('best' in load('best')))throw Error('个人排名接口无效');verifyIdentityPersistence(load('me-before'),load('me-after'));
+
 JS
 for unit in qiulegeqiu-api.service qiulegeqiu-backup.timer; do systemctl is-enabled --quiet "$unit";systemctl is-active --quiet "$unit";done
 curl --fail --silent --show-error --max-time 15 https://game.gmgnclaw.com/ -o /dev/null

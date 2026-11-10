@@ -1,4 +1,5 @@
-import {RULES_VERSION,assertRulesVersion} from '../../shared/Challenge';
+import {apiPayload,assertIdentityPayload} from '../../shared/ApiErrors';
+import {RULES_VERSION,assertGlobalBoard} from '../../shared/Challenge';
 import type {ApiTransport} from '../../shared/ApiTransport';
 import type {Me} from '../../src/online/ApiClient';
 import {storageKey,type Wx,type Config} from './Platform';
@@ -19,18 +20,18 @@ export class WechatApi implements ApiTransport {
   })().finally(()=>{this.pending=undefined;});return this.pending;
  }
  async request<T>(path:string,body?:unknown):Promise<T>{
-  const publicGet=body===undefined&&/^\/(leaderboard|regions(?:\/[^?]+)?|players\/availability)(\?|$)/.test(path);
+  const publicGet=body===undefined&&/^\/(health|leaderboard|regions(?:\/[^?]+)?|players\/availability)(\?|$)/.test(path);
   if(!publicGet)await this.login();return this.send<T>(path,body,!publicGet||this.authenticated);
  }
- async me(){const data=await this.request<Me>('/me?rulesVersion='+encodeURIComponent(RULES_VERSION));assertRulesVersion(data.rulesVersion,RULES_VERSION);return data;}
+ async me(){const data=await this.request<Me>('/me?board=global');assertIdentityPayload(data);try{assertGlobalBoard(data);return {...data,rankingAvailable:true};}catch{return {...data,historicalBest:data.historicalBest??(data.rulesVersion!==RULES_VERSION?data.best:null),best:null,rankingAvailable:false};}}
  private async send<T>(path:string,body:unknown,auth:boolean):Promise<T>{
   if(!path.startsWith('/')||path.startsWith('//')||path.includes('\\'))throw Error('无效API路径');
   return new Promise<T>((resolve,reject)=>{
    const header:Record<string,string>={'content-type':'application/json'};
    if(auth&&this.credential){header.authorization='Bearer '+this.credential.token;if(body!==undefined)header['x-csrf-token']=this.credential.csrfToken;}
    this.wx.request({url:this.config.apiBase.replace(/\/$/,'')+path,method:body===undefined?'GET':'POST',header,data:body,timeout:6000,
-    success:r=>{if(r.statusCode>=200&&r.statusCode<300)resolve(r.data as T);else{if(r.statusCode===401){this.credential=undefined;try{this.wx.removeStorageSync(storageKey);}catch{}}
-     reject(Error((r.data as {message?:string})?.message||'排行榜暂不可用，单机游戏不受影响'));}},fail:()=>reject(Error('网络暂不可用，单机游戏不受影响'))});
+    success:r=>{if(r.statusCode===401){this.credential=undefined;try{this.wx.removeStorageSync(storageKey);}catch{}}
+     try{resolve(apiPayload<T>(r.statusCode,r.data));}catch(error){reject(error);}},fail:()=>reject(Error('网络暂不可用，单机游戏不受影响'))});
   });
  }
 }

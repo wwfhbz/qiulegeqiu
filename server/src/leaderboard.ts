@@ -21,3 +21,18 @@ export function refreshBest(db:Db,playerId:string,rules:string=LEGACY_RULES_VERS
  else if(best)db.prepare('INSERT INTO season_player_bests VALUES(?,?,?) ON CONFLICT(rules_version,player_id) DO UPDATE SET score_id=excluded.score_id').run(rules,playerId,best.id);
  else db.prepare('DELETE FROM season_player_bests WHERE rules_version=? AND player_id=?').run(rules,playerId);
 }
+
+/** Unified fair ranking: requalify under the shared twelve-level rules; never convert legacy scores.
+ * Derive from verified records so stale per-season pointers cannot hide a valid personal best. */
+const globalRanking=`WITH candidates AS (
+ SELECT ${fields},c.rules_version,
+ ROW_NUMBER() OVER(PARTITION BY s.player_id ORDER BY ${ordering}) AS choice
+ FROM scores s JOIN challenges c ON c.id=s.challenge_id JOIN players p ON p.id=s.player_id JOIN regions r ON r.code=p.region_code
+ WHERE p.status='active' AND s.verification_status='verified' AND c.unranked=0 AND c.rules_version=?
+), ranked AS (
+ SELECT *,ROW_NUMBER() OVER(ORDER BY score DESC,reached_level DESC,duration_ms ASC,achieved_at ASC,id ASC) AS rank
+ FROM candidates WHERE choice=1
+) `;
+function globalRow(row:Record<string,unknown>){const {choice,...value}=row;return {...value,display_name:`${row.region_label}·${row.nickname}`};}
+export function globalLeaderboard(db:Db,offset:number,limit:number){return db.prepare(globalRanking+'SELECT * FROM ranked ORDER BY rank LIMIT ? OFFSET ?').all(RULES_VERSION,limit,offset).map(globalRow);}
+export function globalPersonalBest(db:Db,playerId:string){const row=db.prepare(globalRanking+'SELECT * FROM ranked WHERE player_id=?').get(RULES_VERSION,playerId);return row?globalRow(row):null;}
