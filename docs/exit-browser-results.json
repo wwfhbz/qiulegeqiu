@@ -1,0 +1,35 @@
+{
+  "oldHalfWidth": 106,
+  "newHalfWidth": 53,
+  "oldNominalWidth": 212,
+  "newNominalWidth": 106,
+  "nominalRatio": 0.5,
+  "newVisibleWidth": 104.6,
+  "visibleToOldNominalRatio": 0.4933962264150943,
+  "ballCenterClearanceAtEndpointChord": 95.6,
+  "arena": {
+    "x": 400,
+    "y": 492,
+    "radius": 360
+  },
+  "paddleTop": 1012,
+  "paddleGap": 160,
+  "pixels": {
+    "leftNewWall": true,
+    "rightNewWall": true,
+    "centerOpen": true,
+    "leftEndpoint": true,
+    "rightEndpoint": true
+  },
+  "flight": {
+    "wallReflected": true,
+    "outside": true,
+    "bounced": true,
+    "returned": true,
+    "maxY": 1007.3333333333376,
+    "mode": "gate"
+  },
+  "centralButton": true,
+  "bottomButtons": 2,
+  "errors": []
+}

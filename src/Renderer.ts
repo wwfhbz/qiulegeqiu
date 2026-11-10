@@ -1,5 +1,6 @@
 import { C } from './GameConfig';
 import { Physics } from './Physics';
+import { ARENA_WALL } from './ArenaGeometry';
 export class Renderer {
   private ctx: CanvasRenderingContext2D;
   private cache = document.createElement('canvas');
@@ -45,9 +46,8 @@ export class Renderer {
     c.setTransform(this.ratio, 0, 0, this.ratio, 0, 0); c.clearRect(0, 0, C.width, C.height);
     c.beginPath(); c.arc(a.x, a.y, a.radius, 0, Math.PI * 2); c.fillStyle = '#0b1525'; c.fill();
     c.drawImage(this.cache, 0, 0, C.width, C.height);
-    const gap = Math.asin(a.exitHalfWidth / a.radius);
-    c.beginPath(); c.arc(a.x, a.y, a.radius, Math.PI / 2 + gap, Math.PI * 2 + Math.PI / 2 - gap);
-    c.strokeStyle = '#7e94ac'; c.lineWidth = 1.4; c.stroke();
+    c.beginPath(); c.arc(a.x, a.y, a.radius, ARENA_WALL.startAngle, ARENA_WALL.endAngle);
+    c.strokeStyle = '#7e94ac'; c.lineWidth = ARENA_WALL.width; c.lineCap = 'round'; c.stroke(); c.lineCap = 'butt';
     c.fillStyle = '#d7f7ff'; c.shadowColor = '#68d9ef'; c.shadowBlur = 15;
     c.beginPath(); c.roundRect(p.paddleX - p.paddleWidth / 2, C.paddle.y - C.paddle.height / 2, p.paddleWidth, C.paddle.height, 6); c.fill();
     c.shadowBlur = 0; c.lineWidth = 3; c.strokeStyle = '#ffffff35';
