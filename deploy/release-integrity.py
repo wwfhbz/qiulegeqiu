@@ -25,7 +25,7 @@ def verify(archive, sha, commit, repo):
             total+=m.size
             if total>512*1024*1024 or len(names)>30000: raise ValueError('发布包超出安全大小')
             files[name]=tar.extractfile(m).read()
-    required={'dist/index.html','server/build/index.js','server/build/manage.js','server/package.json','server/package-lock.json','SOURCE_COMMIT','SOURCE_TREE','VERSION','RULES_VERSION','RELEASE_MANIFEST.json','deploy/first-production-install.sh'}
+    required={'dist/index.html','server/build/index.js','server/build/manage.js','server/package.json','server/package-lock.json','SOURCE_COMMIT','SOURCE_TREE','VERSION','RULES_VERSION','RELEASE_MANIFEST.json','deploy/first-production-install.sh','deploy/install-production-deps.sh','deploy/verify-runtime.mjs','deploy/first-install-rollback-lib.sh'}
     if not required<=files.keys() or not any(p.startswith('dist/assets/') for p in files): raise ValueError('缺少产物或新安装器；请从审核版本重新打包')
     if files['SOURCE_COMMIT'].decode().strip()!=commit or files['SOURCE_TREE'].decode().strip()!=git(repo,'rev-parse',commit+'^{tree}').decode().strip(): raise ValueError('归档来源提交或源码树不一致')
     actual={p:digest(b) for p,b in files.items() if p!='RELEASE_MANIFEST.json'}

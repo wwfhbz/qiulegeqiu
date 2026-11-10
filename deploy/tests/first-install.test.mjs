@@ -13,7 +13,7 @@ test('归档验证：真实Git夹具、清单、敏感文件、路径和审核�
 });
 test('统一回滚不恢复数据库；上线检查没有提交生产成绩',()=>{
  const s=readFileSync('deploy/first-production-install.sh','utf8');
- assert.match(s,/trap rollback ERR/);assert.match(s,/nginx -t && systemctl reload nginx/);
+ assert.match(s,/trap rollback ERR/);assert.match(readFileSync('deploy/first-install-rollback-lib.sh','utf8'),/nginx -t && systemctl reload nginx/);
  assert.doesNotMatch(s,/restore\.sh|DELETE FROM|DROP TABLE|POST|ssh |docker /);
  assert.ok(s.indexOf('python3 "$scripts/release-integrity.py"')<s.indexOf('[[ "$mode" = apply ]]'));
  assert.match(s,/QIULEGEQIU_LOCK_HELD=1/);

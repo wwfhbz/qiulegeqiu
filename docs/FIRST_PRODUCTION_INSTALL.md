@@ -63,7 +63,7 @@ sudo nginx -t
 sudo systemctl status qiulegeqiu-api.service --no-pager
 ```
 
-回退脚本故意返回非零，表示本次安装已撤回。**回退不恢复、不覆盖、不删除数据库**，也不撤销已执行迁移；迁移必须向后兼容旧API，否则先人工审核，不执行部署。首次安装无旧API时停止新API并撤销current指针。新增独立运行时、release及只增不删的assets保留，不碰其他网站。执行人工回退前应确认此后没有其他配置变更，避免恢复旧配置覆盖后续工作。
+回退脚本全部成功时返回0，任一操作失败返回非零；安装器自身仍保留原始失败退出码。**回退不恢复、不覆盖、不删除数据库**，也不撤销已执行迁移；迁移必须向后兼容旧API，否则先人工审核，不执行部署。首次安装无旧API时停止新API并撤销current指针。新增独立运行时、release及只增不删的assets保留，不碰其他网站。执行人工回退前应确认此后没有其他配置变更，避免恢复旧配置覆盖后续工作。
 
 在线备份在 `/var/backups/qiulegeqiu`，查看 `journalctl -u qiulegeqiu-backup.service`。数据库恢复属于独立破坏性操作，本安装器绝不调用；若确需恢复，先人工审核既有 `deploy/restore.sh` 和部署文档并另行确认。
 
@@ -78,4 +78,21 @@ sudo systemctl status qiulegeqiu-api.service --no-pager
 - `sudo systemctl list-timers qiulegeqiu-backup.timer`
 - 确认 `game.gmgnclaw.com` 继续正常。
 
-本开发环境仅执行归档/Git夹具测试、备份测试、Nginx规划测试和静态保护检查；没有连接腾讯云，也没有验证真实systemd/Nginx安装或完整生产失败注入。因此不能把开发测试通过当作已经上线。首次生产dry-run输出仍须审核。
+本开发环境执行了归档/Git夹具、备份、Nginx规划、真实锁文件生产依赖安装、无遍历权限与缺包复现、实际API入口启动、原生模块错误阻断及事务回退测试。依赖预检集成测试以本地非root用户运行，生产脚本额外通过runuser使用qiulegeqiu身份；回退测试使用模拟systemctl及临时目录。没有连接腾讯云，也没有验证真实systemd/Nginx安装或完整生产失败注入。因此不能把开发测试通过当作已经上线。首次生产dry-run输出仍须审核。
+
+
+## 生产依赖修复与切换前门禁
+
+`npm added 51 packages`仅代表安装成功，不代表服务用户可读取。旧发布脚本在root的`umask 077`下安装，node_modules和包目录会成为root所有的700，JS文件600；服务用户无法遍历，Node可报`ERR_MODULE_NOT_FOUND: fastify`。本地使用同一锁文件真实复现了51个包及上述权限。
+
+新脚本仅在安装代码的子进程中使用022，并将**新release**的依赖目录规范为755、文件可读且不允许其他用户写入。`npm ci --omit=dev`保留锁文件，显式`--prefix release/server`、`--global=false`、`--workspaces=false`，隔离继承的npm全局/prefix配置。原外层077继续保护环境、备份及事务记录；不会chmod数据库或既有release。
+
+切换current、发布网页、重启正式服务之前，执行以下门禁：
+
+1. 以qiulegeqiu用户、实际release/server工作目录、独立Node v24.19.0解析并加载package.json声明的每一个生产依赖。
+2. 每个依赖必须解析到本release/server/node_modules，不能从祖先或全局目录意外补齐。
+3. 实际执行Node内置SQLite查询；当前项目没有better-sqlite3依赖，不会临时增加它。如未来声明better-sqlite3，门禁会加载原生绑定并执行内存查询。当前安装保留`--ignore-scripts`；新增需要安装脚本的原生包必须另行审核构建方案，不能绕过门禁。
+4. 同一用户、目录和Node启动真实build/index.js，使用内存数据库和内核分配的临时回环端口，检查health并正常退出；不接触生产库或8091/8080。
+5. 任一步失败即停止，尚未切换API版本。首次安装回退按逐项变更记录执行，原本不存在且未创建的服务不执行stop/disable。
+
+这修复了可复现的部署权限缺陷，并阻断安装位置、依赖解析、ABI或实际启动异常；没有通过SSH读取生产机器权限，不能声称已完成生产现场验证。旧包必须重新生成，新旧安装器不能混用。
