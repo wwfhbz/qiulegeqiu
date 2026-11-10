@@ -21,6 +21,7 @@ try{
   await page.route('https://ball.gmgnclaw.com/api/**',async route=>{const request=route.request();if(request.method()==='OPTIONS'){await route.fulfill({status:204,headers:{'access-control-allow-origin':'*','access-control-allow-methods':'GET,POST,OPTIONS','access-control-allow-headers':'content-type,authorization,x-csrf-token'}});return;}const path=new URL(request.url()).pathname+new URL(request.url()).search;
    const headers=request.headers();delete headers.origin;delete headers.host;const r=await fetch(`http://127.0.0.1:${endpoint}${path}`,{method:request.method(),headers,body:request.postData()||undefined});await route.fulfill({status:r.status,contentType:'application/json',headers:{'access-control-allow-origin':'*'},body:await r.text()});});
   await page.goto(`http://127.0.0.1:${port}`);
+  await page.exposeFunction('__captureEnd',()=>page.screenshot({path:`work/minigame/${name}-end.png`}));
   await page.evaluate(()=>{
    const doc=document;let canvases=0;window.module={exports:{}};window.__touch={};window.__life={};window.__shares=[];
    window.wx={createCanvas(){const c=doc.createElement('canvas');if(canvases++===0){c.style.width=innerWidth+'px';c.style.height=innerHeight+'px';doc.body.append(c);}return c;},getWindowInfo:()=>({windowWidth:innerWidth,windowHeight:innerHeight,pixelRatio:devicePixelRatio,safeArea:{top:44,bottom:innerHeight-34,left:0,right:innerWidth}}),getMenuButtonBoundingClientRect:()=>({bottom:80,left:innerWidth-90}),
@@ -45,7 +46,7 @@ try{
    g.start();const hitDeadline=Date.now()+4000;while(g.physics.blocks.removed===0&&Date.now()<hitDeadline)await new Promise(r=>setTimeout(r,20));const playedBricks=g.physics.blocks.removed;if(!playedBricks)throw Error('No actual brick collision in wx host');if(g.state==='ready')g.start();g.physics.triple();const balls=g.physics.balls.length;
    // Do not fabricate production scores. This is an isolated harness; test real loss events.
    g.reset();g.start();for(let round=0;round<5;round++){if(g.state==='ready')g.start();Object.assign(g.physics.balls[0],{x:400,y:940,vx:380,vy:0,outsideArena:true});for(let n=0;n<20;n++)g.update(.1);Object.assign(g.physics.balls[0],{x:400,y:1080,vx:0,vy:760,outsideArena:true});g.update(1/120);}
-   app.sync.lastPump=Date.now();app.sync.observe();await app.sync.run.id;await app.api.request('/__test/advance',{});await app.submit();const me=await app.api.me(),board=await app.api.request('/leaderboard?limit=5');
+   app.sync.lastPump=Date.now();app.sync.observe();await app.sync.run.id;await app.api.request('/__test/advance',{});await new Promise(r=>requestAnimationFrame(()=>{app.frame(performance.now());r();}));await window.__captureEnd();await app.submit();const me=await app.api.me(),board=await app.api.request('/leaderboard?limit=5');
    app.online=false;app.frame(performance.now());return {moved,balls,playedBricks,state:g.state,lives:g.lives,best:me.best,boardCount:board.items.length,width:app.canvas.width,share:__share()};
   });
   assert.equal(result.moved,true);assert(result.playedBricks>0);assert.equal(result.balls,3);assert.equal(result.lives,0);assert(result.best);assert(result.boardCount>=1);assert.equal(errors.length,0,errors.join('\n'));

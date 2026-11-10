@@ -11,7 +11,7 @@ try {
  const page=await browser.newPage({viewport:{width:1366,height:1000}}),errors=[];
  page.on('pageerror',e=>errors.push(e.message));
  for(const asset of assets){const res=await page.request.get(base+asset);assert.equal(res.status(),200);assert(res.headers()['content-type'].includes(asset.endsWith('.js')?'javascript':'css'));}
- await page.goto(base);assert.equal(await page.title(),'球了个球');assert.equal(await page.locator('#total').textContent(),'4203');
+ await page.goto(base);assert.equal(await page.title(),'球球出击');assert.equal(await page.locator('#total').textContent(),'4203');
  const box=await page.locator('canvas').boundingBox();await page.mouse.move(box.x+box.width*.7,box.y+box.height*.2);await page.waitForTimeout(250);assert(await page.evaluate(()=>window.ballCore.physics.paddleX)>400);
  await page.locator('#start').click();await page.waitForFunction(()=>Number(document.querySelector('#removed').textContent)>0);
  await page.getByRole('button',{name:'暂停',exact:true}).click();const snapshot=await page.evaluate(()=>JSON.stringify(window.ballCore.physics.balls));await page.waitForTimeout(200);assert.equal(await page.evaluate(()=>JSON.stringify(window.ballCore.physics.balls)),snapshot);

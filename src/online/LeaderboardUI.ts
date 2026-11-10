@@ -1,3 +1,4 @@
+import { GAME_NAME } from '../../shared/Brand';
 import type { Game } from '../Game';
 import { activateCentralAction } from '../CentralAction';
 import { ApiClient,type Me,type BestScore } from './ApiClient';
@@ -9,7 +10,7 @@ export class LeaderboardUI {
     this.sync=new ChallengeSync(this.api,game);
     const trophy=document.createElement('button');trophy.className='trophy';trophy.type='button';trophy.textContent='🏆';trophy.setAttribute('aria-label','全球排行榜');root.querySelector('header')!.append(trophy);
     this.dialog=document.createElement('dialog');this.dialog.className='ranking-dialog';this.dialog.setAttribute('aria-label','全球挑战排行榜');this.dialog.innerHTML=`
-      <div class="ranking-title"><h2>全球挑战</h2><button type="button" data-online-close aria-label="关闭排行榜">关闭</button></div>
+      <div class="ranking-title"><h2>${GAME_NAME} · 全球挑战</h2><button type="button" data-online-close aria-label="关闭排行榜">关闭</button></div>
       <section id="challenge-entry" hidden><h3>挑战成绩</h3><p id="challenge-stats"></p>
         <form id="score-form"><label>玩家昵称<input id="nickname" maxlength="24" autocomplete="nickname" placeholder="2～12个字符" required></label>
         <details id="region-details"><summary id="region-label">地区：中国</summary><div id="region-picker"></div></details>

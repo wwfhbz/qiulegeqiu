@@ -133,6 +133,8 @@ export class Physics {
   };
   private pickup = (kind: PowerKind) => this.collect(kind);
   collect(kind: PowerKind) {
+    // No pickup is valid after the final effective ball dies, even before Game settles the round.
+    if (!this.balls.some(ball => ball.alive)) return;
     let bombTarget:string|null=null;
     if (kind === 'wide') { this.wideRemaining = C.power.duration; this.clampPaddle(); }
     else if(kind==='triple')this.triple();
@@ -250,6 +252,6 @@ export class Physics {
     }
     this.obstacles.time=obstacleStart+dt;this.obstacles.sync();
     this.recycleDead();
-    this.powers.update(dt, this.paddleX, this.paddleWidth, this.pickup);
+    if (this.balls.length) this.powers.update(dt, this.paddleX, this.paddleWidth, this.pickup);
   }
 }

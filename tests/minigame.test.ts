@@ -6,13 +6,14 @@ import {Game} from '../src/Game';
 import {C} from '../src/GameConfig';
 import type {Wx,TouchEvent,Canvas} from '../minigame/src/Platform';
 function fixture(width=375,height=812,dpr=3){
+ const texts:string[]=[];
  const events:Record<string,(e?:unknown)=>void>={},storage=new Map<string,unknown>(),requests:Parameters<Wx['request']>[0][]=[];
- const ctx=new Proxy({measureText:(s:string)=>({width:[...s].length*8}),roundRect:undefined},{get:(t,k)=>k in t?t[k as keyof typeof t]:()=>{},set:(t,k,v)=>{Reflect.set(t,k,v);return true;}}) as unknown as CanvasRenderingContext2D;
+ const ctx=new Proxy({fillText:(s:string)=>texts.push(s),measureText:(s:string)=>({width:[...s].length*8}),roundRect:undefined},{get:(t,k)=>k in t?t[k as keyof typeof t]:()=>{},set:(t,k,v)=>{Reflect.set(t,k,v);return true;}}) as unknown as CanvasRenderingContext2D;
  const wx:Wx={createCanvas:()=>({width:0,height:0,getContext:()=>ctx}),getWindowInfo:()=>({windowWidth:width,windowHeight:height,pixelRatio:dpr,safeArea:{top:44,bottom:height-34,left:0,right:width}}),getMenuButtonBoundingClientRect:()=>({bottom:80,left:width-90}),
  onTouchStart:f=>{events.down=f as never;},onTouchMove:f=>{events.move=f as never;},onTouchEnd:f=>{events.up=f as never;},onTouchCancel:f=>{events.cancel=f as never;},onHide:f=>{events.hide=f;},onShow:f=>{events.show=f;},onWindowResize:f=>{events.resize=f;},
  login:o=>o.fail(),request:o=>{requests.push(o);o.fail();},getStorageSync:k=>storage.get(k),setStorageSync:(k,v)=>{storage.set(k,v);},removeStorageSync:k=>{storage.delete(k);},showModal:o=>o.success?.({confirm:false}),showActionSheet:()=>{},showToast:()=>{},showShareMenu:()=>{},onShareAppMessage:()=>{},shareAppMessage:()=>{}};
  const touch=(identifier:number,x:number,y:number):TouchEvent=>({touches:[{identifier,clientX:x,clientY:y}],changedTouches:[{identifier,clientX:x,clientY:y}]});
- return {wx,events,storage,requests,touch};
+ return {wx,events,storage,requests,touch,texts};
 }
 it('微信无DOM宿主复用同一十关、五命和物理协调器，不复制规则',()=>{
  const f=fixture(),app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false}),web=new Game();
@@ -56,7 +57,7 @@ it('微信登录只提交临时代码，会话持久化和CSRF正确，无openid
 });
 it('生产禁止HTTP、本地开发可显式HTTP；分享不携带凭据或未经验证成绩',()=>{
  const f=fixture();expect(()=>new WechatApi(f.wx,{apiBase:'http://127.0.0.1:8091/api',development:false})).toThrow();expect(()=>new WechatApi(f.wx,{apiBase:'http://127.0.0.1:8091/api',development:true})).not.toThrow();
- let share:(()=>{title:string;query?:string})|undefined;f.wx.onShareAppMessage=fn=>{share=fn;};new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});expect(share!().title).toContain('球了个球');expect(share!().query).toBe('source=friend');expect(JSON.stringify(share!())).not.toMatch(/token|openid|session/);
+ let share:(()=>{title:string;query?:string})|undefined;f.wx.onShareAppMessage=fn=>{share=fn;};new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});expect(share!().title).toContain('球球出击');expect(share!().query).toBe('source=friend');expect(JSON.stringify(share!())).not.toMatch(/token|openid|session/);
 });
 it('异步微信登录在后台完成时仍保持暂停，不会回到前台自动发射',async()=>{
  const f=fixture();let pending:Parameters<Wx['login']>[0]|undefined;f.wx.login=o=>{pending=o;};f.wx.showModal=o=>o.success?.({confirm:true});f.wx.request=o=>o.success({statusCode:200,data:o.url.endsWith('/wechat/login')?{token:'b'.repeat(43),csrfToken:'csrf',expiresAt:Date.now()+60000}:{player:null,best:null}});
@@ -67,4 +68,10 @@ it('选择单机不会继承上一轮联网标记或暗中调用微信登录',as
 });
 it('选择联网但API失败时立即降级单机，仍可暂停和重新开始',async()=>{
  const f=fixture();f.wx.showModal=o=>o.success?.({confirm:true});f.wx.login=o=>o.success({code:'failed-api-login'});const app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});await (app as unknown as {activate():Promise<void>}).activate();expect(app.game.state).toBe('running');expect(app.api.authenticated).toBe(false);app.game.pause();expect(app.game.state).toBe('paused');app.game.reset();expect(app.game.lives).toBe(5);expect(app.game.state).toBe('ready');
+});
+
+it('新版品牌与Canvas HUD读取同一个真实生命源，逐轮立即显示5至0',()=>{
+ const f=fixture(),app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});let now=100;app.frame(now);expect(f.texts).toContain('球球出击');
+ for(let lives=4;lives>=0;lives--){app.game.start();for(const b of app.game.physics.balls)Object.assign(b,{x:400,y:1080,vx:0,vy:760,outsideArena:true});app.game.physics.powers.spawn(400,C.paddle.y,'life');f.texts.length=0;now+=20;app.frame(now);expect(app.game.lives).toBe(lives);expect(f.texts.some(s=>s.includes('生命 ♥×'+lives))).toBe(true);}
+ expect(app.game.state).toBe('gameOver');
 });

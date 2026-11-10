@@ -1,5 +1,5 @@
 [Unit]
-Description=球了个球排行榜API
+Description=球球出击排行榜API
 After=network.target
 
 [Service]

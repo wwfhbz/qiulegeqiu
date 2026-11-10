@@ -1,4 +1,4 @@
-# 球了个球 · 微信小游戏 V1.0
+# 球球出击 · 微信小游戏 V1.1
 
 这是微信**小游戏**工程，不是web-view或普通小程序页面。网页客户端保留。使用同一个Game、Physics、Blocks、Levels、PowerRules、ScoreSystem及ChallengeJournal，规则版本仍为`0.8.0-arcade-5l-10lv-v1`，不另写游戏规则。
 

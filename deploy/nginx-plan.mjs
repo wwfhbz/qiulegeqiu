@@ -6,7 +6,7 @@ export function planNginx(text){
  const tokens=lex(text),candidates=[];
  for(let i=0;i<tokens.length-1;i++){if(tokens[i].value!=='server'||tokens[i+1].value!=='{')continue;let depth=1,pending=[],names=[],tls=false,hasApi=false,hasInclude=false,j=i+2;
   for(;j<tokens.length&&depth;j++){const token=tokens[j];if(token.value==='{'){if(depth===1&&pending[0]==='location'&&pending.some(v=>v.includes('/api')))hasApi=true;pending=[];depth++;}else if(token.value==='}'){depth--;pending=[];}else if(depth===1&&token.value===';'){if(pending[0]==='server_name')names=pending.slice(1);if(pending[0]==='listen'&&/^(?:[^:]+:|\[[^\]]+\]:)?443$/.test(pending[1]||''))tls=true;if(pending[0]==='include'&&pending[1]==='/etc/nginx/snippets/qiulegeqiu-api.conf')hasInclude=true;pending=[];}else if(depth===1)pending.push(token.value);}
-  if(depth)throw Error('Nginx块未闭合');if(names.includes('ball.gmgnclaw.com')&&tls){if(names.length!==1)throw Error('球了个球与其他域名共用server块，需单独审核，不自动修改');candidates.push({close:tokens[j-1],hasApi,hasInclude});}i=j-1;
+  if(depth)throw Error('Nginx块未闭合');if(names.includes('ball.gmgnclaw.com')&&tls){if(names.length!==1)throw Error('球球出击与其他域名共用server块，需单独审核，不自动修改');candidates.push({close:tokens[j-1],hasApi,hasInclude});}i=j-1;
  }
  if(candidates.length!==1)throw Error('必须精确定位一个ball.gmgnclaw.com的443站点块');
  const target=candidates[0];if(target.hasInclude)return {changed:false,config:text};if(target.hasApi)throw Error('站点已有/api规则，需核对旧API和数据，不自动覆盖');
