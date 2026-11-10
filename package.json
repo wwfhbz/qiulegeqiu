@@ -1,6 +1,6 @@
 {
   "name": "ball-core",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -13,7 +13,8 @@
     "test:browser:arcade": "node tests/browser-arcade.mjs",
     "test:browser:layout": "node tests/browser-v031.mjs",
     "test:browser:central": "node tests/browser-central-start.mjs",
-    "test:browser:exit": "node tests/browser-exit.mjs"
+    "test:browser:exit": "node tests/browser-exit.mjs",
+    "test:browser:death": "node tests/browser-death-zone.mjs"
   },
   "devDependencies": {
     "typescript": "~5.9.3",

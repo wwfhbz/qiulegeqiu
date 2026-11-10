@@ -1,0 +1,62 @@
+{
+  "base": "http://127.0.0.1:4173",
+  "deathLineY": 1072,
+  "paddleBottom": 1024,
+  "paddleGap": 160,
+  "frame": {
+    "left": 24,
+    "right": 776,
+    "top": 112,
+    "bottomSolid": false
+  },
+  "desktopPixels": {
+    "left": true,
+    "right": true,
+    "top": true,
+    "noSolidBottom": true
+  },
+  "mobilePixels": {
+    "left": true,
+    "right": true,
+    "top": true,
+    "noSolidBottom": true
+  },
+  "flight": {
+    "outside": true,
+    "leftWall": true,
+    "paddle": true,
+    "reentered": true,
+    "stayedAlive": true,
+    "sawAliveBelowPaddle": true,
+    "removedBelowLine": true,
+    "mode": "miss",
+    "leftWallPosition": {
+      "x": 32.18710773906253,
+      "y": 984.767082123346
+    },
+    "paddlePosition": {
+      "x": 108.51625157134184,
+      "y": 1000.3312717570577
+    },
+    "removedTop": 1073.4999999999982
+  },
+  "multiball": {
+    "first": {
+      "balls": 9,
+      "lives": 3
+    },
+    "last": {
+      "balls": 1,
+      "lives": 3
+    },
+    "end": {
+      "balls": 1,
+      "lives": 2,
+      "state": "ready"
+    }
+  },
+  "pauseBlocksDeath": true,
+  "touch": true,
+  "dpr": 3,
+  "errors": []
+}

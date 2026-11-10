@@ -1,0 +1,45 @@
+{
+  "audioState": "running",
+  "muteGain": 0,
+  "actualDropCollection": true,
+  "pauseFreezesAll": true,
+  "restart": true,
+  "touch": true,
+  "mobileNoOverflow": true,
+  "errors": [],
+  "perf": {
+    "blocks": 4203,
+    "initialBalls": 100,
+    "minBalls": 85,
+    "maxBalls": 100,
+    "fps": 60.09183469754665,
+    "frameMs": {
+      "mean": 16.64119601328842,
+      "p95": 16.700000000000728
+    },
+    "physicsMs": {
+      "mean": 0.06322795341640537,
+      "p95": 0.20000000018626451
+    },
+    "renderMs": {
+      "mean": 0.1940199335715254,
+      "p95": 0.3000000002793968
+    },
+    "removed": 562,
+    "activeParticles": 224
+  },
+  "sustained": {
+    "minBalls": 100,
+    "maxBalls": 100,
+    "fps": 60.160294205826396,
+    "frameMs": {
+      "mean": 16.622259136212005,
+      "p95": 16.700000000000728
+    },
+    "physicsWithReplenishmentMs": {
+      "mean": 0.04941763727152457,
+      "p95": 0.19999999972060323
+    },
+    "removed": 542
+  }
+}

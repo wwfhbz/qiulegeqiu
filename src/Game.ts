@@ -19,6 +19,7 @@ export class Game {
   result?: Readonly<LevelScore>;
   private renderer?: Renderer;
   private previous = 0;
+  private roundActive = false;
 
   // Without a canvas this is the same coordinator, driven deterministically by tests.
   constructor(canvas?: HTMLCanvasElement, private onChange: (game: Game) => void = () => {}) {
@@ -40,7 +41,7 @@ export class Game {
 
   start() {
     if (this.state !== 'ready' && this.state !== 'paused') return;
-    if (this.state === 'ready') for (const b of this.physics.balls) this.physics.aimLaunch(b);
+    if (this.state === 'ready') { this.roundActive = true; for (const b of this.physics.balls) this.physics.aimLaunch(b); }
     this.audio.unlock(); this.physics.paused = false; this.physics.accumulator = 0;
     this.state = 'running'; this.onChange(this);
   }
@@ -49,12 +50,14 @@ export class Game {
     this.physics.paused = true; this.state = 'paused'; this.onChange(this);
   }
   reset() {
+    this.roundActive = false;
     this.levels.reset(); this.lives = ARCADE.initialLives; this.score.reset(); this.result = undefined;
     this.physics.speedScale = this.levels.current.speedScale;
     this.physics.reset(); this.state = 'ready'; this.readyReason = 'initial'; this.onChange(this);
   }
   nextLevel() {
     if (this.state !== 'levelComplete' || !this.levels.next()) return;
+    this.roundActive = false;
     this.score.beginLevel(); this.result = undefined;
     this.physics.speedScale = this.levels.current.speedScale;
     this.physics.reset(); this.state = 'ready'; this.readyReason = 'levelStart'; this.onChange(this);
@@ -72,10 +75,12 @@ export class Game {
       this.physics.advance(dt);
       // Clear is checked first, including when the final ball leaves on the same tick.
       if (this.physics.blocks.remaining === 0) {
+        this.roundActive = false;
         this.result = this.score.complete(this.lives);
         this.state = this.levels.isFinal ? 'victory' : 'levelComplete';
         this.physics.paused = true; this.physics.accumulator = 0; this.audio.play('win');
-      } else if (!this.physics.balls.some(b => b.alive)) {
+      } else if (this.roundActive && !this.physics.balls.some(b => b.alive)) {
+        this.roundActive = false;
         this.lives--;
         this.score.resetCombo(); this.physics.resetRound(this.lives > 0);
         this.state = this.lives > 0 ? 'ready' : 'gameOver';

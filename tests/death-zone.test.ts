@@ -1,0 +1,33 @@
+import {describe,it,expect} from 'vitest';
+import {Physics,boundary,frameCollision,type Ball} from '../src/Physics';
+import {Game} from '../src/Game';
+import {C} from '../src/GameConfig';
+import {FRAME,isBallInDeathZone} from '../src/WorldGeometry';
+const ball=(x:number,y:number,vx=0,vy=760,outsideArena=true):Ball=>({x,y,vx,vy,radius:C.ball.radius,alive:true,outsideArena});
+const run=(p:Physics,t:number)=>{for(let i=0;i<Math.round(t/C.step);i++)p.advance(C.step);};
+const below=(b:Ball)=>Object.assign(b,{x:400,y:FRAME.deathY+b.radius+.1,vx:0,vy:760,outsideArena:true});
+const armed=(count:number)=>{const g=new Game();g.start();g.physics.balls.length=0;for(let i=0;i<count;i++)g.physics.balls.push(ball(400+i,900,380,0));return g;};
+describe('唯一死亡区域与外围围挡',()=>{
+ it('出圆不是死亡，球可以继续到外部挡板',()=>{const p=new Physics(),b=ball(400,830,0,440,false);p.balls=[b];run(p,.15);expect(b.outsideArena).toBe(true);expect(b.alive).toBe(true);expect(b.y).toBeGreaterThan(852);});
+ it('外框左墙反弹且存活',()=>{const p=new Physics(),b=ball(FRAME.left+6,900,-760,0);p.balls=[b];p.advance(C.step);expect(b.vx).toBeGreaterThan(0);expect(b.x-b.radius).toBeGreaterThan(FRAME.left+FRAME.halfWidth);expect(b.alive).toBe(true);});
+ it('外框右墙反弹且存活',()=>{const p=new Physics(),b=ball(FRAME.right-6,900,760,0);p.balls=[b];p.advance(C.step);expect(b.vx).toBeLessThan(0);expect(b.x+b.radius).toBeLessThan(FRAME.right-FRAME.halfWidth);expect(b.alive).toBe(true);});
+ it('上侧围挡防止球飞出上方，越过Canvas坐标不直接判死',()=>{for(const b of [ball(-100,900,-760,0),ball(900,900,760,0),ball(400,-100,0,-760)]){const p=new Physics();p.balls=[b];p.advance(C.step);expect(b.alive).toBe(true);expect(b.x).toBeGreaterThan(FRAME.left);expect(b.x).toBeLessThan(FRAME.right);expect(b.y).toBeGreaterThan(FRAME.top);}});
+ it('圆形边界函数只负责碰撞，绝不直接移除球',()=>{const b=ball(400,C.height+100);boundary(b);expect(b.alive).toBe(true);});
+ it('挡板旁边漏过但还没过死亡线时继续运动',()=>{const p=new Physics();p.paddleX=p.targetX=96;const b=ball(400,C.paddle.y+10,0,440);p.balls=[b];p.advance(C.step);expect(b.alive).toBe(true);expect(b.y).toBeGreaterThan(C.paddle.y);expect(p.balls.length).toBe(1);});
+ it('必须整球严格越线，切线时仍然存活',()=>{const b=ball(400,FRAME.deathY+C.ball.radius);expect(isBallInDeathZone(b)).toBe(false);b.y+=.001;expect(isBallInDeathZone(b)).toBe(true);const p=new Physics();p.balls=[b];p.advance(C.step);expect(b.alive).toBe(false);expect(p.balls.length).toBe(0);});
+ it('先处理挡板碰撞，不在防守区域提前死亡',()=>{const p=new Physics(),b=ball(400,C.paddle.y-C.paddle.height/2-2);p.balls=[b];p.advance(C.step);expect(b.vy).toBeLessThan(0);expect(b.alive).toBe(true);});
+ it('外围底部没有封闭墙，死亡线下方球继续向下后被回收',()=>{const p=new Physics(),b=ball(400,FRAME.deathY+3,0,440);p.balls=[b];p.advance(C.step);expect(b.vy).toBeGreaterThan(0);expect(b.alive).toBe(false);});
+ it('外部向上通过窄出口能重新进入并击碎方块',()=>{const p=new Physics(),b=ball(400,880,0,-760);p.balls=[b];run(p,.3);expect(b.outsideArena).toBe(false);expect(b.alive).toBe(true);expect(p.blocks.removed).toBeGreaterThan(0);});
+ it('连续路径：出圆、碰左框、碰挡板、再入圆，始终存活',()=>{const p=new Physics();p.paddleX=p.targetX=96;const x0=430,y0=838;const contact=C.ball.radius+FRAME.halfWidth,left=FRAME.left+contact;const paddleContact=C.paddle.y-C.paddle.height/2-C.ball.radius;const ratio=((x0-left)+(96-left))/(paddleContact-y0),vy=760/Math.sqrt(1+ratio*ratio);const b=ball(x0,y0,-ratio*vy,vy,false);p.balls=[b];let out=false,leftHit=false,paddle=false,reentered=false;let vx=b.vx;for(let i=0;i<300;i++){p.advance(C.step);expect(b.alive).toBe(true);if(b.outsideArena)out=true;if(out&&vx<0&&b.vx>0)leftHit=true;if(leftHit&&b.vy<0)paddle=true;if(paddle&&!b.outsideArena){reentered=true;break;}vx=b.vx;}expect(out&&leftHit&&paddle&&reentered).toBe(true);});
+ it('圆弧与外框最窄处仍有足够球直径空间，不产生结构夹缝',()=>{expect(C.frame.sideGap).toBeGreaterThan(2*(C.ball.radius+FRAME.halfWidth));expect(C.frame.topGap).toBeGreaterThan(2*(C.ball.radius+FRAME.halfWidth));const b=ball(FRAME.left+5.2,850,-760,50);frameCollision(b);expect(Number.isFinite(b.x+b.y+b.vx+b.vy)).toBe(true);});
+ it('760高速球多次撞框、碰挡板都不穿透',()=>{const p=new Physics();p.collect('wide');const b=ball(FRAME.right-8,930,760,0);p.balls=[b];for(let i=0;i<240;i++){p.advance(C.step);expect(b.alive).toBe(true);expect(b.x-b.radius).toBeGreaterThanOrEqual(FRAME.left+FRAME.halfWidth-.02);expect(b.x+b.radius).toBeLessThanOrEqual(FRAME.right-FRAME.halfWidth+.02);}const c=ball(400,C.paddle.y-25,0,760);p.balls=[c];run(p,.05);expect(c.vy).toBeLessThan(0);expect(c.alive).toBe(true);});
+});
+describe('死亡后的整轮生命结算',()=>{
+ it('10死1剩9不扣命，死到剩最后1颗仍不扣命',()=>{const g=armed(10);below(g.physics.balls[0]);g.update(C.step);expect(g.physics.balls.length).toBe(9);expect(g.lives).toBe(3);for(let i=0;i<8;i++)below(g.physics.balls[i]);g.update(C.step);expect(g.physics.balls.length).toBe(1);expect(g.lives).toBe(3);expect(g.state).toBe('running');});
+ it('最后一颗过死亡线，整轮只扣一次并生成一颗准备球',()=>{const g=armed(1);below(g.physics.balls[0]);g.update(C.step);expect(g.lives).toBe(2);expect(g.state).toBe('ready');expect(g.readyReason).toBe('lifeLost');expect(g.physics.balls.length).toBe(1);for(let i=0;i<60;i++)g.update(C.step);expect(g.lives).toBe(2);});
+ it('同帧100球死亡只扣1命，并且清掉强化但保留分数进度',()=>{const g=armed(100);const index=g.physics.blocks.alive.findIndex(x=>x===1);g.physics.blocks.hit(index);g.physics.collect('wide');for(const b of g.physics.balls)below(b);g.update(C.step);expect(g.lives).toBe(2);expect(g.score.total).toBe(10);expect(g.physics.blocks.removed).toBe(1);expect(g.physics.wideRemaining).toBe(0);expect(g.physics.balls.length).toBe(1);});
+ it('连续三轮漏完进入Game Over，禁止再发射',()=>{const g=armed(1);for(let i=0;i<3;i++){if(i)g.start();below(g.physics.balls[0]);g.update(C.step);}expect(g.lives).toBe(0);expect(g.state).toBe('gameOver');g.start();g.update(.1);expect(g.lives).toBe(0);expect(g.physics.balls.length).toBe(0);});
+ it('同帧最后球死亡和通关优先通关',()=>{const g=armed(1);for(let i=0;i<g.physics.blocks.alive.length;i++)g.physics.blocks.hit(i);below(g.physics.balls[0]);g.update(C.step);expect(g.state).toBe('levelComplete');expect(g.lives).toBe(3);expect(g.result?.lifeBonus).toBe(1500);});
+ it('暂停不执行移动、碰撞、死亡或扣命，恢复后统一处理',()=>{const g=armed(1);below(g.physics.balls[0]);g.pause();const b=g.physics.balls[0],y=b.y;g.update(5);g.physics.advance(.1);expect(b.y).toBe(y);expect(b.alive).toBe(true);expect(g.lives).toBe(3);g.start();g.update(C.step);expect(g.lives).toBe(2);});
+ it('圆形边界、外框和死亡线均从配置派生',()=>{expect([FRAME.left,FRAME.right,FRAME.top,FRAME.deathY]).toEqual([24,776,112,1072]);expect(FRAME.deathY).toBeGreaterThan(C.paddle.y+C.paddle.height/2);expect(FRAME.deathY).toBeLessThan(C.height);expect(C.arena.exitHalfWidth).toBe(53);expect(C.paddle.y-C.paddle.height/2-852).toBe(160);});
+});
