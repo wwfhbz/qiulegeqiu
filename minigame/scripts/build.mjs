@@ -1,4 +1,5 @@
 import {build} from 'esbuild';
+import {GAME_NAME,MINIGAME_VERSION} from '../../shared/Brand.ts';
 import {readFileSync,existsSync,mkdirSync,writeFileSync,copyFileSync} from 'node:fs';
 const dev=process.argv.includes('--dev');
 const local=existsSync('minigame/local.config.json')?JSON.parse(readFileSync('minigame/local.config.json','utf8')):{};
@@ -9,6 +10,6 @@ if(!/^https:\/\/[^/]+\/api\/?$/.test(config.apiBase)&&!(dev&&/^http:\/\/(127\.0\
 mkdirSync('minigame/dist',{recursive:true});
 await build({entryPoints:['minigame/src/game.ts'],outfile:'minigame/dist/game.js',bundle:true,platform:'neutral',format:'cjs',target:'es2020',minify:!dev,sourcemap:dev,define:{__MINIGAME_CONFIG__:JSON.stringify(config)}});
 copyFileSync('minigame/game.json','minigame/dist/game.json');
-const project=JSON.parse(readFileSync('minigame/project.config.json','utf8'));project.appid=local.appid||'touristappid';project.miniprogramRoot='./';
+const project=JSON.parse(readFileSync('minigame/project.config.json','utf8'));project.appid=local.appid||'touristappid';project.miniprogramRoot='./';project.projectname=GAME_NAME;project.description=`${GAME_NAME} 微信小游戏 V${MINIGAME_VERSION}`;
 writeFileSync('minigame/dist/project.config.json',JSON.stringify(project,null,2)+'\n');
 console.log('微信小游戏产物：minigame/dist。游客AppID只供开发，不代表真实登录或审核资格。');

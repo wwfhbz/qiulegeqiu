@@ -1,3 +1,4 @@
+import {GAME_NAME} from '../../shared/Brand';
 import {Game} from '../../src/Game';
 import {C} from '../../src/GameConfig';
 import {Renderer} from '../../src/Renderer';
@@ -38,7 +39,7 @@ export class MiniGameApp {
   this.game.update(dt);if(this.online)this.sync.observe();this.renderer.draw(this.game.physics,this.game.state==='ready');this.draw();
   if((this.game.state==='gameOver'||this.game.state==='victory')&&this.lastEnd!==this.game.journal.generation){this.lastEnd=this.game.journal.generation;this.result();}
  }
- private draw(){const c=this.ctx,v=this.view;c.setTransform(this.dpr,0,0,this.dpr,0,0);c.fillStyle='#050c18';c.fillRect(0,0,v.width,v.height);c.fillStyle='#c7deec';c.textAlign='center';c.font='bold 15px sans-serif';c.fillText('球了个球',v.width/2,v.top+14);
+ private draw(){const c=this.ctx,v=this.view;c.setTransform(this.dpr,0,0,this.dpr,0,0);c.fillStyle='#050c18';c.fillRect(0,0,v.width,v.height);c.fillStyle='#c7deec';c.textAlign='center';c.font='bold 15px sans-serif';c.fillText(GAME_NAME,v.width/2,v.top+14);
   const g=this.game;c.font='12px sans-serif';c.fillStyle='#9bb1c8';c.fillText(`关卡 ${String(g.levels.current.number).padStart(2,'0')}/${g.levels.count}　生命 ♥×${g.lives}　分数 ${g.score.total}`,v.width/2,v.hudY+12);
   c.fillText(`剩余 ${g.physics.blocks.remaining}　球×${g.physics.balls.length}${g.physics.wideRemaining>0?'　加宽 '+g.physics.wideRemaining.toFixed(1)+'秒':''}${g.score.multiplier>1?'　连击×'+g.score.multiplier:''}`,v.width/2,v.hudY+30);
   c.drawImage(this.arena as CanvasImageSource,v.arena.x,v.arena.y,v.arena.width,v.arena.height);this.actions=[];
@@ -77,7 +78,7 @@ export class MiniGameApp {
   {label:'隐私保护说明',run:()=>this.wx.showModal({title:'隐私保护说明',content:privacy,showCancel:false}),half:true},{label:'用户协议',run:()=>this.wx.showModal({title:'用户协议',content:agreement,showCancel:false}),half:true},
   {label:'账号及隐私申诉',run:()=>void this.appeal()}, {label:'关闭菜单',run:()=>this.panel.close()}
  ]);}
- private result(){const g=this.game;this.panel.show(g.state==='victory'?'十关突破成功':'挑战结束',[`本次总分 ${g.score.total}　到达第${g.levels.current.number}关`,`消除 ${g.journal.bricksDestroyed} 块`,this.online?'成绩仍需服务端记录验证':'本轮为单机挑战，不上传成绩'],[
+ private result(){const g=this.game;this.panel.show(GAME_NAME+' · '+(g.state==='victory'?'十关突破成功':'挑战结束'),[`本次总分 ${g.score.total}　到达第${g.levels.current.number}关`,`消除 ${g.journal.bricksDestroyed} 块`,this.online?'成绩仍需服务端记录验证':'本轮为单机挑战，不上传成绩'],[
   ...(this.online&&!this.me?.player?[{label:'登记地区：'+this.region.prefix,run:()=>void this.regions(undefined,()=>this.result())}]:[]),
   {label:'提交本次成绩',run:()=>void this.submit()}, {label:'查看全球排行榜',run:()=>void this.board()},
   {label:'跳过提交，重新挑战',run:()=>{this.panel.close();g.reset();}}, {label:'关闭结算',run:()=>this.panel.close()}
@@ -95,7 +96,7 @@ export class MiniGameApp {
  private async board(offset=0){this.game.pause();const pageSize=this.view.height<650?3:5;try{const result=await this.api.request<{items:BestScore[];nextOffset:number|null}>(`/leaderboard?offset=${offset}&limit=${pageSize}`);
   if(this.api.authenticated)this.me=await this.api.me();
   const lines=[this.me?.best?`我的排名 ${this.me.best.rank}　最高分 ${this.me.best.score}`:'个人最高分：暂无已验证记录',...result.items.map(r=>`${r.rank}. ${r.display_name}　${r.score}分　${r.reached_level}关`)];
-  this.panel.show('全球历史最高分',lines,[{label:'上一页',run:()=>void this.board(Math.max(0,offset-pageSize)),half:true},{label:'下一页',run:()=>{if(result.nextOffset!==null)void this.board(result.nextOffset);},half:true},{label:'关闭排行榜',run:()=>this.panel.close()}]);
+  this.panel.show(GAME_NAME+' · 全球榜单',lines,[{label:'上一页',run:()=>void this.board(Math.max(0,offset-pageSize)),half:true},{label:'下一页',run:()=>{if(result.nextOffset!==null)void this.board(result.nextOffset);},half:true},{label:'关闭排行榜',run:()=>this.panel.close()}]);
  }catch(error){this.toast((error as Error).message);}}
  private async regions(parent:Region|undefined,done:()=>void,query='',offset=0){
   try{const q=`q=${encodeURIComponent(query)}&offset=${offset}${parent?'&parent='+encodeURIComponent(parent.code):''}`;const result=await this.api.request<{items:Region[];nextOffset:number|null}>('/regions?'+q);this.regionPage(result.items,0,parent,done,query,offset,result.nextOffset);}catch(error){this.toast((error as Error).message);}
@@ -111,6 +112,6 @@ export class MiniGameApp {
   const ticket=await this.modal('输入网页绑定码','请在已登录的网页排行榜生成；不要使用他人的绑定码。','绑定','取消',true);if(!ticket.confirm)return;
   await this.api.request('/wechat/bind',{ticket:ticket.content?.trim()});this.me=await this.api.me();this.toast('已绑定原网页玩家');this.menu();});}
  private async appeal(){return this.task(async()=>{if(!this.api.authenticated)throw Error('请先在开始挑战时选择联网登录');const r=await this.modal('账号与隐私申诉','请说明更正、注销或删除请求，不要填写密码。','提交','取消',true);if(r.confirm){await this.api.request('/appeals',{message:r.content||''});this.toast('申诉已提交');}});}
- private shareData(){return {title:this.me?.best?`球了个球：我的最高纪录 ${this.me.best.score} 分，一起突破！`:'球了个球：十关弹球挑战，一起突破！',imageUrl:this.shareImage,query:'source=friend'};}
- private makeShareImage(){const card=this.wx.createCanvas();card.width=500;card.height=400;const c=context(card);c.fillStyle='#081321';c.fillRect(0,0,500,400);c.strokeStyle='#87abc3';c.lineWidth=2;c.beginPath();c.arc(250,190,145,0,Math.PI*2);c.stroke();c.fillStyle='#ff884e';for(let y=90;y<220;y+=18)for(let x=155;x<350;x+=18)if(Math.hypot(x-250,y-190)<130)c.fillRect(x,y,14,14);c.fillStyle='#c8f2ff';c.fillRect(195,310,110,8);c.fillStyle='#fff';c.beginPath();c.arc(245,270,6,0,Math.PI*2);c.fill();c.font='bold 30px sans-serif';c.textAlign='center';c.fillText('球了个球',250,375);card.toTempFilePath?.({success:r=>{this.shareImage=r.tempFilePath;}});}
+ private shareData(){return {title:this.me?.best?`${GAME_NAME}：我的最高纪录 ${this.me.best.score} 分，一起突破！`:`${GAME_NAME}：十关弹球挑战，一起突破！`,imageUrl:this.shareImage,query:'source=friend'};}
+ private makeShareImage(){const card=this.wx.createCanvas();card.width=500;card.height=400;const c=context(card);c.fillStyle='#081321';c.fillRect(0,0,500,400);c.strokeStyle='#87abc3';c.lineWidth=2;c.beginPath();c.arc(250,190,145,0,Math.PI*2);c.stroke();c.fillStyle='#ff884e';for(let y=90;y<220;y+=18)for(let x=155;x<350;x+=18)if(Math.hypot(x-250,y-190)<130)c.fillRect(x,y,14,14);c.fillStyle='#c8f2ff';c.fillRect(195,310,110,8);c.fillStyle='#fff';c.beginPath();c.arc(245,270,6,0,Math.PI*2);c.fill();c.font='bold 30px sans-serif';c.textAlign='center';c.fillText(GAME_NAME,250,375);card.toTempFilePath?.({success:r=>{this.shareImage=r.tempFilePath;}});}
 }

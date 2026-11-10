@@ -1,5 +1,5 @@
 [Unit]
-Description=球了个球每日备份（保留最近7天）
+Description=球球出击每日备份（保留最近7天）
 
 [Timer]
 OnCalendar=*-*-* 03:15:00 Asia/Shanghai

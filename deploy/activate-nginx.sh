@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-[[ ${1:-} = --apply && -n ${2:-} && $EUID = 0 ]] || { echo '用法：sudo bash activate-nginx.sh --apply 已核实的球了个球站点配置路径';exit 1; }
+[[ ${1:-} = --apply && -n ${2:-} && $EUID = 0 ]] || { echo '用法：sudo bash activate-nginx.sh --apply 已核实的球球出击站点配置路径';exit 1; }
 site_file=$(realpath "$2")
 case "$site_file" in /etc/nginx/sites-available/*|/etc/nginx/conf.d/*) ;; *) echo '站点文件不在独立站点目录，需人工审核';exit 1;;esac
 runtime=/opt/qiulegeqiu-api/node/bin/node

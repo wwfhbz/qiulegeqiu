@@ -1,10 +1,10 @@
 {
   "date": "2026-11-10",
   "timezone": "Asia/Shanghai",
-  "clientVersion": "1.0.0",
+  "clientVersion": "1.1.0",
   "sharedRulesVersion": "0.8.0-arcade-5l-10lv-v1",
   "automated": {
-    "clientTests": 168,
+    "clientTests": 176,
     "serverTests": 47,
     "deploymentTests": 22,
     "minigameBuildTests": 3,
@@ -31,8 +31,8 @@
       "boardCount": 1,
       "stress": {
         "frames": 90,
-        "elapsedMs": 1494.9,
-        "averageFps": 60.204695966285364,
+        "elapsedMs": 1497.2000000029802,
+        "averageFps": 60.11220945753463,
         "maxFrameMs": 16.800000000000182,
         "ballsAtEnd": 100
       },
@@ -50,9 +50,9 @@
       "boardCount": 2,
       "stress": {
         "frames": 90,
-        "elapsedMs": 1485.0000000014902,
-        "averageFps": 60.60606060599979,
-        "maxFrameMs": 16.799999999999955,
+        "elapsedMs": 1483.70000000149,
+        "averageFps": 60.659162903491016,
+        "maxFrameMs": 16.800000000000182,
         "ballsAtEnd": 100
       },
       "errors": []
@@ -69,8 +69,8 @@
       "boardCount": 3,
       "stress": {
         "frames": 90,
-        "elapsedMs": 1485.500000002235,
-        "averageFps": 60.585661393379056,
+        "elapsedMs": 1481.40000000298,
+        "averageFps": 60.753341433656644,
         "maxFrameMs": 16.800000000000182,
         "ballsAtEnd": 100
       },

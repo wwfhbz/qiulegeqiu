@@ -1,4 +1,5 @@
 import { LeaderboardUI } from './online/LeaderboardUI';
+import { GAME_NAME } from '../shared/Brand';
 import { Game } from './Game';
 import { C } from './GameConfig';
 import { activateCentralAction, centralActionFor } from './CentralAction';
@@ -10,7 +11,7 @@ import { fitGamePanel } from './ViewportLayout';
 export function mountGame(root: HTMLElement) {
   root.innerHTML = `
   <main class="shell">
-    <header><h1>球了个球</h1></header>
+    <header><h1>${GAME_NAME}</h1></header>
     <div class="stage-room"><section class="game-panel" aria-label="游戏区域">
       <div class="hud" aria-label="游戏状态">
         <div class="hud-item"><span class="label">关卡</span><strong id="level"></strong><span id="ball-badge" hidden>球×<span id="balls">1</span></span></div>
@@ -39,7 +40,7 @@ export function mountGame(root: HTMLElement) {
     const blocks = g.physics.blocks, level = g.levels.current;
     el('level').textContent = `${String(level.number).padStart(2, '0')}/${String(g.levels.count).padStart(2, '0')}`;
     el('hearts').setAttribute('aria-label', `剩余${g.lives}条生命`);
-    el('hearts').querySelectorAll('span').forEach((heart, i) => heart.classList.toggle('lost', i >= g.lives));
+    el('hearts').querySelectorAll('span').forEach((heart, i) => {const lost=i>=g.lives;heart.classList.toggle('lost',lost);heart.textContent=lost?'♡':'♥';});
     el('remaining').textContent = String(blocks.remaining);
     el('lives').textContent = String(g.lives); el('score').textContent = String(g.score.total);
     el('removed').textContent = String(blocks.removed); el('total').textContent = String(blocks.total);
@@ -58,7 +59,7 @@ export function mountGame(root: HTMLElement) {
     const completed = g.state === 'levelComplete' || g.state === 'victory';
     el('settlement').hidden = !completed && g.state !== 'gameOver';
     if (completed || g.state === 'gameOver') {
-      el('result-title').textContent = g.state === 'gameOver' ? '游戏结束' : g.state === 'victory' ? '全部关卡突破！' : `第${level.number}关突破成功`;
+      el('result-title').textContent = GAME_NAME+' · '+(g.state === 'gameOver' ? '游戏结束' : g.state === 'victory' ? '全部关卡突破！' : `第${level.number}关突破成功`);
       el('result-tip').textContent = g.state === 'gameOver' ? '生命已耗尽。重新开始，再挑战一次。' : g.state === 'victory' ? '最终核心已击碎，你完成了这次挑战。' : `保留 ${g.lives} 条生命和累计分数，迎接下一关。`;
       el('result-label').textContent = g.state === 'levelComplete' ? '本关得分' : '最终分数';
       el('result-score').textContent = String(g.state === 'levelComplete' ? g.result!.levelTotal : g.score.total);
