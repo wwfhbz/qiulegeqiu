@@ -23,7 +23,9 @@
     "regions:update": "node scripts/update-regions.mjs",
     "regions:check": "npm run regions:check --prefix server",
     "test:browser:leaderboard": "node tests/browser-leaderboard.mjs",
-    "test:browser:v08": "node tests/browser-v08.mjs"
+    "test:browser:v08": "node tests/browser-v08.mjs",
+    "regions": "npm run regions:check",
+    "test:deploy": "node --test deploy/tests/*.test.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.56.1",
