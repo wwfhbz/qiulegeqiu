@@ -18,7 +18,7 @@ cp -r server/build server/data server/migrations "$stage/server/"
 cp server/package.json server/package-lock.json "$stage/server/"
 git archive HEAD deploy | tar -x -C "$stage"
 # A release must carry its audited dependency installer, runtime gate and rollback implementation.
-for helper in install-production-deps.sh verify-runtime.mjs leaderboard-contract.mjs first-install-rollback-lib.sh;do
+for helper in install-production-deps.sh verify-runtime.mjs leaderboard-contract.mjs reset-database.mjs reset-preflight.mjs first-install-rollback-lib.sh;do
  [[ -f "$stage/deploy/$helper" ]] || { echo "发布包缺少运行时门禁：$helper";exit 1; }
 done
 cp server/.env.example "$stage/deploy/qiulegeqiu-api.env.example"

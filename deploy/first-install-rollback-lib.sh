@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 # Source-only transaction rollback. Paths are supplied by the approved installer; tests use temp dirs.
-# Never receives a database path and never performs database restore or removal.
+# Default mode never touches a DB. An explicit reset transaction invokes its reviewed offline restore hook before restarting API.
 rollback_install_resources(){
  local record=$1 base=$2 webroot=$3 previous=$4
  local pointer='' api_changed=0 units_changed=0 failed=0 p unit old_enabled
  [[ ! -L "$base/current" ]] || pointer=$(readlink -f "$base/current")
  [[ "$pointer" = "$previous" ]] || api_changed=1
+ [[ ! -f "$record/reset-api-stop-attempted" ]] || api_changed=1
  if [[ "$api_changed" = 1 ]];then
-  if systemctl is-active --quiet qiulegeqiu-api.service;then systemctl stop qiulegeqiu-api.service || failed=1;fi
+  if systemctl is-active --quiet qiulegeqiu-api.service;then systemctl stop qiulegeqiu-api.service || { if [[ -f "$record/database-reset-intent.json" ]];then return 1;fi;failed=1; };fi
  fi
  if [[ -f "$record/timer-enable-attempted" ]] && systemctl is-active --quiet qiulegeqiu-backup.timer;then
   systemctl stop qiulegeqiu-backup.timer || failed=1
@@ -41,6 +42,11 @@ rollback_install_resources(){
    if [[ "$old_enabled" = enabled ]];then systemctl enable "$unit" || failed=1;fi
   fi
  done
+ if [[ -f "$record/database-reset-intent.json" ]];then
+  if ! declare -F restore_reset_database >/dev/null || ! restore_reset_database "$record";then
+   echo '数据库配套恢复失败，保持API停止，禁止旧程序接入新库' >&2;return 1
+  fi
+ fi
  if [[ "$api_changed" = 1 && $(cat "$record/qiulegeqiu-api.service.active") = active ]];then systemctl start qiulegeqiu-api.service || failed=1;fi
  if [[ -f "$record/timer-enable-attempted" && $(cat "$record/qiulegeqiu-backup.timer.active") = active ]];then systemctl start qiulegeqiu-backup.timer || failed=1;fi
  if [[ -f "$record/nginx-attempted" ]];then nginx -t && systemctl reload nginx || failed=1;fi

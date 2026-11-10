@@ -1,7 +1,7 @@
 import { RULES_VERSION,assertChallengeSupport, type ChallengeEvent } from '../../shared/Challenge';
 import type { Game } from '../Game';
 import type { ApiTransport } from '../../shared/ApiTransport';
-interface Run { generation:number; id:Promise<string>; sequence:number; acknowledged:number; pending?:ChallengeEvent[]; key:string; pumping?:Promise<void>; error?:string }
+interface Run { generation:number; id:Promise<string>; sequence:number; acknowledged:number; pending?:ChallengeEvent[]; key:string; pumping?:Promise<void>; error?:string;fatal?:boolean;retryAt?:number }
 /** Sequential idempotent batches; networking is never awaited by game physics or controls. */
 export class ChallengeSync {
   private run?:Run; private lastPump=0;
@@ -9,18 +9,19 @@ export class ChallengeSync {
   observe(){const journal=this.game.journal;if(!journal.events.length)return;
     if(!this.run||this.run.generation!==journal.generation){
       const run:Run={generation:journal.generation,id:Promise.resolve(''),sequence:0,acknowledged:0,key:this.clientId()};
-      run.id=this.api.request<Parameters<typeof assertChallengeSupport>[0]>('/health').then(health=>{assertChallengeSupport(health);return this.api.request<{id:string;rulesVersion:string}>('/challenges',{rulesVersion:RULES_VERSION,unranked:journal.unranked,seed:journal.seed});}).then(r=>{if(r.rulesVersion!==RULES_VERSION||typeof r.id!=='string'||!r.id)throw Error('挑战接口返回的规则版本或标识无效，本次不能登记成绩');return r.id;}).catch(error=>{run.error=String(error.message);return '';});this.run=run;
+      run.id=this.api.request<Parameters<typeof assertChallengeSupport>[0]>('/health').then(health=>{assertChallengeSupport(health);return this.api.request<{id:string;rulesVersion:string}>('/challenges',{rulesVersion:RULES_VERSION,unranked:journal.unranked,seed:journal.seed});}).then(r=>{if(r.rulesVersion!==RULES_VERSION||typeof r.id!=='string'||!r.id)throw Error('挑战接口返回的规则版本或标识无效，本次不能登记成绩');return r.id;}).catch(error=>{run.error=String(error.message);run.fatal=true;return '';});this.run=run;
     }
+    if(this.run.fatal||this.clock()<(this.run.retryAt??0))return;
     if(this.clock()-this.lastPump>1500||journal.events.length-this.run.acknowledged>=128){this.lastPump=this.clock();void this.flush().catch(()=>{});}
   }
-  async flush(){const run=this.run;if(!run)throw new Error('本次未建立联网挑战，仍可直接重新挑战');if(run.pumping)return run.pumping;
+  async flush(){const run=this.run;if(!run)throw new Error('本次未建立联网挑战，仍可直接重新挑战');if(run.fatal)throw new Error(run.error||'本轮会话已失效，请重新开始');if(run.pumping)return run.pumping;
     run.pumping=(async()=>{const cid=await run.id;if(!cid)throw new Error(run.error||'本次挑战未连接服务器，无法登记');
       while(this.run===run&&this.game.journal.generation===run.generation&&run.acknowledged<this.game.journal.events.length){
         run.pending??=this.game.journal.events.slice(run.acknowledged,run.acknowledged+256);
         await this.api.request(`/challenges/${cid}/events`,{sequence:run.sequence,events:run.pending});
-        run.acknowledged+=run.pending.length;run.sequence++;run.pending=undefined;run.error=undefined;
+        run.acknowledged+=run.pending.length;run.sequence++;run.pending=undefined;run.error=undefined;run.retryAt=undefined;
       }
-    })().catch(error=>{run.error=error.message;throw error;}).finally(()=>{run.pumping=undefined;});return run.pumping;
+    })().catch(error=>{const status=(error as {status?:number}).status;if(status!==undefined&&[400,401,403,404,409,410,422].includes(status)){run.fatal=true;run.error='本轮挑战已失效，请重新开始：'+error.message;}else{run.error=error.message;run.retryAt=this.clock()+1500;}throw new Error(run.error);}).finally(()=>{run.pumping=undefined;});return run.pumping;
   }
   async submit(){
     const run=this.run,generation=this.game.journal.generation;

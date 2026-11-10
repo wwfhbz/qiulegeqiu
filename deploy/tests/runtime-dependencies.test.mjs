@@ -1,3 +1,4 @@
+import {ResetStore} from '../reset-database.mjs';
 import test,{after} from 'node:test';
 import {createRuntimeFixture} from './runtime-fixture.mjs';
 import assert from 'node:assert/strict';
@@ -89,7 +90,7 @@ test('安装新unit后失败：只移除本次新增unit，不disable原本不�
  }finally{rmSync(f.dir,{recursive:true,force:true});}
 });
 
-test('完整publish缺包回归：假成功安装不能切换版本；旧库在线备份且原数据不变',()=>{
+for(const freshReset of [false,true])test(freshReset?'完整重置publish：旧十关基线仅凭有效配套快照放行；缺包失败后能恢复旧库':'完整publish缺包回归：假成功安装不能切换版本；旧库在线备份且原数据不变',()=>{
  const f=fixture();try{
   const base=join(f.dir,'api'),site=join(f.dir,'site'),data=join(f.dir,'data'),backups=join(f.dir,'backups'),etc=join(f.dir,'etc'),bin=join(f.dir,'bin'),source=join(f.dir,'source'),log=join(f.dir,'commands');
   for(const d of [base,site,data,backups,etc,bin,source])mkdirSync(d);
@@ -101,13 +102,19 @@ test('完整publish缺包回归：假成功安装不能切换版本；旧库在�
   const envfile=join(etc,'qiulegeqiu-api.env');writeFileSync(envfile,`NODE_ENV=production\nPORT=8091\nPUBLIC_ORIGIN=https://ball.gmgnclaw.com\nDB_PATH=${dbpath}\n`);
   cpSync(f.server,join(source,'server'),{recursive:true});cpSync(join(root,'deploy'),join(source,'deploy'),{recursive:true});
   mkdirSync(join(source,'dist/assets'),{recursive:true});writeFileSync(join(source,'dist/index.html'),'new html');writeFileSync(join(source,'dist/assets/game.js'),'game');writeFileSync(join(source,'VERSION'),'0.8.0');writeFileSync(join(source,'RULES_VERSION'),'test-rules');
-  const replacements=[['/opt/qiulegeqiu-api',base],['/var/www/qiulegeqiu',site],['/var/lib/qiulegeqiu',data],['/var/backups/qiulegeqiu',backups],['/etc/qiulegeqiu-api.env',envfile],['/etc/systemd/system/qiulegeqiu-api.service',join(etc,'qiulegeqiu-api.service')],['/run/lock/qiulegeqiu-rollout.lock',join(f.dir,'rollout.lock')]];
+  const replacements=[['/opt/qiulegeqiu-api',base],['/var/www/qiulegeqiu',site],['/var/lib/qiulegeqiu',data],['/var/backups/qiulegeqiu-reset',join(f.dir,'reset-ledgers')],['/var/backups/qiulegeqiu',backups],['/etc/qiulegeqiu-api.env',envfile],['/etc/systemd/system/qiulegeqiu-api.service',join(etc,'qiulegeqiu-api.service')],['/run/lock/qiulegeqiu-rollout.lock',join(f.dir,'rollout.lock')]];
   let script=readFileSync(join(root,'deploy/publish.sh'),'utf8').replace('[[ $EUID = 0 ]]','true # unprivileged fixture only');
   for(const [from,to] of replacements)script=script.replaceAll(from,to);
   const publisher=join(f.dir,'publish-fixture.sh');writeFileSync(publisher,script);
-  for(const name of ['backup.mjs','check-production-env.mjs']){
+  for(const name of ['backup.mjs','check-production-env.mjs','reset-preflight.mjs','reset-database.mjs']){
    const path=join(source,'deploy',name);let text=readFileSync(path,'utf8');for(const [from,to] of replacements)text=text.replaceAll(from,to);writeFileSync(path,text);
   }
+  let resetStore,resetRecord;
+  if(freshReset){
+   resetRecord=join(f.dir,'reset-record');mkdirSync(resetRecord);resetStore=new ResetStore({database:dbpath,ledgerRoot:join(f.dir,'reset-ledgers'),id:'approved-fresh-01',commit:'a'.repeat(40),sha256:'b'.repeat(64),quiescent:()=>{}});resetStore.prepare(resetRecord);
+   writeFileSync(join(previous,'RULES_VERSION'),'old-ten-rules');writeFileSync(join(source,'RULES_VERSION'),'1.2.0-arcade-5l-12lv-v1');writeFileSync(join(source,'SOURCE_COMMIT'),'a'.repeat(40));
+  }
+  const beforePublish=readFileSync(dbpath),beforeInode=statSync(dbpath).ino;
   // Fault injection: mimic npm exit 0/"added packages" but provide no runtime packages.
   writeFileSync(join(source,'deploy/install-production-deps.sh'),'#!/bin/bash\necho "added 51 packages (fault fixture: missing dependency tree)"\n');
   function executable(name,body){const p=join(bin,name);writeFileSync(p,'#!/bin/sh\n'+body);chmodSync(p,0o755);}
@@ -116,15 +123,15 @@ test('完整publish缺包回归：假成功安装不能切换版本；旧库在�
   executable('runuser','shift 3\nexec "$@"\n');
   executable('systemctl','printf "%s\\n" "$*" >> "$COMMAND_LOG"\nexit 0\n');
   writeFileSync(log,'');
-  const launch=()=>spawnSync('bash',[publisher,'--apply',source],{encoding:'utf8',env:{...process.env,PATH:bin+':'+process.env.PATH,COMMAND_LOG:log,QIULEGEQIU_LOCK_HELD:''},timeout:30000});
+  const launch=()=>spawnSync('bash',freshReset?['-c','exec 9>"$1";flock -n 9;export QIULEGEQIU_LOCK_HELD=1;exec bash "$2" --apply "$3" --reset-record "$4"','sh',join(f.dir,'rollout.lock'),publisher,source,resetRecord]:[publisher,'--apply',source],{encoding:'utf8',env:{...process.env,PATH:bin+':'+process.env.PATH,COMMAND_LOG:log,QIULEGEQIU_LOCK_HELD:''},timeout:30000});
   const runtimeNode=join(base,'node/bin/node'),savedNode=runtimeNode+'.verified24';renameSync(runtimeNode,savedNode);
   writeFileSync(runtimeNode,'#!/bin/sh\necho v22.23.4\n');chmodSync(runtimeNode,0o755);
-  try{const wrong=launch();assert.equal(wrong.error,undefined);assert.equal(wrong.status,1);assert.match(wrong.stderr,/运行时必须为生产Node v24.19.0/);assert.doesNotMatch(wrong.stdout,/added 51 packages/);assert.deepEqual(readFileSync(dbpath),original);}finally{rmSync(runtimeNode);renameSync(savedNode,runtimeNode);}
+  try{const wrong=launch();assert.equal(wrong.error,undefined);assert.equal(wrong.status,1);assert.match(wrong.stderr,/运行时必须为生产Node v24.19.0/);assert.doesNotMatch(wrong.stdout,/added 51 packages/);assert.deepEqual(readFileSync(dbpath),beforePublish);}finally{rmSync(runtimeNode);renameSync(savedNode,runtimeNode);}
   const r=launch();
   assert.equal(r.error,undefined,r.error?.message);assert.equal(r.signal,null);assert.equal(r.status,1,r.stdout+r.stderr);assert.match(r.stdout,/added 51 packages/);assert.match(r.stderr,/候选版本运行时验收失败/);assert.match(r.stderr,/fastify/);assert.equal(readFileSync(join(site,'index.html'),'utf8'),'old html');
   assert.equal(execFileSync('readlink',['-f',join(base,'current')],{encoding:'utf8'}).trim(),previous);
-  assert.equal(readFileSync(log,'utf8'),'');assert.deepEqual(readFileSync(dbpath),original);assert.equal(statSync(dbpath).ino,inode);
-  assert(readdirSync(backups).some(n=>n.endsWith('.sqlite')));
+  assert.equal(readFileSync(log,'utf8'),'');assert.deepEqual(readFileSync(dbpath),beforePublish);assert.equal(statSync(dbpath).ino,beforeInode);
+  if(freshReset){assert(existsSync(join(resetRecord,'database-original/manifest.json')));resetStore.restore(resetRecord);assert.deepEqual(readFileSync(dbpath),original);}else assert(readdirSync(backups).some(n=>n.endsWith('.sqlite')));
  }finally{rmSync(f.dir,{recursive:true,force:true});}
 });
 

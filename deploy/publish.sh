@@ -4,6 +4,8 @@ set -Eeuo pipefail
 umask 077
 [[ ${1:-} = --apply && -n ${2:-} ]] || { echo '用法：sudo bash publish.sh --apply 已核验的解压目录'; exit 1; }
 [[ $EUID = 0 ]]
+reset_record=''
+if [[ $# = 4 && $3 = --reset-record ]];then reset_record=$(realpath -e "$4");elif [[ $# != 2 ]];then echo '用法：publish.sh --apply 目录 [--reset-record 受管事务目录]';exit 1;fi
 source_dir=$(realpath "$2")
 site=/var/www/qiulegeqiu
 base=/opt/qiulegeqiu-api
@@ -34,10 +36,18 @@ release_id=$(date -u +%Y%m%dT%H%M%SZ)-$$
 release="$base/releases/$release_id"
 previous=''
 if [[ -e "$base/current" ]];then [[ -L "$base/current" ]];previous=$(readlink -f "$base/current");[[ "$previous" = "$base/releases/"* && -f "$previous/server/build/index.js" ]];fi
-if [[ -n "$previous" && -f "$db" ]];then
+if [[ -n "$reset_record" ]];then
+ [[ ${QIULEGEQIU_LOCK_HELD:-} = 1 && $(readlink /proc/self/fd/9) = /run/lock/qiulegeqiu-rollout.lock ]] || { echo '重置必须由已持锁的一键安装事务调用';exit 1; }
+ "$runtime/node" --input-type=module - "$source_dir/deploy/reset-database.mjs" "$reset_record" "$source_dir/SOURCE_COMMIT" "$source_dir/RULES_VERSION" <<'JS'
+import {readFileSync} from 'node:fs';import {pathToFileURL} from 'node:url';const {ResetStore}=await import(pathToFileURL(process.argv[2]));const r=JSON.parse(readFileSync(process.argv[3]+'/database-reset-intent.json'));if(r.commit!==readFileSync(process.argv[4],'utf8').trim()||readFileSync(process.argv[5],'utf8').trim()!=='1.2.0-arcade-5l-12lv-v1')throw Error('重置事务与十二关发布包不同');new ResetStore({id:r.id,commit:r.commit,sha256:r.sha256}).verifyPrepared(process.argv[3]);
+JS
+else
+ "$runtime/node" "$source_dir/deploy/reset-preflight.mjs" --check-pending
+ if [[ -n "$previous" && -f "$db" ]];then
  "$runtime/node" --input-type=module - "$source_dir/deploy/leaderboard-contract.mjs" "$source_dir/RULES_VERSION" "$previous/RULES_VERSION" <<'JS'
 import {readFileSync,existsSync} from 'node:fs';import {pathToFileURL} from 'node:url';const {verifyRollbackCompatibility}=await import(pathToFileURL(process.argv[2]));verifyRollbackCompatibility(readFileSync(process.argv[3],'utf8'),existsSync(process.argv[4])?readFileSync(process.argv[4],'utf8'):undefined);
 JS
+ fi
 fi
 install -d -m 755 "$release"
 cp -r "$source_dir/server" "$source_dir/deploy" "$release/"
@@ -47,7 +57,11 @@ find "$release" -type f -exec chmod 644 {} +
 [[ -z "$previous" ]] || printf '%s\n' "$previous" > "$release/PREVIOUS"
 cp "$site/index.html" "$release/previous-index.html"
 # Online snapshot is mandatory BEFORE dependency installation, migration, symlink or service changes.
-if [[ -f "$db" ]];then
+if [[ -n "$reset_record" ]];then
+ # The verified offline archive already contains the original DB+WAL. The new file has only its
+ # reset epoch until the candidate API runs migrations; it cannot use the old table-count backup.
+ printf '{"event":"explicit_reset_verified_offline_snapshot"}\n' > "$release/predeploy-backup.json"
+elif [[ -f "$db" ]];then
  runuser -u qiulegeqiu -- /usr/bin/flock --exclusive /var/lib/qiulegeqiu/.maintenance.lock "$runtime/node" "$release/deploy/backup.mjs" | tee "$release/predeploy-backup.json"
 else
  printf '{"event":"first_install_no_database","existingDatabaseBackedUp":false}\n' > "$release/predeploy-backup.json"
@@ -67,6 +81,7 @@ html_switched=0
 on_failure(){
  local status=$?
  trap - ERR
+ if [[ -n "$reset_record" ]];then systemctl stop qiulegeqiu-api || true;echo '重置事务发布失败，由外层停服恢复配套程序与数据库快照' >&2;exit "$status";fi
  echo '发布失败。只回退本API代码/HTML，不恢复或覆盖数据库。' >&2
  if [[ "$switched" = 1 ]];then
   if [[ -n "$previous" ]];then ln -s "$previous" "$base/current.failed-$$";mv -Tf "$base/current.failed-$$" "$base/current";systemctl restart qiulegeqiu-api || true
