@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Production mutation entry point. Requires a separate, explicit deployment approval.
-set -euo pipefail
+set -Eeuo pipefail
 umask 077
 [[ ${1:-} = --apply && -n ${2:-} ]] || { echo '用法：sudo bash publish.sh --apply 已核验的解压目录'; exit 1; }
 [[ $EUID = 0 ]]
@@ -47,7 +47,12 @@ if [[ -f "$db" ]];then
 else
  printf '{"event":"first_install_no_database","existingDatabaseBackedUp":false}\n' > "$release/predeploy-backup.json"
 fi
-(cd "$release/server" && env PATH="$runtime:$PATH" "$runtime/npm" ci --omit=dev --ignore-scripts --cache "$release/.npm-cache")
+bash "$release/deploy/install-production-deps.sh" "$runtime/node" "$release/server"
+# Permission, complete dependency graph, native SQLite and actual entrypoint are checked BEFORE
+# assets/current/service are changed, under exactly the UID that systemd will use.
+runuser -u qiulegeqiu -- env -i PATH="$runtime:/usr/bin:/bin" /bin/sh -c \
+ 'cd "$1" && exec "$2" "$3" "$1" --start' sh \
+ "$release/server" "$runtime/node" "$release/deploy/verify-runtime.mjs"
 install -d -m 755 "$site/assets"
 cp -r "$source_dir/dist/assets/." "$site/assets/"
 find "$site/assets" -type d -exec chmod 755 {} +

@@ -17,6 +17,10 @@ cp -r dist "$stage/dist"
 cp -r server/build server/data server/migrations "$stage/server/"
 cp server/package.json server/package-lock.json "$stage/server/"
 git archive HEAD deploy | tar -x -C "$stage"
+# A release must carry its audited dependency installer, runtime gate and rollback implementation.
+for helper in install-production-deps.sh verify-runtime.mjs first-install-rollback-lib.sh;do
+ [[ -f "$stage/deploy/$helper" ]] || { echo "发布包缺少运行时门禁：$helper";exit 1; }
+done
 cp server/.env.example "$stage/deploy/qiulegeqiu-api.env.example"
 # Explicit whitelist excludes DBs, .env, source files and all node_modules.
 node -e 'const fs=require("fs");fs.writeFileSync(process.argv[1]+"/VERSION",JSON.parse(fs.readFileSync("package.json")).version+"\n")' "$stage"

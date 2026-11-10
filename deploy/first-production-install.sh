@@ -94,44 +94,38 @@ cp -p /var/www/qiulegeqiu/index.html "$record/index.html"
 previous=$(readlink -f /opt/qiulegeqiu-api/current || true)
 [[ -L /opt/qiulegeqiu-api/current ]] || previous=''
 printf '%s\n' "$previous" > "$record/previous"
-# Persist an explicit rollback entry point, runnable without the original installer.
-{
- printf '#!/usr/bin/env bash\nset -Eeuo pipefail\n[[ ${1:-} = --apply ]] || { echo "用法：sudo bash rollback-install.sh --apply";exit 1; }\n'
- declare -f say
- printf 'record=%q\nprevious=%q\nnginx_changed=1\n' "$record" "$previous"
- declare -p tracked
-} > "$record/rollback-install.sh"
 for unit in qiulegeqiu-api.service qiulegeqiu-backup.timer; do
- systemctl is-active "$unit" > "$record/$unit.active" || true
- systemctl is-enabled "$unit" > "$record/$unit.enabled" || true
+ if systemctl cat "$unit" >/dev/null 2>&1;then
+  systemctl is-active "$unit" > "$record/$unit.active" 2>/dev/null || true
+  systemctl is-enabled "$unit" > "$record/$unit.enabled" 2>/dev/null || true
+ else
+  printf 'inactive\n' > "$record/$unit.active"
+  printf 'not-found\n' > "$record/$unit.enabled"
+ fi
  state=$(cat "$record/$unit.enabled")
  [[ "$state" = enabled || "$state" = disabled || "$state" = not-found || -z "$state" ]] || fail '服务处于特殊启用状态，需人工审核'
 done
-nginx_changed=0
+# A durable journal records only resources this transaction attempts to change.
+cp "$scripts/first-install-rollback-lib.sh" "$record/rollback-lib.sh"
+source "$record/rollback-lib.sh"
 rollback(){
  local status=$?
  trap - ERR INT TERM
  set +e
- say "安装失败，开始回退代码、网页及本项目配置；绝不回写数据库。记录：$record" >&2
- systemctl stop qiulegeqiu-backup.timer qiulegeqiu-api.service
- if [[ -n "$previous" ]]; then ln -s "$previous" /opt/qiulegeqiu-api/current.rollback-$$;mv -Tf /opt/qiulegeqiu-api/current.rollback-$$ /opt/qiulegeqiu-api/current
- elif [[ -L /opt/qiulegeqiu-api/current ]]; then unlink /opt/qiulegeqiu-api/current;fi
- for p in "${tracked[@]}";do
-  if [[ -f "$record/files$p" ]];then cp -p "$record/files$p" "$p";else rm -f -- "$p";fi
- done
- install -m 644 "$record/index.html" /var/www/qiulegeqiu/.index.html.rollback-$$
- mv -f /var/www/qiulegeqiu/.index.html.rollback-$$ /var/www/qiulegeqiu/index.html
- systemctl daemon-reload
- for unit in qiulegeqiu-api.service qiulegeqiu-backup.timer;do
-  if [[ $(cat "$record/$unit.enabled") = enabled ]];then systemctl enable "$unit";else systemctl disable "$unit";fi
-  if [[ $(cat "$record/$unit.active") = active ]];then systemctl start "$unit";fi
- done
- if [[ "$nginx_changed" = 1 ]];then nginx -t && systemctl reload nginx;fi
- say '回退命令已执行；请检查上方命令错误及服务状态。新安装的独立运行时和只增不删的静态assets保留，数据库保留。' >&2
+ say "安装失败，按事务记录回退本次修改；绝不回写数据库。记录：$record" >&2
+ if rollback_install_resources "$record" /opt/qiulegeqiu-api /var/www/qiulegeqiu "$previous";then
+  say '本次修改已回退；既有数据库保留。' >&2
+ else
+  say '部分回退失败，请按记录人工检查；数据库未执行恢复或删除。' >&2
+ fi
  exit "$status"
 }
-declare -f rollback >> "$record/rollback-install.sh"
-printf 'false || rollback\n' >> "$record/rollback-install.sh"
+{
+ printf '#!/usr/bin/env bash\nset -Eeuo pipefail\n[[ ${1:-} = --apply ]] || { echo "用法：sudo bash rollback-install.sh --apply";exit 1; }\n'
+ printf 'exec 9>/run/lock/qiulegeqiu-rollout.lock\nflock -n 9\n'
+ printf 'source %q\n' "$record/rollback-lib.sh"
+ printf 'rollback_install_resources %q /opt/qiulegeqiu-api /var/www/qiulegeqiu %q\n' "$record" "$previous"
+} > "$record/rollback-install.sh"
 trap rollback ERR
 trap 'false' INT TERM
 say '安装并校验独立Node运行时（不修改系统Node）'
@@ -151,18 +145,26 @@ source_dir=$scratch/release
 python3 "$scripts/release-integrity.py" --package "$archive" --sha256 "$sha" --commit "$commit" --repo "$repo"
 if [[ ! -e /etc/qiulegeqiu-api.env ]];then
  say '创建必填生产配置；应用使用随机会话凭据，不需要伪造签名密钥'
+ printf '%s\n' /etc/qiulegeqiu-api.env >> "$record/changed-files"
  install -m 640 -o root -g qiulegeqiu /dev/null /etc/qiulegeqiu-api.env
  printf '%s\n' NODE_ENV=production PORT=8091 PUBLIC_ORIGIN=https://ball.gmgnclaw.com DB_PATH=/var/lib/qiulegeqiu/leaderboard.sqlite > /etc/qiulegeqiu-api.env
 fi
 say '安装独立服务；发布工具在启动迁移之前强制在线备份旧库'
-for unit in qiulegeqiu-api.service qiulegeqiu-backup.service qiulegeqiu-backup.timer; do install -m 644 "$source_dir/deploy/$unit" "/etc/systemd/system/$unit";done
+for unit in qiulegeqiu-api.service qiulegeqiu-backup.service qiulegeqiu-backup.timer; do
+ printf '%s\n' "/etc/systemd/system/$unit" >> "$record/changed-files"
+ install -m 644 "$source_dir/deploy/$unit" "/etc/systemd/system/$unit"
+done
 systemctl daemon-reload
+touch "$record/publish-attempted"
 bash "$source_dir/deploy/publish.sh" --apply "$source_dir"
 say '仅调整ball HTTPS站点并验证Nginx'
-nginx_changed=1
+touch "$record/nginx-attempted"
+printf '%s\n' "$site" /etc/nginx/snippets/qiulegeqiu-api.conf >> "$record/changed-files"
 bash "$source_dir/deploy/activate-nginx.sh" --apply "$site"
+touch "$record/qiulegeqiu-api.service.enable-attempted"
 systemctl enable qiulegeqiu-api.service
 say '启用每日在线备份（保留7天），立即执行一次'
+touch "$record/timer-enable-attempted" "$record/qiulegeqiu-backup.timer.enable-attempted"
 systemctl enable --now qiulegeqiu-backup.timer
 systemctl start qiulegeqiu-backup.service
 [[ $(systemctl show qiulegeqiu-backup.service -p Result --value) = success ]]

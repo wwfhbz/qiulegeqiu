@@ -5,7 +5,7 @@ class Integrity(unittest.TestCase):
   self.tmp=tempfile.TemporaryDirectory();self.root=pathlib.Path(self.tmp.name);self.repo=self.root/'repo';self.repo.mkdir()
   def git(*a):return subprocess.check_output(['git','-C',str(self.repo),*a],stderr=subprocess.DEVNULL).decode().strip()
   self.git=git;git('init');git('config','user.name','Deployment test');git('config','user.email','test@example.invalid')
-  self.files={'dist/index.html':b'<script src="/assets/app.js"></script>','dist/assets/app.js':b'game()', 'server/build/index.js':b'api()', 'server/build/manage.js':b'migrate()', 'server/package.json':b'{}','server/package-lock.json':b'{}','VERSION':b'0.8.0','RULES_VERSION':b'rules','deploy/first-production-install.sh':b'#!/bin/bash\n','deploy/release-integrity.py':b'# reviewed\n'}
+  self.files={'dist/index.html':b'<script src="/assets/app.js"></script>','dist/assets/app.js':b'game()', 'server/build/index.js':b'api()', 'server/build/manage.js':b'migrate()', 'server/package.json':b'{}','server/package-lock.json':b'{}','VERSION':b'0.8.0','RULES_VERSION':b'rules','deploy/first-production-install.sh':b'#!/bin/bash\n','deploy/release-integrity.py':b'# reviewed\n','deploy/install-production-deps.sh':b'# reviewed installer\n','deploy/verify-runtime.mjs':b'// reviewed verifier\n','deploy/first-install-rollback-lib.sh':b'# reviewed rollback\n'}
   for n,b in self.files.items():
    p=self.repo/n;p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes(b)
   git('add','.');git('commit','-m','fixture');self.commit=git('rev-parse','HEAD');self.files['SOURCE_COMMIT']=self.commit.encode();self.files['SOURCE_TREE']=git('rev-parse','HEAD^{tree}').encode()
