@@ -7,7 +7,7 @@ import { STATE_LABELS } from './GameState';
 export function mountGame(root: HTMLElement) {
   root.innerHTML = `
   <main class="shell arcade-shell">
-    <header><div class="brand"><span class="mark" aria-hidden="true">◉</span><span>球了个球<span class="version">经典街机 0.5.0</span></span></div><span class="online"><i></i> 三关 · 一次突破</span></header>
+    <header><div class="brand"><span class="mark" aria-hidden="true">◉</span><span>球了个球<span class="version">经典街机 0.5.1</span></span></div><span class="online"><i></i> 三关 · 一次突破</span></header>
     <section class="game-panel" aria-label="游戏区域">
       <div class="level-heading"><div><span class="eyebrow">经典街机模式</span><h1 id="level">第1关 · 核心初探</h1></div><span id="level-count" class="level-chip">1 / 3</span></div>
       <div class="dashboard">

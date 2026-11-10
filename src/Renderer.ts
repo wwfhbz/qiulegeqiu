@@ -1,6 +1,7 @@
 import { C } from './GameConfig';
 import { Physics } from './Physics';
 import { ARENA_WALL } from './ArenaGeometry';
+import { FRAME } from './WorldGeometry';
 export class Renderer {
   private ctx: CanvasRenderingContext2D;
   private cache = document.createElement('canvas');
@@ -48,6 +49,15 @@ export class Renderer {
     c.drawImage(this.cache, 0, 0, C.width, C.height);
     c.beginPath(); c.arc(a.x, a.y, a.radius, ARENA_WALL.startAngle, ARENA_WALL.endAngle);
     c.strokeStyle = '#7e94ac'; c.lineWidth = ARENA_WALL.width; c.lineCap = 'round'; c.stroke(); c.lineCap = 'butt';
+    c.beginPath(); c.moveTo(FRAME.left, FRAME.deathY); c.lineTo(FRAME.left, FRAME.top);
+    c.lineTo(FRAME.right, FRAME.top); c.lineTo(FRAME.right, FRAME.deathY);
+    c.lineWidth = FRAME.width; c.lineCap = 'round'; c.lineJoin = 'miter'; c.stroke(); c.lineCap = 'butt';
+    // An amber dashed marker, not a collider or a bottom wall.
+    c.beginPath(); c.setLineDash([6, 8]); c.moveTo(FRAME.left, FRAME.deathY); c.lineTo(FRAME.right, FRAME.deathY);
+    c.strokeStyle = '#ad6e6555'; c.lineWidth = 1; c.stroke(); c.setLineDash([]);
+    c.fillStyle = '#9c7776'; c.font = '14px sans-serif'; c.textAlign = 'center';
+    c.fillText('漏球线', C.arena.x, FRAME.deathY + 18);
+
     c.fillStyle = '#d7f7ff'; c.shadowColor = '#68d9ef'; c.shadowBlur = 15;
     c.beginPath(); c.roundRect(p.paddleX - p.paddleWidth / 2, C.paddle.y - C.paddle.height / 2, p.paddleWidth, C.paddle.height, 6); c.fill();
     c.shadowBlur = 0; c.lineWidth = 3; c.strokeStyle = '#ffffff35';
