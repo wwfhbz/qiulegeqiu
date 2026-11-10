@@ -8,7 +8,7 @@ User=qiulegeqiu
 Group=qiulegeqiu
 WorkingDirectory=/opt/qiulegeqiu-api/current/server
 EnvironmentFile=/etc/qiulegeqiu-api.env
-ExecStart=/usr/bin/node build/index.js
+ExecStart=/opt/qiulegeqiu-api/node/bin/node build/index.js
 Restart=on-failure
 RestartSec=3
 NoNewPrivileges=true
@@ -19,6 +19,8 @@ ReadWritePaths=/var/lib/qiulegeqiu
 UMask=0077
 MemoryMax=256M
 TasksMax=64
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target

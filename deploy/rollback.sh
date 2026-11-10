@@ -16,7 +16,7 @@ previous=$(cat "$current/PREVIOUS")
 ln -s "$previous" "$base/current.rollback"
 mv -Tf "$base/current.rollback" "$base/current"
 systemctl restart qiulegeqiu-api
-curl --fail --retry 5 --retry-connrefused --retry-delay 1 http://127.0.0.1:8091/api/health
+curl --fail --max-time 3 --retry 5 --retry-connrefused --retry-delay 1 http://127.0.0.1:8091/api/health
 install -m 644 "$current/previous-index.html" /var/www/qiulegeqiu/.index.html.rollback
 mv -f /var/www/qiulegeqiu/.index.html.rollback /var/www/qiulegeqiu/index.html
 printf '已恢复上一API与HTML；保留全部资源和数据库，未触及其他服务。\n'

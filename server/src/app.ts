@@ -24,7 +24,7 @@ export async function createApp(options:AppOptions={}) {
  const db=options.db||openDb(options.dbPath||process.env.DB_PATH||'../work/leaderboard.sqlite'); seedRegions(db);
  const now=options.now||Date.now, origin=options.origin||process.env.PUBLIC_ORIGIN||'http://127.0.0.1:5173', secure=options.secure??process.env.NODE_ENV==='production';
  if(secure&&!origin.startsWith('https://'))throw new Error('生产PUBLIC_ORIGIN必须使用HTTPS');
- const app=Fastify({bodyLimit:256*1024,trustProxy:['127.0.0.1','::1'],logger:false}); await app.register(cookie);
+ const app=Fastify({bodyLimit:256*1024,trustProxy:['127.0.0.1','::1'],logger:process.env.NODE_ENV==='production'?{level:'info',redact:['req.headers.cookie','req.headers.authorization','req.headers["x-csrf-token"]','res.headers["set-cookie"]'],serializers:{req:(r:{method:string;url:string})=>({method:r.method,path:r.url.split('?')[0]})}}:false}); await app.register(cookie);
  app.addHook('onSend',async(_request,reply,payload)=>{reply.header('cache-control','no-store').header('x-content-type-options','nosniff').header('referrer-policy','same-origin');return payload;});
  function session(req:FastifyRequest,required=true):Session|undefined {
   const token=req.cookies[secure?'__Secure-qlgq':'qlgq_dev'];
@@ -49,7 +49,7 @@ export async function createApp(options:AppOptions={}) {
   app.log.error({err:error},'接口异常');return reply.status(503).send({message:'服务暂不可用，单机游戏不受影响'});
  });
  function challenge(req:FastifyRequest){const s=session(req)!;const cid=id.parse((req.params as {id:string}).id);const c=db.prepare('SELECT * FROM challenges WHERE id=? AND session_id=?').get(cid,s.id) as unknown as Challenge;if(!c)throw new ApiError(404,'挑战不存在或无权访问');if(c.expires_at<now())throw new ApiError(410,'挑战已过期，本次可继续单机游玩');if(c.rules_version!==RULES_VERSION)throw new ApiError(409,'游戏规则版本已更新，请开始新的挑战');return {s,c};}
- app.get('/api/health',async()=>({ok:true,rulesVersion:RULES_VERSION}));
+ app.get('/api/health',async()=>{db.prepare('SELECT 1').get();return {ok:true,rulesVersion:RULES_VERSION,database:'ready'};});
  app.get('/api/me',async(req,reply)=>{
   let s=session(req,false);
   if(!s){rate(`bootstrap:${req.ip}`,120,3600000);const token=randomBytes(32).toString('base64url');s={id:randomUUID(),player_id:null,csrf_token:randomBytes(24).toString('base64url')};db.prepare('INSERT INTO sessions VALUES(?,?,?,?,?,?)').run(s.id,null,hash(token),s.csrf_token,now(),now()+90*86400000);reply.setCookie(secure?'__Secure-qlgq':'qlgq_dev',token,{path:'/api',httpOnly:true,secure,sameSite:'strict',maxAge:90*86400});}
