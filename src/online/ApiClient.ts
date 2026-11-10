@@ -6,7 +6,7 @@ export interface Me extends LeaderboardMetadata {historicalBest?:BestScore|null;
 export class ApiClient {
   private identity?: Promise<Me>; private csrf=''; private loading=false;
   async request<T>(path:string,body?:unknown):Promise<T>{
-    if(body!==undefined&&!this.csrf)await this.me();
+    if(body!==undefined&&(path==='/challenges'||!this.csrf))await this.me(path==='/challenges');
     let response:Response;
     try{response=await fetch(`/api${path}`,{method:body===undefined?'GET':'POST',credentials:'same-origin',headers:body===undefined?{}:{'content-type':'application/json','x-csrf-token':this.csrf},body:body===undefined?undefined:JSON.stringify(body),signal:AbortSignal.timeout(6000)});}catch{throw new Error('网络暂不可用，单机游戏不受影响');}
     const result=await response.json().catch(()=>null);return apiPayload<T>(response.status,result);

@@ -1,0 +1,22 @@
+{
+  "date": "2026-11-10",
+  "timezone": "Asia/Shanghai",
+  "rulesVersion": "1.2.0-arcade-5l-12lv-v1",
+  "tests": {
+    "client": 199,
+    "server": 59,
+    "deployment": 36,
+    "minigamePackage": 3
+  },
+  "databaseScope": "/var/lib/qiulegeqiu/leaderboard.sqlite",
+  "backup": "stopped-service complete SQLite/WAL/SHM/journal image with per-file SHA256 and integrity check on a copy",
+  "resetRepeatedSuccessfully": "does not erase new records",
+  "pairedRollbackTested": true,
+  "realLocalApiSubmissionTested": true,
+  "oldCookieAndWechatInvalidationTested": true,
+  "crossClientRankTested": true,
+  "permanentChallengeErrorsStopRetrying": true,
+  "productionDatabasePathActuallyRead": false,
+  "productionApplied": false,
+  "wechatOfficialDeviceTested": false
+}

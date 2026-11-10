@@ -20,8 +20,13 @@ export class WechatApi implements ApiTransport {
   })().finally(()=>{this.pending=undefined;});return this.pending;
  }
  async request<T>(path:string,body?:unknown):Promise<T>{
+  if(body!==undefined&&path==='/challenges')await this.me();
   const publicGet=body===undefined&&/^\/(health|leaderboard|regions(?:\/[^?]+)?|players\/availability)(\?|$)/.test(path);
-  if(!publicGet)await this.login();return this.send<T>(path,body,!publicGet||this.authenticated);
+  if(!publicGet)await this.login();
+  try{return await this.send<T>(path,body,!publicGet||this.authenticated);}catch(error){
+   // A reset invalidates cached tokens. Renew once for safe identity reads only; never replay old writes.
+   if(body===undefined&&/^\/me(?:\/best)?(?:\?|$)/.test(path)&&(error as {status?:number}).status===401){await this.login();return this.send<T>(path,undefined,true);}throw error;
+  }
  }
  async me(){const data=await this.request<Me>('/me?board=global');assertIdentityPayload(data);try{assertGlobalBoard(data);return {...data,rankingAvailable:true};}catch{return {...data,historicalBest:data.historicalBest??(data.rulesVersion!==RULES_VERSION?data.best:null),best:null,rankingAvailable:false};}}
  private async send<T>(path:string,body:unknown,auth:boolean):Promise<T>{

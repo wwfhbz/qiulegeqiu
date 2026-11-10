@@ -7,16 +7,24 @@ fail(){ say "$*" >&2; exit 1; }
 mode=dry-run
 archive=/home/ubuntu/qiulegeqiu/work/qiulegeqiu-release.tar.gz
 sha='';commit='';site=''
+reset_requested=0;reset_active=0;reset_id='';reset_confirmation=''
 while (($#)); do
  case "$1" in
  --apply) mode=apply;shift;;
  --dry-run) mode=dry-run;shift;;
+ --reset-database) reset_requested=1;shift;;
+ --confirm-reset|--reset-id)
+  (($#>=2)) || fail "参数缺少值"
+  if [[ $1 = --confirm-reset ]];then reset_confirmation=$2;else reset_id=$2;fi;shift 2;;
  --package|--sha256|--commit|--site-file)
   (($#>=2)) || fail '参数缺少值'
   case "$1" in --package) archive=$2;; --sha256) sha=$2;; --commit) commit=$2;; --site-file) site=$2;; esac;shift 2;;
  *) fail '参数：--dry-run 或 --apply，--package 路径 --sha256 审核哈希 --commit 审核提交 --site-file HTTPS站点文件';;
  esac
 done
+if [[ $reset_requested = 1 ]];then
+ [[ "$reset_confirmation" = RESET-QIULEGEQIU-ALL-DATA && "$reset_id" =~ ^[A-Za-z0-9-]{8,80}$ ]] || fail '全新数据库需--confirm-reset RESET-QIULEGEQIU-ALL-DATA及明确--reset-id'
+elif [[ -n "$reset_confirmation" || -n "$reset_id" ]];then fail '确认参数只能与--reset-database一起使用';fi
 scripts=$(cd "$(dirname "$0")" && pwd)
 repo=$(git -C "$scripts" rev-parse --show-toplevel)
 [[ -n "$sha" && -n "$commit" && -n "$site" ]] || fail '必须提供外部审核的SHA256、完整提交SHA及准确HTTPS站点文件；不猜测站点'
@@ -77,18 +85,30 @@ if [[ ! -f /var/lib/qiulegeqiu/leaderboard.sqlite ]]; then
  ! systemctl is-active --quiet qiulegeqiu-api.service || fail '旧API运行但标准数据库不存在'
 fi
 curl --fail --silent --show-error --max-time 15 https://game.gmgnclaw.com/ -o /dev/null
-if [[ -L /opt/qiulegeqiu-api/current && -f /var/lib/qiulegeqiu/leaderboard.sqlite ]];then
+if [[ $reset_requested = 1 ]];then
+ reset_state=$(node "$scripts/reset-preflight.mjs" "$reset_id" "$commit" "$sha")
+ [[ "$reset_state" != new ]] || reset_active=1
+else node "$scripts/reset-preflight.mjs" --check-pending
+fi
+if [[ $reset_active = 0 && -L /opt/qiulegeqiu-api/current && -f /var/lib/qiulegeqiu/leaderboard.sqlite ]];then
  reviewed_rules=$(tar -xOf "$archive" RULES_VERSION)
  node --input-type=module - "$scripts/leaderboard-contract.mjs" "$reviewed_rules" /opt/qiulegeqiu-api/current/RULES_VERSION <<'JS'
 import {readFileSync,existsSync} from 'node:fs';import {pathToFileURL} from 'node:url';const {verifyRollbackCompatibility}=await import(pathToFileURL(process.argv[2]));verifyRollbackCompatibility(process.argv[3],existsSync(process.argv[4])?readFileSync(process.argv[4],'utf8'):undefined);
 JS
 fi
-say '检查完成：将保留既有环境和数据库；新增独立Node、API服务、ball站点代理及每日备份'
+if [[ $reset_active = 1 ]];then say '重置模式：将停服并完整归档专属数据库及日志，初始化全新榜单；失败配套恢复程序和数据库';else say '保留数据库模式（已完成重置批次不会再次清空）';fi
 [[ "$mode" = apply ]] || { say 'dry-run完成；未安装、未备份、未重启或发布。只有--apply才会写入';exit 0; }
 # A second independent installer cannot interleave; legacy helpers retain their own rollout locks.
 exec 9>/run/lock/qiulegeqiu-rollout.lock
 flock -n 9 || fail '另一次首次安装正在执行'
 export QIULEGEQIU_LOCK_HELD=1
+# Recheck after acquiring the global lock: another completed/interrupted transaction may have
+# changed the ledger while this process was waiting. No record or service mutation yet.
+if [[ $reset_requested = 1 ]];then
+ locked_reset_state=$(node "$scripts/reset-preflight.mjs" "$reset_id" "$commit" "$sha")
+ [[ "$locked_reset_state" = "$reset_state" ]] || fail '等待锁期间重置状态改变，请重新执行检查'
+else node "$scripts/reset-preflight.mjs" --check-pending
+fi
 record=/var/backups/qiulegeqiu-install/$(date -u +%Y%m%dT%H%M%SZ)-$$
 install -d -m 700 /var/backups/qiulegeqiu-install "$record" "$record/files"
 tracked=("$site" /etc/nginx/snippets/qiulegeqiu-api.conf /etc/qiulegeqiu-api.env /etc/systemd/system/qiulegeqiu-api.service /etc/systemd/system/qiulegeqiu-backup.service /etc/systemd/system/qiulegeqiu-backup.timer)
@@ -114,21 +134,31 @@ done
 # A durable journal records only resources this transaction attempts to change.
 cp "$scripts/first-install-rollback-lib.sh" "$record/rollback-lib.sh"
 source "$record/rollback-lib.sh"
+restore_reset_database(){
+ if systemctl cat qiulegeqiu-backup.timer >/dev/null 2>&1;then systemctl stop qiulegeqiu-backup.timer || return 1;fi
+ if systemctl cat qiulegeqiu-backup.service >/dev/null 2>&1;then systemctl stop qiulegeqiu-backup.service || return 1;fi
+ "$runtime" "$scripts/reset-database.mjs" restore "$reset_id" "$commit" "$sha" "$record"
+}
 rollback(){
  local status=$?
  trap - ERR INT TERM
  set +e
- say "安装失败，按事务记录回退本次修改；绝不回写数据库。记录：$record" >&2
+ say "安装失败，按事务记录回退；仅显式重置事务恢复配套数据库快照。记录：$record" >&2
  if rollback_install_resources "$record" /opt/qiulegeqiu-api /var/www/qiulegeqiu "$previous";then
-  say '本次修改已回退；既有数据库保留。' >&2
+  say '本次修改已回退；默认模式保留数据库，显式重置模式已恢复配套快照。' >&2
  else
-  say '部分回退失败，请按记录人工检查；数据库未执行恢复或删除。' >&2
+  say '部分回退失败，API可能保持停止；请检查事务记录和快照，不要启动不匹配的程序。' >&2
  fi
  exit "$status"
 }
 {
  printf '#!/usr/bin/env bash\nset -Eeuo pipefail\n[[ ${1:-} = --apply ]] || { echo "用法：sudo bash rollback-install.sh --apply";exit 1; }\n'
  printf 'exec 9>/run/lock/qiulegeqiu-rollout.lock\nflock -n 9\n'
+ if [[ $reset_active = 1 ]];then
+  cp "$scripts/reset-database.mjs" "$record/reset-database.mjs"
+  printf '[[ ${2:-} = --confirm-reset-rollback ]] || { echo "重置回退需--confirm-reset-rollback；将恢复部署前数据库";exit 1; }\n'
+  printf 'restore_reset_database(){ for unit in qiulegeqiu-backup.timer qiulegeqiu-backup.service;do if systemctl cat "$unit" >/dev/null 2>&1;then systemctl stop "$unit" || return 1;fi;done; %q %q restore %q %q %q %q; }\n' /opt/qiulegeqiu-api/node/bin/node "$record/reset-database.mjs" "$reset_id" "$commit" "$sha" "$record"
+ fi
  printf 'source %q\n' "$record/rollback-lib.sh"
  printf 'rollback_install_resources %q /opt/qiulegeqiu-api /var/www/qiulegeqiu %q\n' "$record" "$previous"
 } > "$record/rollback-install.sh"
@@ -140,6 +170,10 @@ bash "$scripts/install-runtime.sh" --apply
 runtime=/opt/qiulegeqiu-api/node/bin/node
 [[ "$system_node" = "$(sha256sum "$(readlink -f "$(command -v node)")")" ]]
 "$runtime" -e 'const {DatabaseSync}=require("node:sqlite");new DatabaseSync(":memory:").close()'
+if [[ $reset_requested = 1 ]];then
+ actual_reset_state=$("$runtime" "$scripts/reset-database.mjs" inspect "$reset_id" "$commit" "$sha")
+ [[ $actual_reset_state = "$reset_state" ]] || fail '重置账本在检查后发生变化，停止'
+fi
 # Archive was fully inspected; extract only now, under private temporary directory.
 cp -- "$archive" "$scratch/release.tar.gz"
 [[ $(sha256sum "$scratch/release.tar.gz" | cut -d' ' -f1) = "$sha" ]]
@@ -155,6 +189,20 @@ if [[ ! -e /etc/qiulegeqiu-api.env ]];then
  install -m 640 -o root -g qiulegeqiu /dev/null /etc/qiulegeqiu-api.env
  printf '%s\n' NODE_ENV=production PORT=8091 PUBLIC_ORIGIN=https://ball.gmgnclaw.com DB_PATH=/var/lib/qiulegeqiu/leaderboard.sqlite > /etc/qiulegeqiu-api.env
 fi
+publish_args=()
+if [[ $reset_active = 1 ]];then
+ say '停止本游戏API与备份任务，验证无数据库句柄后完整归档并创建新数据库'
+ touch "$record/reset-api-stop-attempted" "$record/timer-enable-attempted"
+ if systemctl cat qiulegeqiu-api.service >/dev/null 2>&1;then systemctl stop qiulegeqiu-api.service;fi
+ if systemctl cat qiulegeqiu-backup.timer >/dev/null 2>&1;then systemctl stop qiulegeqiu-backup.timer;fi
+ if systemctl cat qiulegeqiu-backup.service >/dev/null 2>&1;then systemctl stop qiulegeqiu-backup.service;fi
+ ! systemctl is-active --quiet qiulegeqiu-api.service || fail 'API尚未停止'
+ exec 8>/var/lib/qiulegeqiu/.maintenance.lock
+ flock -n 8 || fail '数据库维护任务未结束'
+ "$runtime" "$scripts/reset-database.mjs" prepare "$reset_id" "$commit" "$sha" "$record" "$reset_confirmation"
+ flock -u 8
+ publish_args=(--reset-record "$record")
+fi
 say '安装独立服务；发布工具在启动迁移之前强制在线备份旧库'
 for unit in qiulegeqiu-api.service qiulegeqiu-backup.service qiulegeqiu-backup.timer; do
  printf '%s\n' "/etc/systemd/system/$unit" >> "$record/changed-files"
@@ -162,7 +210,7 @@ for unit in qiulegeqiu-api.service qiulegeqiu-backup.service qiulegeqiu-backup.t
 done
 systemctl daemon-reload
 touch "$record/publish-attempted"
-bash "$source_dir/deploy/publish.sh" --apply "$source_dir"
+bash "$source_dir/deploy/publish.sh" --apply "$source_dir" "${publish_args[@]}"
 say '仅调整ball HTTPS站点并验证Nginx'
 touch "$record/nginx-attempted"
 printf '%s\n' "$site" /etc/nginx/snippets/qiulegeqiu-api.conf >> "$record/changed-files"
@@ -197,5 +245,8 @@ if(load('best').board!=='global'||!('best' in load('best')))throw Error('个人�
 JS
 for unit in qiulegeqiu-api.service qiulegeqiu-backup.timer; do systemctl is-enabled --quiet "$unit";systemctl is-active --quiet "$unit";done
 curl --fail --silent --show-error --max-time 15 https://game.gmgnclaw.com/ -o /dev/null
+if [[ $reset_active = 1 ]];then
+ "$runtime" "$scripts/reset-database.mjs" complete "$reset_id" "$commit" "$sha" "$record"
+fi
 trap - ERR INT TERM
 say "部署完成；回滚记录：$record。个人真实排名和跨设备真实成绩请使用已有账号人工验收；本脚本未伪造正式成绩。"

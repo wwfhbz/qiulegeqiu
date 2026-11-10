@@ -50,9 +50,9 @@ it('网络异常不阻止单机开始、暂停、重开；结束可跳过成绩�
 });
 it('微信登录只提交临时代码，会话持久化和CSRF正确，无openid或分数认证',async()=>{
  const f=fixture();f.wx.login=o=>o.success({code:'temporary-code'});const token='a'.repeat(43),csrfToken='csrf-token';
- f.wx.request=o=>{f.requests.push(o);if(o.url.endsWith('/wechat/login'))o.success({statusCode:200,data:{token,csrfToken,expiresAt:Date.now()+60000}});else o.success({statusCode:200,data:{ok:true}});};
+ f.wx.request=o=>{f.requests.push(o);if(o.url.endsWith('/wechat/login'))o.success({statusCode:200,data:{token,csrfToken,expiresAt:Date.now()+60000}});else o.success({statusCode:200,data:o.url.includes('/me?')?{csrfToken,player:null,best:null,board:'global',rankingRulesVersion:RULES_VERSION}:{ok:true}});};
  const api=new WechatApi(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});await Promise.all([api.login(),api.login()]);expect(f.requests).toHaveLength(1);expect(f.requests[0].data).toEqual({code:'temporary-code'});
- await api.request('/challenges',{rulesVersion:'test'});expect(f.requests[1].header.authorization).toBe('Bearer '+token);expect(f.requests[1].header['x-csrf-token']).toBe(csrfToken);
+ await api.request('/challenges',{rulesVersion:'test'});const challenge=f.requests.find(r=>r.url.endsWith('/challenges'))!;expect(challenge.header.authorization).toBe('Bearer '+token);expect(challenge.header['x-csrf-token']).toBe(csrfToken);
  const back=new WechatApi(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});expect(back.authenticated).toBe(true);
  f.wx.request=o=>o.success({statusCode:401,data:{message:'过期'}});await expect(back.me()).rejects.toThrow('过期');expect(back.authenticated).toBe(false);
 });
@@ -83,4 +83,16 @@ it('微信个人会话失效不能隐藏公开全球榜，只有一个榜单且�
   o.success({statusCode:401,data:{message:'登录状态失效'}});
  };const app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});await app.api.login();await (app as unknown as {board():Promise<void>}).board();
  expect(app.panel.title).toContain('全球历史排行榜');expect(app.panel.lines.join('')).toContain('中国·公开榜玩家');expect(app.panel.lines.join('')).toContain('重新登录');expect(app.panel.actions.map(a=>a.label)).toContain('刷新');expect(app.panel.actions.some(a=>/赛季|旧版/.test(a.label))).toBe(false);expect(app.api.authenticated).toBe(false);
+});
+it('重置数据库后旧微信凭据失效：身份GET只续登一次，随后可重新登记',async()=>{
+ const f=fixture();let logins=0,reads=0;f.wx.login=o=>{logins++;o.success({code:'new-code-'+logins});};f.wx.request=o=>{
+  if(o.url.endsWith('/wechat/login'))return o.success({statusCode:200,data:{token:(logins===1?'a':'b').repeat(43),csrfToken:'proof',expiresAt:Date.now()+60000}});
+  if(++reads===1)return o.success({statusCode:401,data:{message:'旧会话已失效'}});
+  o.success({statusCode:200,data:{csrfToken:'proof',player:null,best:null,board:'global',rankingRulesVersion:RULES_VERSION}});
+ };const api=new WechatApi(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});await api.login();const me=await api.me();expect(me.player).toBeNull();expect(me.rankingAvailable).toBe(true);expect(logins).toBe(2);expect(reads).toBe(2);expect(api.authenticated).toBe(true);
+});
+it('持续401有明确终止，旧写请求绝不在新身份下自动重放',async()=>{
+ const f=fixture();let logins=0,posts=0,reads=0;f.wx.login=o=>{logins++;o.success({code:'code-'+logins});};f.wx.request=o=>{if(o.url.endsWith('/wechat/login'))return o.success({statusCode:200,data:{token:'a'.repeat(43),csrfToken:'proof',expiresAt:Date.now()+60000}});if(o.method==='POST')posts++;else reads++;o.success({statusCode:401,data:{message:'会话不存在'}});};
+ const api=new WechatApi(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});await expect(api.me()).rejects.toThrow('会话不存在');expect(logins).toBe(2);expect(reads).toBe(2);
+ logins=0;await api.login();await expect(api.request('/players',{nickname:'重新登记',regionCode:'ISO:CN'})).rejects.toThrow('会话不存在');expect(logins).toBe(1);expect(posts).toBe(1);
 });

@@ -27,6 +27,8 @@ type Challenge={id:string;session_id:string;rules_version:string;created_at:numb
 export interface AppOptions { db?:Db; dbPath?:string; origin?:string; secure?:boolean; now?:()=>number; rateLimit?:boolean; wechat?:WechatProvider }
 export async function createApp(options:AppOptions={}) {
  const db=options.db||openDb(options.dbPath||process.env.DB_PATH||'../work/leaderboard.sqlite'); seedRegions(db);
+ const freshDatabase=!!db.prepare("SELECT 1 FROM sqlite_schema WHERE type='table' AND name='deployment_reset_epoch'").get();
+ const activeRules:readonly string[]=freshDatabase?[RULES_VERSION]:SUPPORTED_RULES_VERSIONS;
  const now=options.now||Date.now, origin=options.origin||process.env.PUBLIC_ORIGIN||'http://127.0.0.1:5173', secure=options.secure??process.env.NODE_ENV==='production';
  if(secure&&!origin.startsWith('https://'))throw new Error('生产PUBLIC_ORIGIN必须使用HTTPS');
  const app=Fastify({bodyLimit:256*1024,trustProxy:['127.0.0.1','::1'],logger:process.env.NODE_ENV==='production'?{level:'info',redact:['req.headers.cookie','req.headers.authorization','req.headers["x-csrf-token"]','res.headers["set-cookie"]'],serializers:{req:(r:{method:string;url:string})=>({method:r.method,path:r.url.split('?')[0]})}}:false}); await app.register(cookie);
@@ -87,7 +89,7 @@ export async function createApp(options:AppOptions={}) {
    return {id:proof.player_id};
   });
  });
- app.get('/api/health',async()=>{db.prepare('SELECT 1').get();return {ok:true,rulesVersion:RULES_VERSION,database:'ready',supportedRulesVersions:SUPPORTED_RULES_VERSIONS,leaderboard:boardMetadata};});
+ app.get('/api/health',async()=>{db.prepare('SELECT 1').get();return {ok:true,rulesVersion:RULES_VERSION,database:'ready',supportedRulesVersions:activeRules,leaderboard:boardMetadata};});
  app.get('/api/me',async(req,reply)=>{
   const rules=selectedRules(req);
   let s=session(req,false);
@@ -113,6 +115,7 @@ export async function createApp(options:AppOptions={}) {
  });
  app.post('/api/challenges',async(req,reply)=>{
   const s=session(req)!;if(s.player_id)active(s);rate(`challenge:${s.id}`,30,3600000);const input=z.object({rulesVersion:z.string().max(100),unranked:z.boolean().default(false),seed:z.number().int().min(0).max(4294967295).default(1)}).strict().parse(req.body);
+  if(freshDatabase&&input.rulesVersion!==RULES_VERSION)throw new ApiError(400,'本排行榜已启用十二关，请刷新客户端后重新开始','CLIENT_UPDATE_REQUIRED');
   if(!SUPPORTED_RULES_VERSIONS.includes(input.rulesVersion as typeof SUPPORTED_RULES_VERSIONS[number]))throw new ApiError(400,'服务器不支持当前游戏规则，请更新排行榜后端；本次仍可单机游玩','UNSUPPORTED_RULES');
   const cid=randomUUID();transaction(db,()=>{db.prepare('INSERT INTO challenges(id,session_id,rules_version,created_at,expires_at,unranked,seed) VALUES(?,?,?,?,?,?,?)').run(cid,s.id,input.rulesVersion,now(),now()+6*3600000,input.unranked?1:0,input.seed);});reply.status(201);return {id:cid,expiresAt:now()+6*3600000,rulesVersion:input.rulesVersion};
  });
