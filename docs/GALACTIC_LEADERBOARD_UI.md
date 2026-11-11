@@ -1,43 +1,52 @@
-# 全球历史排行榜：星际荣耀 UI
+# 全球历史排行榜：参考图重制版
 
-## 范围与视觉
+## 最终版式
 
-`game-ui-design`、`game-feel` 均未安装；本次直接实现原创 Canvas / SVG / CSS 视觉，不引用未经授权的素材、头像或外部字体。
+按用户提供的画面重做，取消上一版独立竖向卡片：
 
-紫蓝星际圆角面板、金色奖杯、皇冠与星星。前5名采用金色描边与柔和光晕、流光和星芒，第1名的皇冠、字号、头像框和光晕更突出；第6名以后是蓝色卡片。每张卡显示服务端的地区昵称、排名、最高总分、最高关卡、消除砖块和最佳时间；时间显示到毫秒（分:秒.毫秒），避免同分成绩在视觉上无法区分。
+- 顶部地球游戏徽标、红金绶带标题、月桂、星星、皇冠球球。
+- 深蓝星空、金色发光外框、底部霓虹地面和砖块。
+- 六列对齐：排名 / 玩家昵称 / 最高总分 / 最高关卡 / 消除砖块 / 最佳时间。
+- 首屏10行：前三名金银铜徽章，前五行金橙色渐变和金光，第6名起蓝色行。
+- 底部固定紫金「我的排名」成绩栏；刷新、分页、账号与申诉保留，不遮盖数据。
 
-两端均使用 `src/online/ranking/Presentation.ts` 的只读展示模型、配色令牌、时间/数字格式、荣耀判断与降档时钟，`Artwork.ts` 提供原创球球默认头像、奖杯和皇冠图形。所有玩家使用同一个默认头像，不模拟真实玩家照片。
+`ReferenceLayout.ts` 统一1200×1320逻辑坐标、六列宽度、行高、表头、列表视口和个人栏。Web使用容器单位，微信Canvas使用同一几何等比例缩放。前10行恰好填满列表视口，其余条目可滚动查看；每次仍请求原API的20条，全部TOP100可分页访问。
 
-网页为可滚动卡片列表 + 始终可见的个人排名底栏；微信为独立 Canvas 卡片面板、手指拖动滚动、分页按钮和固定个人卡。微信昵称过长可点卡片查看完整记录，拖动不会误触卡片。网页以省略号显示过长昵称，点击球球头像/名称或按键盘回车可展开完整名称，同时提供完整 title。
+静态插画由图像工具按参考图重制，不声称原图逐像素校验相同。参考中的示例玩家照片、姓名、名次和成绩没有烘焙入图片，也不会用于冒充真实玩家。无真实头像时沿用统一球球默认头像。
 
-## 数据及游戏保护
+## 数据与交互
 
-- 继续使用原 `/leaderboard?board=global&offset=…&limit=20` 和 `/me?board=global`，每次最多20条、总榜TOP100。微信页大小从按屏幕取3/5改为20，仍遵守原API分页约束。
-- 直接展示服务器的 rank，不从当前页或分数自行计算；同分、并列名次不重排。个人在TOP100之外，仍展示 `/me` 的真实排名。
-- 分别展示未上榜、未登录、个人记录不可用；请求失败时不伪装成未上榜。缺失指标显示「—」，不编造为0。
-- 原有昵称登记、微信绑定、历史记录、申诉、成绩提交及安全重试继续保留。旧历史记录仍在账号详情中，没有删除数据或增加赛季入口。
-- 不改服务端、SQLite、排序规则、玩家身份、成绩、ChallengeJournal、规则版本和玩法。只对已被微信排行榜完全遮住的竞技场跳过无效绘制，Game.update/物理流程不变。
+仍读取 `/leaderboard?board=global&offset=…&limit=20`、`/me?board=global`，不计算排名、不客户端重排同分成绩。TOP100之外的个人名次也直接取服务器值；未登录、未上榜和读取失败分别展示，缺失指标显示「—」。
 
-## 动效与性能
+列表按参考图显示一位小数的秒数；精确毫秒仍保留在共享数据、网页时间title和微信详情中，排序和服务端验证不变。长昵称可点击展开或在微信详情查看。百万分数自动适配列宽，不截断数字。
 
-网页只通过 CSS transform / opacity 动画，不引入排行榜RAF循环或JS粒子池。按硬件线程/内存、窄屏和用户减少动态偏好降档，并利用现有游戏帧回调监测持续低帧率。
+挑战结束后仍可提交、跳过、查看榜单，并从榜单返回本次挑战成绩。提交失败恢复按钮，保留原日志和幂等重试。原有昵称、地区、微信账号绑定、历史记录和申诉流程保留。
 
-微信通过设备 benchmarkLevel、窄屏和实际显示帧时间降档：背景星芒从24减为6，减少阴影，关闭流光；仅绘制可见卡片。视图暂停时冻结动效时间，进入后台使用原有生命周期停止帧循环。网页暂停、后台或关闭弹窗也停止动画。
+没有改动服务端代码、SQLite、身份、历史成绩、排序、ChallengeJournal、物理规则或规则版本。
 
-初次大尺寸软件渲染采样发现掉帧，已缩小流光面积、移除整屏背景模糊，跳过微信被遮挡的竞技场绘制；不通过调整物理时间或规则优化。最终 Chromium 45帧短采样：
+## 双端资源与性能
 
-| 客户端/视口 | 平均FPS | 最大帧间隔 |
+- Web：`public/ranking-art/reference-scene.png`，Vite随静态资源发布。
+- 微信：构建时将同一图片复制到`dist/assets/ranking-scene.png`，由微信Image本地加载；构建测试检查资源存在。
+- 金色流光、星芒有数量上限，暂停、后台或减少动态偏好下停止。低配设备和持续低帧率自动降档。
+- 微信静态场景、文字、徽章使用一个可复用离屏画布；只有滚动、视口、数据或图片状态变化才重绘。低配缓存DPR为1，其他最高为2；动画仅绘制少量叠加效果。
+- 不创建额外游戏物理帧循环，不修改Game.update或计时；被排行榜完全遮住的竞技场不重复绘制。
+
+最终开发环境Chromium各45帧短采样，完整数据见`work/galactic-ranking/results.json`：
+
+| 客户端 / 视口 | 平均FPS | 最大帧间隔 |
 | --- | ---: | ---: |
-| Web 1366×1000 | 60.00 | 16.8ms |
-| Web 390×844 | 60.00 | 16.8ms |
-| Web 320×568 | 60.01 | 16.8ms |
-| 微信模拟 390×844 | 59.99 | 16.8ms |
-| 微信模拟 320×568 | 60.01 | 16.8ms |
-| 微信模拟 768×1024 | 58.69 | 33.4ms |
+| Web 1200×1320 | 60.00 | 16.8ms |
+| Web 1366×1000 | 60.01 | 16.7ms |
+| Web 390×844 | 60.00 | 16.7ms |
+| Web 320×568 | 60.00 | 16.8ms |
+| 微信模拟 390×844 | 60.01 | 16.8ms |
+| 微信模拟 320×568 | 60.00 | 16.8ms |
+| 微信模拟 768×1024 | 60.00 | 16.8ms |
 
-短采样仅反映本开发环境的 Chromium，不证明真机稳定60FPS。所有样本检查了排行榜期间物理日志 tick 不受视觉动画推进。完整JSON与额外空榜/错误截图位于忽略提交的 `work/galactic-ranking/`。
+以上是开发环境软件浏览器采样，不是低端安卓或iPhone真机性能保证；各样本的物理日志tick均未被视觉动画推进。
 
-## 验证与复现
+## 测试与构建
 
 ```bash
 npm run typecheck
@@ -48,36 +57,35 @@ npm run test:minigame
 npm run typecheck --prefix server
 npm test --prefix server
 npm run build --prefix server
-# 启动本地预览，另一终端运行UI浏览器测试
+# 启动本地预览后，在另一终端运行
 npm run preview -- --port 4173
 npm run test:browser:galactic
-# 真实打包微信客户端连接本地隔离SQLite API的兼容性测试
-npm run test:browser:wechat
-# 提交失败、日志保留和幂等重试的既有回归
 node tests/browser-power-submission.mjs
+npm run test:browser:wechat
 ```
 
-前端235项、后端63项、微信工程5项和兼容小游戏工程5项通过，前后端类型检查、Web与两套小游戏构建通过。
+前端239项、后端63项、微信与兼容小游戏工程各5项通过；前后端类型检查、Web与两套小游戏构建通过。覆盖参考几何、首屏10行、数值完整性、滚动、静态缓存复用、空榜、加载/失败、长昵称、并列成绩、个人名次、暂停和后台动画停止。
 
-新增11项逻辑/Canvas测试，以及6种浏览器视口/客户端场景，覆盖前5荣耀、普通蓝卡、空榜、加载/失败、超长Unicode昵称、并列分数/名次、未上榜/未登录、真实个人排名130、分页刷新、固定底卡、拖动、低配降档和暂停/后台停止动画。既有成绩提交故障重试浏览器回归通过。
+7组浏览器视口/客户端交互通过：Web 1200×1320、1366×1000、390×844、320×568；微信Canvas模拟390×844、320×568、768×1024。原有成绩提交失败重试、查看榜单后返回成绩登记的浏览器回归通过。微信打包客户端连接本地隔离SQLite API的兼容性回归保留。
 
-微信浏览器测试使用 Chromium 微信API模拟宿主，不等于官方开发者工具或安卓/iPhone真机验收；真机字体、GPU、触摸与低端性能仍需补验。
+微信测试是Chromium模拟宿主和无DOM夹具，不替代官方开发者工具、安卓/iPhone真机验收。真实字体、系统授权、安全区和低端GPU仍需真机补验。
 
 ## 效果截图
 
-**截图均明确标注本地 UI 测试数据，不是正式玩家、正式成绩或生产榜单；测试夹具从不进入发布客户端。**
+**以下均使用明确标记的本地测试数据，不是正式榜单；测试夹具未进入客户端构建，也未写入生产数据。**
 
-| 网页版 | 微信 Canvas 模拟 |
-| --- | --- |
-| ![网页荣耀卡片](screenshots/galactic-web-mobile.png) | ![微信荣耀卡片](screenshots/galactic-wechat-mobile.png) |
-| ![网页第4/5名与普通蓝卡](screenshots/galactic-web-honors.png) | ![微信第4/5名与普通蓝卡](screenshots/galactic-wechat-honors.png) |
+- [完整参考尺寸](screenshots/reference-web-full.png)
+- [网页手机](screenshots/reference-web-mobile.png)
+- [微信Canvas手机模拟](screenshots/reference-wechat-mobile.png)
+
+![完整界面](screenshots/reference-web-full.png)
 
 ## 修改文件
 
-- 共享视觉：`src/online/ranking/Presentation.ts`、`Artwork.ts`。
-- 网页：`src/online/LeaderboardUI.ts`、`src/online/ranking/WebCards.ts`、`ranking.css`。
-- 微信：`wechat-game/src/RankingCanvas.ts`、`App.ts`、`Panel.ts`、`Platform.ts`；旧 `minigame` 兼容目录继续复用同一实现。
-- 测试：`tests/ranking-presentation.test.ts`、`ranking-canvas.test.ts`、`browser-galactic-ranking.mjs`、`fixtures/RankingFixture.mjs`；3个旧浏览器脚本同步卡片选择器。
-- 命令与交付：`package.json`、README、本说明及4张截图。
+共享视觉：`src/online/ranking/Presentation.ts`、`ReferenceLayout.ts`、`Artwork.ts`、`WebCards.ts`、`ranking.css`、`reference.css`。网页协调：`src/online/LeaderboardUI.ts`。
 
-本次不部署、不操作生产配置或数据库，不修改《统帅三国》。审核通过后只需按现有正常前端/微信发布流程更新客户端，后端无需迁移或升级。
+微信：`wechat-game/src/RankingCanvas.ts`、`App.ts`、`Panel.ts`、`Platform.ts`、构建脚本及构建测试。旧`minigame`目录继续复用同一客户端。
+
+资源：`public/ranking-art/reference-scene.png`及说明。测试：排行榜展示/Canvas/参考几何、浏览器场景、提交回归、明确标记的本地夹具；旧浏览器脚本同步卡片选择器。命令、README、本说明和截图同步更新。
+
+未安装game-ui-design/game-feel技能。没有部署、修改生产配置、数据库或《统帅三国》。审核通过后仅需按现有保留数据库的正常客户端发布流程更新，后端无需迁移。

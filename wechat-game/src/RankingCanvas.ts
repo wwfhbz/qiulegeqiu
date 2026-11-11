@@ -1,46 +1,58 @@
-import {ball,crown,star,cup} from '../../src/online/ranking/Artwork';
-import {RankingMotion,RANKING_THEME,rankingCard,personalRanking,motionQuality,type RankingScore,type BoardState} from '../../src/online/ranking/Presentation';
+import {ball,badge,star} from '../../src/online/ranking/Artwork';
+import {RankingMotion,rankingCard,personalRanking,motionQuality,type RankingScore,type BoardState} from '../../src/online/ranking/Presentation';
+import {REFERENCE as R,referenceRowHeight,referenceStage,referenceSeconds} from '../../src/online/ranking/ReferenceLayout';
+import type {CanvasSurface} from '../../src/platform/Contracts';
 import {inside,type Rect} from './Layout';
 export interface RankingView {state:BoardState;items:RankingScore[];best?:RankingScore|null;personalAvailable?:boolean;personalSignedOut?:boolean;error?:string;note?:string;offset:number;nextOffset:number|null}
 export interface RankingAction {label:string;run:()=>void;disabled?:boolean}
-export function rankingLayout(width:number,top:number,bottom:number){return {body:{x:12,y:top+94,width:width-24,height:Math.max(24,bottom-top-270)},navY:bottom-168,my:{x:12,y:bottom-112,width:width-24,height:102}};}
-function rounded(c:CanvasRenderingContext2D,x:number,y:number,w:number,h:number,r:number,fill:string,stroke?:string){c.beginPath();c.roundRect(x,y,w,h,r);c.fillStyle=fill;c.fill();if(stroke){c.strokeStyle=stroke;c.lineWidth=1.5;c.stroke();}}
-function label(c:CanvasRenderingContext2D,text:string,x:number,y:number,width:number,size:number,color:string,align:CanvasTextAlign='left'){c.textAlign=align;c.font=`${size}px "PingFang SC",sans-serif`;let value=text;const characters=[...text];while(characters.length>1&&c.measureText(value).width>width){characters.pop();value=characters.join('')+'…';}c.fillStyle=color;c.fillText(value,x,y,width);}
-/** Native Canvas view: no DOM, timer, network, authentication or score calculations. */
+export function rankingLayout(width:number,top:number,bottom:number){const s=referenceStage(width,top,bottom);return {body:{x:s.x+R.body.x*s.scale,y:s.y+R.body.y*s.scale,width:R.body.width*s.scale,height:R.body.height*s.scale},navY:s.y+R.navY*s.scale,my:{x:s.x+R.personal.x*s.scale,y:s.y+R.personal.y*s.scale,width:R.personal.width*s.scale,height:R.personal.height*s.scale},scale:s.scale};}
+function rounded(c:CanvasRenderingContext2D,r:Rect,radius:number,fill:string|CanvasGradient,stroke?:string){c.beginPath();c.roundRect(r.x,r.y,r.width,r.height,radius);c.fillStyle=fill;c.fill();if(stroke){c.strokeStyle=stroke;c.lineWidth=2;c.stroke();}}
+function gradient(c:CanvasRenderingContext2D,y:number,h:number,stops:string[]){const g=c.createLinearGradient(0,y,0,y+h);stops.forEach((color,i)=>g?.addColorStop(i/(stops.length-1),color));return g||stops[1];}
+function label(c:CanvasRenderingContext2D,text:string,x:number,y:number,width:number,size:number,color:string,align:CanvasTextAlign='center',truncate=false){c.textAlign=align;c.textBaseline='middle';c.font=`900 ${size}px "Microsoft YaHei",sans-serif`;let value=text;const chars=[...text];while(truncate&&chars.length>1&&c.measureText(value).width>width){chars.pop();value=chars.join('')+'…';}c.strokeStyle='#32162d';c.lineWidth=3;c.strokeText(value,x,y,width);c.fillStyle=color;c.fillText(value,x,y,width);}
 export class RankingCanvas {
- scrollY=0;body:Rect={x:0,y:0,width:0,height:0};hits:{rect:Rect;run:()=>void}[]=[];readonly motion=new RankingMotion();private contentHeight=0;
- constructor(readonly view:RankingView,private actions:RankingAction[],private inspect?:(row:RankingScore)=>void){}
- scroll(dy:number){this.scrollY=Math.max(0,Math.min(Math.max(0,this.contentHeight-this.body.height),this.scrollY-dy));}
+ scrollY=0;body:Rect={x:0,y:0,width:0,height:0};hits:{rect:Rect;run:()=>void}[]=[];readonly motion=new RankingMotion();private contentHeight=0;private scale=1;private surface?:CanvasSurface;private cacheKey='';private cachedArt?:CanvasImageSource;
+ constructor(readonly view:RankingView,private actions:RankingAction[],private inspect?:(row:RankingScore)=>void,private cacheFactory?:()=>CanvasSurface){}
+ scroll(dy:number){this.scrollY=Math.max(0,Math.min(Math.max(0,this.contentHeight-R.body.height),this.scrollY-dy/this.scale));}
  tap(x:number,y:number){this.hits.find(h=>inside(h.rect,x,y))?.run();}
- draw(c:CanvasRenderingContext2D,width:number,top:number,bottom:number,now:number,animate:boolean,lowDevice:boolean){
-  this.hits=[];const quality=motionQuality(true,!animate,false,lowDevice||this.motion.low),phase=this.motion.update(now,quality!=='off')/1000;
-  const v=rankingLayout(width,top,bottom);this.body=v.body;const x=8,w=width-16;
-  rounded(c,x,top,w,bottom-top,22,RANKING_THEME.purple,'#a78bfa');
-  const count=quality==='full'?24:6;
-  for(let i=0;i<count;i++){const sx=x+14+(i*97)%Math.max(1,w-28),sy=top+12+(i*67)%Math.max(1,bottom-top-24);c.save();c.globalAlpha=.15+(quality==='off'?.12:.18*(1+Math.sin(phase*1.4+i)));star(c,sx,sy,i%3===0?3:1.5,'#d5baff');c.restore();}
-  cup(c,35,top+38,36);star(c,width-35,top+58,6,'#ffe8a2');crown(c,width/2,top+18,22);label(c,'全球历史排行榜',width/2,top+49,w-28,23,'#ffecb4','center');label(c,'星际荣誉殿堂 · 全球 TOP100',width/2,top+70,w-28,10,'#bba4e3','center');
-  label(c,this.view.note||'每一份荣耀，都来自真实挑战',width/2,top+86,w-28,9,'#baabd7','center');
-  c.save();c.beginPath();c.rect(this.body.x,this.body.y,this.body.width,this.body.height);c.clip();
-  let y=this.body.y-this.scrollY;
-  this.contentHeight=this.view.items.reduce((sum,row)=>sum+(row.rank===1?RANKING_THEME.firstHeight:RANKING_THEME.cardHeight)+10,0);
-  if(this.view.state!=='ready'||!this.view.items.length){const message=this.view.state==='loading'?'正在加载排行榜…':this.view.state==='error'?'排行榜暂时无法加载':'暂时还没有上榜成绩';star(c,width/2,this.body.y+42,20,'#ffe3a1');label(c,message,width/2,this.body.y+88,w-48,14,'#e4d6ff','center');label(c,this.view.error||'点击刷新，重新连接星际榜单',width/2,this.body.y+111,w-48,10,'#baa9d5','center');}
-  else for(const row of this.view.items){const h=row.rank===1?RANKING_THEME.firstHeight:RANKING_THEME.cardHeight;if(y+h>=this.body.y&&y<=this.body.y+this.body.height){this.card(c,row,this.body.x+2,y,this.body.width-4,h,phase,quality);if(this.inspect){const visible={x:this.body.x,y:Math.max(y,this.body.y),width:this.body.width,height:Math.min(y+h,this.body.y+this.body.height)-Math.max(y,this.body.y)};this.hits.push({rect:visible,run:()=>this.inspect?.(row)});}}y+=h+10;}
+ draw(c:CanvasRenderingContext2D,width:number,top:number,bottom:number,now:number,animate:boolean,lowDevice:boolean,art?:CanvasImageSource,pixelRatio=1){
+  const quality=motionQuality(true,!animate,false,lowDevice||this.motion.low),phase=this.motion.update(now,quality!=='off')/1000;
+  if(!this.cacheFactory){this.paint(c,width,top,bottom,phase,quality,art);return;}
+  const ratio=lowDevice||this.motion.low?1:Math.min(2,pixelRatio),key=[width,top,bottom,this.scrollY,ratio].join(':');
+  if(!this.surface)this.surface=this.cacheFactory();
+  if(key!==this.cacheKey||this.cachedArt!==art){this.surface.width=Math.ceil(width*ratio);this.surface.height=Math.ceil((bottom-top)*ratio);const cache=this.surface.getContext('2d')!;cache.setTransform(ratio,0,0,ratio,0,-top*ratio);this.paint(cache,width,top,bottom,0,'off',art);this.cacheKey=key;this.cachedArt=art;}
+  c.drawImage(this.surface as CanvasImageSource,0,top,width,bottom-top);
+  if(quality==='off'||this.view.state!=='ready')return;
+  const stage=referenceStage(width,top,bottom);c.save();c.translate(stage.x,stage.y);c.scale(stage.scale,stage.scale);c.beginPath();c.rect(R.body.x-5,R.body.y-5,R.body.width+10,R.body.height+10);c.clip();let y=R.body.y-this.scrollY;
+  for(const row of this.view.items){const h=referenceRowHeight(row.rank);if(row.rank<=5&&y+h>=R.body.y&&y<=R.body.y+R.body.height){if(quality==='full'){c.save();c.beginPath();c.roundRect(R.body.x,y,R.body.width,h,26);c.clip();c.globalAlpha=.14;c.fillStyle='#fffed2';c.fillRect(R.body.x+(phase%5)/5*(R.body.width+180)-180,y,90,h);c.restore();}c.save();c.globalAlpha=.5+.4*Math.sin(phase*1.5);star(c,R.body.x+R.body.width-5,y+h,17,'#fff9d2');c.restore();}y+=h+6;}
   c.restore();
-  this.actions.forEach((a,i)=>{const rect={x:12+i*(width-24)/this.actions.length,y:v.navY,width:(width-24)/this.actions.length-5,height:44};rounded(c,rect.x,rect.y,rect.width,rect.height,10,a.disabled?'#35254c':'#6342a2',a.disabled?'#5f4e77':'#c29be8');label(c,a.label,rect.x+rect.width/2,rect.y+27,rect.width-12,11,a.disabled?'#867897':'#f2e7ff','center');if(!a.disabled)this.hits.push({rect,run:a.run});});
-  const close={x:width-49,y:top+6,width:40,height:40};label(c,'×',close.x+20,close.y+26,36,25,'#d9c7f2','center');const exit=this.actions.find(a=>a.label==='关闭');if(exit)this.hits.push({rect:close,run:exit.run});
-  const me=personalRanking(this.view.best,this.view.personalAvailable!==false,this.view.personalSignedOut);rounded(c,v.my.x,v.my.y,v.my.width,v.my.height,16,'#4b347a','#b78bec');ball(c,v.my.x+31,v.my.y+32,18);
-  label(c,me.title,v.my.x+60,v.my.y+24,v.my.width-73,12,'#ffe7a6');
-  if(me.card){label(c,`${me.card.score} 分`,v.my.x+60,v.my.y+46,v.my.width-73,17,'#fff0c7');label(c,me.card.name,v.my.x+13,v.my.y+68,v.my.width-26,10,'#e7dcf5');label(c,`${me.card.level}   消除 ${me.card.bricks}   ${me.card.time}`,v.my.x+13,v.my.y+88,v.my.width-26,10,'#bdb1d9');}
-  else label(c,me.message,v.my.x+13,v.my.y+76,v.my.width-26,10,'#cbbbe3');
  }
- private card(c:CanvasRenderingContext2D,row:RankingScore,x:number,y:number,w:number,h:number,phase:number,quality:string){const d=rankingCard(row);
-  c.save();if(d.honor){c.shadowColor='#ffcb64';c.shadowBlur=quality==='full'?(d.champion?10:4):d.champion?3:0;}rounded(c,x,y,w,h,17,d.champion?RANKING_THEME.champion:d.honor?RANKING_THEME.honor:RANKING_THEME.card,d.honor?RANKING_THEME.borderGold:RANKING_THEME.borderBlue);c.shadowBlur=0;
-  if(d.honor){c.save();c.beginPath();c.roundRect(x,y,w,h,17);c.clip();if(quality==='full'){c.globalAlpha=.11;const sweep=(phase%6)/6*(w+100)-100;c.fillStyle='#fff3b3';c.translate(x+sweep,y-h);c.rotate(-.35);c.fillRect(0,0,38,h*3);c.restore();c.save();}c.globalAlpha=quality==='off'?.4:.35+.25*Math.sin(phase*1.5);c.strokeStyle='#fff1b0';c.lineWidth=3;c.beginPath();c.roundRect(x+3,y+3,w-6,h-6,14);c.stroke();c.restore();star(c,x+w-15,y+17,5+(quality==='off'?0:Math.sin(phase*2)*1.5),'#ffe4a0');}
-  rounded(c,x+14,y,w*.24,21,7,d.honor?'#ffdf89':'#537bc3');label(c,d.champion?'♛ 冠军':d.rankLabel,x+21,y+15,w*.24-10,10,d.honor?'#704422':'#e4f4ff');
-  const centerY=y+(d.champion?61:51);ball(c,x+31,centerY,d.champion?21:18);if(d.champion)crown(c,x+31,centerY-27,19);
-  const scoreWidth=w<340?100:125,nameWidth=Math.max(35,w-scoreWidth-85);label(c,d.name,x+62,centerY-1,nameWidth,d.champion?13:12,'#fff2ff');label(c,d.honor?'星际荣耀':'星际挑战者',x+62,centerY+17,nameWidth,9,d.honor?'#edc4e0':'#a7c5ec');
-  label(c,'最高总分',x+w-13,y+37,scoreWidth,9,d.honor?'#e0b4d3':'#a8bde4','right');label(c,d.score,x+w-13,y+61,scoreWidth,d.champion?25:22,d.honor?'#ffe7a3':'#b4f1ff','right');
-  c.strokeStyle=d.honor?'#a782a4':'#5474a6';c.lineWidth=.6;c.beginPath();c.moveTo(x+12,y+h-48);c.lineTo(x+w-12,y+h-48);c.stroke();
-  const stats=[['最高关卡',d.level],['消除砖块',d.bricks],['最佳时间',d.time]];stats.forEach(([title,value],i)=>{const sx=x+13+i*(w-20)/3;label(c,title,sx,y+h-31,(w-30)/3,8,'#bfb0d6');label(c,value,sx,y+h-13,(w-30)/3,11,'#eee9ff');});c.restore();
+ private paint(c:CanvasRenderingContext2D,width:number,top:number,bottom:number,phase:number,quality:string,art?:CanvasImageSource){
+  this.hits=[];const s=referenceStage(width,top,bottom);this.scale=s.scale;this.body=rankingLayout(width,top,bottom).body;
+  const screen=(r:Rect):Rect=>({x:s.x+r.x*s.scale,y:s.y+r.y*s.scale,width:r.width*s.scale,height:r.height*s.scale});
+  c.fillStyle='#020628';c.fillRect(0,top,width,bottom-top);c.save();c.translate(s.x,s.y);c.scale(s.scale,s.scale);
+  if(art)c.drawImage(art,0,0,R.width,R.artHeight);else{rounded(c,{x:42,y:164,width:1116,height:1030},58,'#051248','#ffd253');label(c,'球球出击',600,55,700,62,'#b2edff');label(c,'全球历史排行榜',600,145,930,70,'#fff382');}
+  rounded(c,R.header,28,gradient(c,R.header.y,R.header.height,['#302665','#141b4f']),'#5f53b1');let column=R.header.x;
+  R.labels.forEach((text,i)=>{const w=R.columns[i]*R.header.width;label(c,text,column+w/2,R.header.y+28,w-8,28,'#c8d6ff');column+=w;});
+  c.save();c.beginPath();c.rect(R.body.x-5,R.body.y-5,R.body.width+10,R.body.height+10);c.clip();let y=R.body.y-this.scrollY;
+  this.contentHeight=this.view.items.reduce((sum,row)=>sum+referenceRowHeight(row.rank)+6,0);
+  if(this.view.state!=='ready'||!this.view.items.length){const message=this.view.state==='loading'?'正在加载排行榜…':this.view.state==='error'?'排行榜暂时无法加载':'暂时还没有上榜成绩';star(c,600,530,35,'#ffe3a1');label(c,message,600,630,950,38,'#fff0ac');label(c,this.view.error||'点击刷新，重新连接排行榜',600,695,960,25,'#c6c5ed');}
+  else for(const row of this.view.items){const h=referenceRowHeight(row.rank);if(y+h>=R.body.y&&y<=R.body.y+R.body.height){this.row(c,row,{x:R.body.x,y,width:R.body.width,height:h},phase,quality);if(this.inspect){const visible={x:R.body.x,y:Math.max(y,R.body.y),width:R.body.width,height:Math.min(y+h,R.body.y+R.body.height)-Math.max(y,R.body.y)};this.hits.push({rect:screen(visible),run:()=>this.inspect?.(row)});}}y+=h+6;}
+  c.restore();
+  const my=R.personal,me=personalRanking(this.view.best,this.view.personalAvailable!==false,this.view.personalSignedOut);
+  c.save();c.shadowColor='#ffdb40';c.shadowBlur=10;rounded(c,my,34,gradient(c,my.y,my.height,['#b546eb','#50199d','#8134d0']),'#fff392');c.shadowBlur=0;label(c,'我的排名',my.x+85,my.y+26,162,30,'#fff3e1');
+  if(this.view.best){const d=rankingCard(this.view.best);badge(c,d.rank,my.x+85,my.y+82,142,80);ball(c,my.x+220,my.y+63,42);label(c,d.name,my.x+300,my.y+64,185,31,'#fff0ff','left',true);const values=[d.score,d.level,d.bricks,referenceSeconds(this.view.best.duration_ms)];let x=my.x+475;values.forEach((value,i)=>{const w=(my.width-480)/4;label(c,R.labels[i+2],x+w/2,my.y+37,w-4,26,'#ead6ff');label(c,value,x+w/2,my.y+83,w-4,35,'#ffed80');x+=w;});}
+  else{ball(c,my.x+220,my.y+63,42);label(c,me.title,my.x+600,my.y+45,680,34,'#ffe7a6');label(c,me.message,my.x+600,my.y+86,680,26,'#d9c8f4');}
+  c.restore();
+  const navWidth=520,navX=(R.width-navWidth)/2;this.actions.filter(a=>a.label!=='关闭').forEach((a,i)=>{const rect={x:navX+i*navWidth/3,y:R.navY,width:navWidth/3-12,height:50};rounded(c,rect,12,a.disabled?'#192253':'#263c85','#7792e5');label(c,a.label,rect.x+rect.width/2,rect.y+26,rect.width-12,26,a.disabled?'#6f75a0':'#e7f0ff');if(!a.disabled){const hit=screen(rect);hit.y-=Math.max(0,(44-hit.height)/2);hit.height=Math.max(44,hit.height);this.hits.push({rect:hit,run:a.run});}});
+  const exit=this.actions.find(a=>a.label==='关闭');if(exit){c.beginPath();c.arc(1144,56,36,0,Math.PI*2);c.fillStyle=gradient(c,20,72,['#6372da','#202b78']);c.fill();c.lineWidth=3;c.strokeStyle='#d2e4ff';c.stroke();label(c,'×',1144,58,60,62,'#e8fcff');const hit=screen({x:1105,y:16,width:78,height:80});hit.width=Math.max(44,hit.width);hit.height=Math.max(44,hit.height);this.hits.push({rect:hit,run:exit.run});}
+  c.restore();
+ }
+ private row(c:CanvasRenderingContext2D,row:RankingScore,r:Rect,phase:number,quality:string){const d=rankingCard(row);c.save();c.shadowColor='#ffd520';c.shadowBlur=d.honor?8:0;
+  const fill=d.honor?gradient(c,r.y,r.height,['#ffc56f','#bb4c1c','#a34321','#ffdf59']):gradient(c,r.y,r.height,['#285a95','#143466','#214c82']);rounded(c,r,26,fill,d.honor?'#fff5a2':'#4e99d4');c.shadowBlur=0;
+  if(d.honor&&quality==='full'){c.save();c.beginPath();c.roundRect(r.x,r.y,r.width,r.height,26);c.clip();c.globalAlpha=.16;c.fillStyle='#fffcca';const sx=r.x+((phase%5)/5)*(r.width+180)-180;c.fillRect(sx,r.y,100,r.height);c.restore();}
+  let x=r.x;const centers=R.columns.map(part=>{const w=r.width*part,center=x+w/2;x+=w;return center;});badge(c,d.rank,centers[0],r.y+r.height/2,135,d.honor?88:68);
+  const identityX=r.x+r.width*R.columns[0];ball(c,identityX+40,r.y+r.height/2,d.honor?34:30);label(c,d.name,identityX+83,r.y+r.height/2,r.width*R.columns[1]-90,32,'#fff5e6','left',true);
+  label(c,d.score,centers[2],r.y+r.height/2,r.width*R.columns[2]-10,d.honor?44:36,d.honor?'#fff37d':'#f0f6ff');label(c,d.level,centers[3],r.y+r.height/2,r.width*R.columns[3]-8,34,'#fff6e5');label(c,d.bricks,centers[4],r.y+r.height/2,r.width*R.columns[4]-8,34,'#fff6e5');label(c,referenceSeconds(row.duration_ms),centers[5],r.y+r.height/2,r.width*R.columns[5]-12,34,'#fff6e5');
+  if(d.honor){const amount=quality==='full'?3:1;for(let i=0;i<amount;i++)star(c,i===0?r.x+5:i===1?r.x+r.width-5:r.x+r.width*.55,r.y+(i===1?r.height:1),i===2?9:17,quality==='off'?'#fff3a9':Math.sin(phase*1.5+i)>0?'#fff9d2':'#ffe48b');}c.restore();
  }
 }
