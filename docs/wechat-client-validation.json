@@ -1,0 +1,29 @@
+{
+  "date": "2026-11-11",
+  "timezone": "Asia/Shanghai",
+  "rulesVersion": "1.2.0-arcade-5l-12lv-v1",
+  "tests": {
+    "client": 210,
+    "server": 59,
+    "deployment": 36,
+    "canonicalPackage": 5,
+    "legacyCompatibilityPackage": 5
+  },
+  "standaloneCommands": [
+    "npm ci --prefix wechat-game",
+    "npm run test --prefix wechat-game"
+  ],
+  "importDirectory": "wechat-game/dist",
+  "browser": {
+    "wechatCompatibilityViewports": 3,
+    "webLayoutViewports": 5,
+    "webTutorialViewports": 3,
+    "webScorePlayers": 2
+  },
+  "noDomVm": true,
+  "officialWechatDevtoolsTested": false,
+  "androidOrIphoneTested": false,
+  "serverImplementationChanged": false,
+  "productionChanged": false,
+  "databaseReset": false
+}

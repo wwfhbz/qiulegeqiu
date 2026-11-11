@@ -1,1 +1,1 @@
-{"compilerOptions":{"target":"ES2020","module":"ESNext","moduleResolution":"Bundler","strict":true,"lib":["ES2022","DOM"],"skipLibCheck":true,"noEmit":true},"include":["src","../shared","../src"]}
+{"extends":"../wechat-game/tsconfig.json","include":["src","../wechat-game/src","../shared","../src"]}

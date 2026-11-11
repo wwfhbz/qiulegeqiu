@@ -1,0 +1,12 @@
+{
+  "description": "球球出击微信小游戏 V1.3",
+  "compileType": "game",
+  "appid": "touristappid",
+  "projectname": "球球出击",
+  "miniprogramRoot": "./dist/",
+  "setting": {
+    "es6": true,
+    "minified": false,
+    "urlCheck": true
+  }
+}

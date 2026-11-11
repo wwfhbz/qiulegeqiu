@@ -1,3 +1,5 @@
+import type {Wx} from '../wechat-game/src/Platform';
+import {wxFixture as fixture} from './helpers/WxFixture';
 import {RULES_VERSION} from '../shared/Challenge';
 import {it,expect,vi} from 'vitest';
 import {MiniGameApp} from '../minigame/src/App';
@@ -5,17 +7,6 @@ import {WechatApi} from '../minigame/src/Api';
 import {layout} from '../minigame/src/Layout';
 import {Game} from '../src/Game';
 import {C} from '../src/GameConfig';
-import type {Wx,TouchEvent,Canvas} from '../minigame/src/Platform';
-function fixture(width=375,height=812,dpr=3){
- const texts:string[]=[];
- const events:Record<string,(e?:unknown)=>void>={},storage=new Map<string,unknown>(),requests:Parameters<Wx['request']>[0][]=[];
- const ctx=new Proxy({fillText:(s:string)=>texts.push(s),measureText:(s:string)=>({width:[...s].length*8}),roundRect:undefined},{get:(t,k)=>k in t?t[k as keyof typeof t]:()=>{},set:(t,k,v)=>{Reflect.set(t,k,v);return true;}}) as unknown as CanvasRenderingContext2D;
- const wx:Wx={createCanvas:()=>({width:0,height:0,getContext:()=>ctx}),getWindowInfo:()=>({windowWidth:width,windowHeight:height,pixelRatio:dpr,safeArea:{top:44,bottom:height-34,left:0,right:width}}),getMenuButtonBoundingClientRect:()=>({bottom:80,left:width-90}),
- onTouchStart:f=>{events.down=f as never;},onTouchMove:f=>{events.move=f as never;},onTouchEnd:f=>{events.up=f as never;},onTouchCancel:f=>{events.cancel=f as never;},onHide:f=>{events.hide=f;},onShow:f=>{events.show=f;},onWindowResize:f=>{events.resize=f;},
- login:o=>o.fail(),request:o=>{requests.push(o);o.fail();},getStorageSync:k=>storage.get(k),setStorageSync:(k,v)=>{storage.set(k,v);},removeStorageSync:k=>{storage.delete(k);},showModal:o=>o.success?.({confirm:false}),showActionSheet:()=>{},showToast:()=>{},showShareMenu:()=>{},onShareAppMessage:()=>{},shareAppMessage:()=>{}};
- const touch=(identifier:number,x:number,y:number):TouchEvent=>({touches:[{identifier,clientX:x,clientY:y}],changedTouches:[{identifier,clientX:x,clientY:y}]});
- return {wx,events,storage,requests,touch,texts};
-}
 it('微信无DOM宿主复用同一十二关、五命和物理协调器，不复制规则',()=>{
  const f=fixture(),app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false}),web=new Game();
  expect(app.game).toBeInstanceOf(Game);expect(app.game.lives).toBe(5);expect(app.game.levels.count).toBe(12);

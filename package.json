@@ -32,7 +32,13 @@
     "test:browser:minigame": "npm run build:minigame && node tests/browser-minigame.mjs",
     "test:minigame": "npm run build:minigame && node --test minigame/scripts/build.test.mjs",
     "test:browser:tutorial": "node tests/browser-v12.mjs",
-    "test:browser:leaderboard-errors": "node tests/browser-v13-errors.mjs"
+    "test:browser:leaderboard-errors": "node tests/browser-v13-errors.mjs",
+    "typecheck:wechat": "tsc --noEmit -p wechat-game/tsconfig.json",
+    "build:wechat": "npm run typecheck:wechat && node wechat-game/scripts/build.mjs",
+    "dev:wechat": "npm run typecheck:wechat && node wechat-game/scripts/build.mjs --dev",
+    "test:wechat": "npm run build:wechat && node --test wechat-game/scripts/build.test.mjs",
+    "test:browser:wechat": "npm run build:wechat && node wechat-game/scripts/browser-test.mjs",
+    "release:wechat": "npm run typecheck:wechat && node wechat-game/scripts/build.mjs --release"
   },
   "devDependencies": {
     "@playwright/test": "^1.56.1",

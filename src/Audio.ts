@@ -1,7 +1,9 @@
 export type SoundKind = 'break'|'combo'|'paddle'|'power'|'win'|'bomb'|'halve'|'life';
 /** Quiet sine tones; voices and event frequency are bounded for hundred-ball play. */
 export class AudioSystem {
-  constructor(private createContext:()=>AudioContext=()=>new AudioContext()){}
+  constructor(private createContext:()=>AudioContext=()=>{throw Error('未提供音频适配器');}){}
+  suspend(){try{if(this.context)void Promise.resolve(this.context.suspend()).catch(()=>{});}catch{/* Sound failure never blocks gameplay. */}}
+  dispose(){try{if(this.context)void Promise.resolve(this.context.close()).catch(()=>{});}catch{}this.context=undefined;this.master=undefined;}
   muted = false;
   private context?: AudioContext;
   private master?: GainNode;
@@ -10,7 +12,7 @@ export class AudioSystem {
   unlock() {
     try {
       if(!this.context){this.context=this.createContext();this.master=this.context.createGain();this.master.gain.value=this.muted?0:.14;this.master.connect(this.context.destination);}
-      if(this.context.state==='suspended')void this.context.resume().catch(()=>{});
+      if(this.context.state==='suspended')void Promise.resolve(this.context.resume()).catch(()=>{});
     } catch { /* Audio unavailable: gameplay remains usable. */ }
   }
   toggle(){this.muted=!this.muted;if(this.master&&this.context){this.master.gain.cancelScheduledValues(this.context.currentTime);this.master.gain.value=this.muted?0:.14;}return this.muted;}

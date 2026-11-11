@@ -2,29 +2,27 @@ import { POWER_LABELS,POWER_COLORS } from './PowerRules';
 import { C } from './GameConfig';
 import { Physics } from './Physics';
 import { FRAME } from './WorldGeometry';
-export interface RendererHost {
- cache:HTMLCanvasElement;
- viewport():{width:number;height:number};
- pixelRatio():number;
- observe?(resize:()=>void):void;
-}
+import type {CanvasSurface,RendererHost} from './platform/Contracts';
+export type {RendererHost} from './platform/Contracts';
 export class Renderer {
   private ctx: CanvasRenderingContext2D;
-  private cache:HTMLCanvasElement;
+  private cache:CanvasSurface;
+  private stopObserver?:()=>void;
   private cachedRevision = -1;
   private ratio = 1;
   private generation = -1; private cleared = 0;
-  constructor(private canvas: HTMLCanvasElement, private host?:RendererHost) {
-    this.cache=host?.cache||document.createElement('canvas');
-    this.ctx = canvas.getContext('2d')!;
+  constructor(private canvas:CanvasSurface, private host:RendererHost) {
+    this.cache=host.cache;
+    const ctx=canvas.getContext('2d');if(!ctx)throw Error('当前设备不支持二维画布');this.ctx=ctx;
     this.resize();
-    if(host)host.observe?.(()=>this.resize());else new ResizeObserver(() => this.resize()).observe(canvas);
+    const stop=host.observe?.(()=>this.resize());if(typeof stop==='function')this.stopObserver=stop;
   }
+  dispose(){this.stopObserver?.();this.stopObserver=undefined;}
   resize() {
-    const rect = this.host?.viewport()||this.canvas.getBoundingClientRect();
+    const rect = this.host.viewport();
     // Hidden/transitional layouts can report zero size. Keep the last valid buffer.
     if (rect.width <= 0 || rect.height <= 0) return;
-    this.ratio = Math.min(this.host?.pixelRatio() || window.devicePixelRatio || 1, 3) * rect.width / C.width;
+    this.ratio = Math.min(this.host.pixelRatio() || 1, 3) * rect.width / C.width;
     this.canvas.width = Math.max(1, Math.round(C.width * this.ratio)); this.canvas.height = Math.max(1, Math.round(C.height * this.ratio));
     this.cache.width = this.canvas.width; this.cache.height = this.canvas.height; this.cachedRevision = -1;
   }
@@ -54,7 +52,7 @@ export class Renderer {
     c.setTransform(this.ratio, 0, 0, this.ratio, 0, 0); c.clearRect(0, 0, C.width, C.height);
     if(p.effects.explosionRemaining>0)c.translate(Math.sin(p.effects.explosionRemaining*110)*3,Math.cos(p.effects.explosionRemaining*140)*2);
     c.beginPath(); c.arc(a.x, a.y, a.radius, 0, Math.PI * 2); c.fillStyle = '#0b1525'; c.fill();
-    c.drawImage(this.cache, 0, 0, C.width, C.height);
+    c.drawImage(this.cache as CanvasImageSource, 0, 0, C.width, C.height);
     for(const obstacle of p.obstacles.items){if(obstacle.destroyed)continue;const o=obstacle.config,half=(o.length-o.thickness)/2;c.save();c.translate(obstacle.x,obstacle.y);c.rotate(obstacle.angle);c.beginPath();c.moveTo(-half,0);c.lineTo(half,0);c.lineWidth=o.thickness;c.lineCap='round';c.strokeStyle=o.kind==='rotating'?'#a7a8c3':o.kind==='moving'?'#849aaf':'#7a899b';c.stroke();c.beginPath();c.moveTo(-half+3,0);c.lineTo(half-3,0);c.lineWidth=1;c.strokeStyle='#d6e6ef66';c.stroke();c.restore();}
     if(p.effects.explosionRemaining>0){c.beginPath();c.arc(p.effects.explosionX,p.effects.explosionY,(.24-p.effects.explosionRemaining)*240,0,Math.PI*2);c.lineWidth=2;c.strokeStyle='#ffb46e';c.stroke();}
     c.beginPath(); c.arc(a.x, a.y, a.radius, wall.startAngle, wall.endAngle);

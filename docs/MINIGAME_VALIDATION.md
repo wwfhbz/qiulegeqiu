@@ -1,5 +1,7 @@
 # 小游戏 V1.1 验证记录
 
+当前正式客户端路径为wechat-game，导入wechat-game/dist；下文保留原版本记录。最新说明见[独立客户端](../wechat-game/README.md)。
+
 2026-11-10，开发环境Node v24.19.0。没有访问或写入生产排行榜，没有使用正式微信AppID/Secret。
 
 | 检查 | 实际结果 |

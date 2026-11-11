@@ -1,7 +1,7 @@
 import { ChallengeJournal } from './ChallengeJournal';
 import { C } from './GameConfig';
 import { Physics } from './Physics';
-import { Renderer } from './Renderer';
+import type {GameHost} from './platform/Contracts';
 import { AudioSystem } from './Audio';
 import { ARCADE } from './ArcadeRules';
 import { LevelManager } from './LevelManager';
@@ -19,12 +19,11 @@ export class Game {
   state: GameState = 'ready';
   readyReason: ReadyReason = 'initial';
   result?: Readonly<LevelScore>;
-  private renderer?: Renderer;
-  private previous = 0;
+  private stopHost?:()=>void;
   private roundActive = false;
 
-  // Without a canvas this is the same coordinator, driven deterministically by tests.
-  constructor(canvas?: HTMLCanvasElement, private onChange: (game: Game) => void = () => {}, readonly levels = new LevelManager(), audio = new AudioSystem()) {
+  // The same coordinator runs headlessly or under either platform host.
+  constructor(private readonly host?:GameHost, private onChange: (game: Game) => void = () => {}, readonly levels = new LevelManager(), audio = new AudioSystem()) {
     this.audio=audio;
     this.configureLevel();this.physics.setSeed(this.journal.seed);this.physics.reset();
     this.physics.onSound = this.audio.play;
@@ -33,18 +32,11 @@ export class Game {
     this.physics.onBallLost = () => { if(this.state==='running')this.journal.record({type:'ballLost',level:this.levels.current.number}); };
     this.physics.onPowerCollected = kind => { if(this.state==='running'&&this.roundActive&&this.physics.balls.some(ball=>ball.alive)){if(kind==='life')this.remainingLives=Math.min(ARCADE.maxLives,this.remainingLives+1);this.journal.record({type:'power',level:this.levels.current.number,kind});} };
     this.physics.onBomb = target => { if(this.state==='running'){if(target===null)this.score.addBombCompensation();this.journal.record({type:'bomb',level:this.levels.current.number,target});} };
-    if (!canvas) return;
-    this.renderer = new Renderer(canvas);
-    const move = (e: PointerEvent) => {
-      if (e.pointerType !== 'mouse' && !canvas.hasPointerCapture(e.pointerId)) return;
-      const rect = canvas.getBoundingClientRect();
-      this.physics.setTarget((e.clientX - rect.left) / rect.width * C.width);
-    };
-    canvas.addEventListener('pointerdown', e => { this.audio.unlock(); canvas.setPointerCapture(e.pointerId); move(e); });
-    canvas.addEventListener('pointermove', move);
-    document.addEventListener('visibilitychange', () => { if (document.hidden && this.state === 'running') this.pause(); });
-    requestAnimationFrame(this.frame);
+    if(host)this.stopHost=host.mount(this);
   }
+  // Keep the old developer performance hook without importing a browser renderer.
+  get renderer(){return this.host?.renderer;}
+  dispose(){this.stopHost?.();this.stopHost=undefined;this.audio.dispose();}
 
   start() {
     if (this.lives <= 0 || (this.state !== 'ready' && this.state !== 'paused')) return;
@@ -116,10 +108,4 @@ export class Game {
     this.physics.speedScale = this.levels.current.speedScale;
     this.physics.powerUpDropMultiplier = this.levels.powerUpDropMultiplier;
   }
-  private frame = (now: number) => {
-    const dt = this.previous ? (now - this.previous) / 1000 : 0; this.previous = now;
-    this.update(dt);
-    this.renderer?.draw(this.physics, this.state === 'ready');
-    requestAnimationFrame(this.frame);
-  };
 }
