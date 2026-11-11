@@ -30,7 +30,7 @@ export class Game {
     this.physics.onStep = dt => { if (this.state === 'running') { this.score.update(dt); this.journal.tick++; } };
     this.physics.onBlockDestroyed = index => { if (this.state === 'running' && this.score.hit(index)>0) this.journal.record({type:'hit',level:this.levels.current.number,index}); };
     this.physics.onBallLost = () => { if(this.state==='running')this.journal.record({type:'ballLost',level:this.levels.current.number}); };
-    this.physics.onPowerCollected = kind => { if(this.state==='running'&&this.roundActive&&this.physics.balls.some(ball=>ball.alive)){if(kind==='life')this.remainingLives=Math.min(ARCADE.maxLives,this.remainingLives+1);this.journal.record({type:'power',level:this.levels.current.number,kind});} };
+    this.physics.onPowerCollected = (kind,dropId) => { if(this.state==='running'&&this.roundActive&&this.physics.balls.some(ball=>ball.alive)){if(kind==='life')this.remainingLives=Math.min(ARCADE.maxLives,this.remainingLives+1);this.journal.record({type:'power',level:this.levels.current.number,kind,...(dropId===undefined?{}:{dropId})});} };
     this.physics.onBomb = target => { if(this.state==='running'){if(target===null)this.score.addBombCompensation();this.journal.record({type:'bomb',level:this.levels.current.number,target});} };
     if(host)this.stopHost=host.mount(this);
   }

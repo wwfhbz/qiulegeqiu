@@ -19,7 +19,7 @@ const base={tick:integer,level:z.number().int().min(1).max(100)};
 const event=z.union([
  z.object({...base,type:z.enum(['launch','ballLost','lost','clear','next','finish'])}).strict(),
  z.object({...base,type:z.literal('hit'),index:integer}).strict(),
- z.object({...base,type:z.literal('power'),kind:z.enum(['halve','triple','wide','life','bomb'])}).strict(),
+ z.object({...base,type:z.literal('power'),kind:z.enum(['halve','triple','wide','life','bomb']),dropId:z.number().int().positive().max(50000).optional()}).strict(),
  z.object({...base,type:z.literal('bomb'),target:z.string().max(50).nullable()}).strict()
 ]);
 type Session={id:string;player_id:string|null;csrf_token:string};

@@ -53,3 +53,22 @@ it('503采用退避，不会因待上传事件超过128条而每帧重试',async
 it('新挑战创建前刷新浏览器匿名身份，不能复用清库前的CSRF缓存',async()=>{
  let identities=0;const posted:string[]=[];vi.stubGlobal('fetch',async(path:string,init?:RequestInit)=>{if(path.includes('/me?'))return new Response(JSON.stringify({csrfToken:'csrf-'+(++identities),player:null,best:null,board:'global',rankingRulesVersion:RULES_VERSION}));posted.push((init?.headers as Record<string,string>)['x-csrf-token']);return new Response(JSON.stringify({id:'new-run',rulesVersion:RULES_VERSION}));});const api=new ApiClient();await api.me();await api.request('/challenges',{rulesVersion:RULES_VERSION});expect(identities).toBe(2);expect(posted).toEqual(['csrf-2']);
 });
+
+function endedGame(){const g=new Game();for(let n=0;n<5;n++){g.start();for(const b of g.physics.balls)Object.assign(b,{x:400,y:1080,vx:0,vy:760,outsideArena:true});g.update(1/120);}return g;}
+it('提交422后保留日志和同一幂等键，重试不会创建第二个挑战',async()=>{
+ const g=endedGame(),snapshot=JSON.stringify(g.journal.events),keys:string[]=[];let created=0;
+ const api:ApiTransport={request:async<T>(path:string,body?:unknown)=>{if(path==='/health')return {ok:true,rulesVersion:RULES_VERSION} as T;if(path==='/challenges'){created++;return {id:'same-run',rulesVersion:RULES_VERSION} as T;}if(path.endsWith('/events'))return {} as T;keys.push((body as {idempotencyKey:string}).idempotencyKey);if(keys.length===1)throw new ApiResponseError('无对应可拾取道具',422,'HTTP_ERROR');return {verificationStatus:'verified'} as T;}};
+ const sync=new ChallengeSync(api,g,()=>0,()=> 'stable-key');sync.observe();await expect(sync.submit()).rejects.toThrow('无对应可拾取道具');expect(JSON.stringify(g.journal.events)).toBe(snapshot);await expect(sync.submit()).resolves.toMatchObject({verificationStatus:'verified'});expect(created).toBe(1);expect(keys).toEqual(['stable-key','stable-key']);
+});
+it('上传响应丢失后重试同一序号和同一批事件，确认后才推进',async()=>{
+ const g=endedGame(),batches:unknown[]=[];let failed=false;
+ const api:ApiTransport={request:async<T>(path:string,body?:unknown)=>{if(path==='/health')return {ok:true,rulesVersion:RULES_VERSION} as T;if(path==='/challenges')return {id:'run',rulesVersion:RULES_VERSION} as T;if(path.endsWith('/events')){batches.push(body);if(!failed){failed=true;throw Error('网络中断');}}return {verificationStatus:'verified'} as T;}};
+ const sync=new ChallengeSync(api,g,()=>0);sync.observe();await expect(sync.submit()).rejects.toThrow('网络中断');await sync.submit();expect(batches).toHaveLength(2);expect(batches[0]).toEqual(batches[1]);
+});
+it('传输层永不返回也会超时释放提交，保留记录以便安全重试',async()=>{
+ vi.useFakeTimers();try{
+  const g=endedGame(),snapshot=JSON.stringify(g.journal.events);let stalled=true;
+  const api:ApiTransport={request:async<T>(path:string)=>{if(path==='/health')return {ok:true,rulesVersion:RULES_VERSION} as T;if(path==='/challenges')return {id:'run',rulesVersion:RULES_VERSION} as T;if(path.endsWith('/events')&&stalled)return new Promise<T>(()=>{});return {verificationStatus:'verified'} as T;}};
+  const sync=new ChallengeSync(api,g,()=>0);sync.observe();const submitted=expect(sync.submit()).rejects.toThrow('请求超时');await vi.advanceTimersByTimeAsync(10001);await submitted;expect(JSON.stringify(g.journal.events)).toBe(snapshot);stalled=false;await expect(sync.submit()).resolves.toMatchObject({verificationStatus:'verified'});
+ }finally{vi.useRealTimers();}
+});

@@ -113,7 +113,7 @@ export class Physics {
   powerUpDropMultiplier = 1;
   get powerDropEvery() { return Math.max(1, Math.round(C.power.dropEvery / this.powerUpDropMultiplier)); }
   onBallLost?: () => void;
-  onPowerCollected?: (kind: PowerKind) => void;
+  onPowerCollected?: (kind: PowerKind, dropId?:number) => void;
   onBlockDestroyed?: (index: number) => void;
   onStep?: (dt: number) => void;
   get launchSpeed() { return Math.max(Math.min(C.ball.maxSpeed,C.ball.minSpeed*this.speedScale), Math.min(C.ball.maxSpeed, C.ball.speed * this.speedScale)); }
@@ -133,8 +133,8 @@ export class Physics {
     const interval = this.powerDropEvery;
     if (b.removed % interval === 0) this.powers.spawn(x, y, weightedPower(powerProfile(this.level),this.random));
   };
-  private pickup = (kind: PowerKind) => this.collect(kind);
-  collect(kind: PowerKind) {
+  private pickup = (kind: PowerKind, dropId:number) => this.collect(kind,dropId);
+  collect(kind: PowerKind, dropId?:number) {
     // No pickup is valid after the final effective ball dies, even before Game settles the round.
     if (!this.balls.some(ball => ball.alive)) return;
     let bombTarget:string|null=null;
@@ -143,7 +143,7 @@ export class Physics {
     else if(kind==='halve')this.halve();
     else if(kind==='bomb'){const target=this.obstacles.destroyNearest(C.arena.x,C.arena.y);this.effects.explode(target?.x??C.arena.x,target?.y??C.arena.y);bombTarget=target?.config.id??null;}
     this.effects.power(kind);
-    this.onPowerCollected?.(kind);
+    this.onPowerCollected?.(kind,dropId);
     if(kind==='bomb')this.onBomb?.(bombTarget);
     this.onSound?.(kind==='bomb'?'bomb':kind==='halve'?'halve':kind==='life'?'life':'power');
   }
