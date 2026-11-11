@@ -11,6 +11,7 @@ import type {Me,BestScore} from '../../src/online/ApiClient';
 import {WechatApi} from './Api';
 import {layout,inside,type Rect} from './Layout';
 import {context} from './CanvasAdapter';
+import {rankingCard,type RankingScore} from '../../src/online/ranking/Presentation';
 import {Panel,type Action} from './Panel';
 import {privacy,agreement} from './Policies';
 import type {Wx,Canvas,Config,TouchEvent} from './Platform';
@@ -22,9 +23,10 @@ export class MiniGameApp {
  readonly platform:WechatPlatform;
  private arena:Canvas;private renderer:Renderer;private ctx:CanvasRenderingContext2D;private sync:ChallengeSync;
  private view=layout(375,667);private dpr=1;private previous=0;private active=true;private online=false;private offlinePreference=false;private busy=false;private lastEnd=-1;
- private touch?:{id:number;x:number;y:number;moved:boolean;drag:boolean};private actions:{rect:Rect;run:()=>void}[]=[];
- private boardLoading=false;private boardRevision=0;private me?:Me;private nicknameDraft='';private region:Region={code:'ISO:CN',prefix:'中国',name:'中国',hasChildren:true,path:''};private shareImage?:string;
+ private touch?:{id:number;x:number;y:number;moved:boolean;drag:boolean;lastY:number};private actions:{rect:Rect;run:()=>void}[]=[];
+ private lowDevice=false;private boardLoading=false;private boardRevision=0;private me?:Me;private nicknameDraft='';private region:Region={code:'ISO:CN',prefix:'中国',name:'中国',hasChildren:true,path:''};private shareImage?:string;
  constructor(private wx:Wx,config:Config){
+  try{this.lowDevice=(wx.getDeviceInfo?.().benchmarkLevel??30)<20;}catch{/* Old runtimes use viewport/frame-time fallback. */}
   this.platform=new WechatPlatform(wx);this.canvas=this.platform.createCanvas();this.arena=this.platform.createCanvas();const cache=this.platform.createCanvas();
   this.ctx=context(this.canvas);context(this.arena);context(cache);
   this.api=new WechatApi(wx,config);
@@ -42,15 +44,15 @@ export class MiniGameApp {
  dispose(){this.platform.dispose();this.renderer.dispose();this.game.dispose();}
  hide(){this.platform.suspend();this.game.audio.suspend();this.active=false;this.previous=0;this.touch=undefined;this.game.pause();if(this.online)void this.sync.flush().catch(()=>{});}
  frame(now:number){if(!this.active)return;const dt=this.previous?Math.min(.1,Math.max(0,(now-this.previous)/1000)):0;this.previous=now;
-  this.game.update(dt);if(this.online)this.sync.observe();this.renderer.draw(this.game.physics,this.game.state==='ready',now);this.draw();
+  this.game.update(dt);if(this.online)this.sync.observe();if(!this.panel.ranking)this.renderer.draw(this.game.physics,this.game.state==='ready',now);this.draw(now);
   if((this.game.state==='gameOver'||this.game.state==='victory')&&this.lastEnd!==this.game.journal.generation){this.lastEnd=this.game.journal.generation;this.result();}
  }
- private draw(){const c=this.ctx,v=this.view;c.setTransform(this.dpr,0,0,this.dpr,0,0);c.fillStyle='#050c18';c.fillRect(0,0,v.width,v.height);c.fillStyle='#c7deec';c.textAlign='center';c.font='bold 15px sans-serif';c.fillText(GAME_NAME,v.width/2,v.top+28);
+ private draw(now:number){const c=this.ctx,v=this.view;c.setTransform(this.dpr,0,0,this.dpr,0,0);c.fillStyle='#050c18';c.fillRect(0,0,v.width,v.height);c.fillStyle='#c7deec';c.textAlign='center';c.font='bold 15px sans-serif';c.fillText(GAME_NAME,v.width/2,v.top+28);
   const g=this.game;c.fillStyle='#9bb1c8';
   const hud=(text:string,y:number)=>{let size=12;c.font=size+'px sans-serif';while(size>9&&c.measureText(text).width>v.width-16)c.font=(--size)+'px sans-serif';c.fillText(text,v.width/2,y,v.width-16);};
   hud(`关卡 ${String(g.levels.current.number).padStart(2,'0')}/${g.levels.count}　生命 ♥×${g.lives}　分数 ${g.score.total}`,v.hudY+12);
   hud(`剩余 ${g.physics.blocks.remaining}　球×${g.physics.balls.length}${g.physics.wideRemaining>0?'　加宽 '+g.physics.wideRemaining.toFixed(1)+'秒':''}${g.score.multiplier>1?'　连击×'+g.score.multiplier:''}`,v.hudY+30);
-  c.drawImage(this.arena as CanvasImageSource,v.arena.x,v.arena.y,v.arena.width,v.arena.height);this.actions=[];
+  if(!this.panel.ranking)c.drawImage(this.arena as CanvasImageSource,v.arena.x,v.arena.y,v.arena.width,v.arena.height);this.actions=[];
   const button=(rect:Rect,label:string,run:()=>void)=>{c.fillStyle='#153047';c.fillRect(rect.x,rect.y,rect.width,rect.height);c.fillStyle='#bfedff';c.font='14px sans-serif';c.fillText(label,rect.x+rect.width/2,rect.y+28);this.actions.push({rect,run});};
   const action=centralActionFor(g);
   if(g.state==='levelComplete'&&g.result){c.fillStyle='#ffd0a0';c.font='14px sans-serif';c.fillText(`第${g.levels.current.number}关突破！本关 ${g.result.levelTotal} 分`,v.width/2,v.arena.y+C.arena.y*v.scale-38);}
@@ -59,10 +61,10 @@ export class MiniGameApp {
   button({x:v.width/2+8,y:v.buttonsY,width:108,height:44},'重新开始',()=>{this.panel.close();g.reset();});
   // Compact native-style utility controls stay below the capsule safe area.
   button({x:8,y:v.top,width:44,height:44},'菜单',()=>this.menu());button({x:v.width-52,y:v.top,width:44,height:44},'排行',()=>void this.board());
-  this.panel.draw(c,v.width,v.top,v.bottom);
+  this.panel.draw(c,v.width,v.top,v.bottom,now,g.state!=='paused',this.lowDevice||v.width<360);
  }
- private down(e:TouchEvent){if(this.touch)return;const t=e.changedTouches[0];if(!t)return;this.game.audio.unlock();this.touch={id:t.identifier,x:t.clientX,y:t.clientY,moved:false,drag:!this.panel.open&&inside(this.view.arena,t.clientX,t.clientY)&&!this.actions.some(a=>inside(a.rect,t.clientX,t.clientY))};if(this.touch.drag){this.target(t.clientX);if(!this.busy&&!this.boardLoading)startFromPlayfield(this.game,()=>void this.activate());}}
- private move(e:TouchEvent){const active=this.touch;if(!active)return;const t=e.touches.find(t=>t.identifier===active.id);if(!t)return;if(Math.hypot(t.clientX-active.x,t.clientY-active.y)>8)active.moved=true;if(active.drag)this.target(t.clientX);}
+ private down(e:TouchEvent){if(this.touch)return;const t=e.changedTouches[0];if(!t)return;this.game.audio.unlock();this.touch={id:t.identifier,x:t.clientX,y:t.clientY,moved:false,lastY:t.clientY,drag:!this.panel.open&&inside(this.view.arena,t.clientX,t.clientY)&&!this.actions.some(a=>inside(a.rect,t.clientX,t.clientY))};if(this.touch.drag){this.target(t.clientX);if(!this.busy&&!this.boardLoading)startFromPlayfield(this.game,()=>void this.activate());}}
+ private move(e:TouchEvent){const active=this.touch;if(!active)return;const t=e.touches.find(t=>t.identifier===active.id);if(!t)return;if(Math.hypot(t.clientX-active.x,t.clientY-active.y)>8)active.moved=true;if(this.panel.open)this.panel.scroll(t.clientY-active.lastY,active.x,active.y);else if(active.drag)this.target(t.clientX);active.lastY=t.clientY;}
  private up(e:TouchEvent){const active=this.touch;if(!active||!e.changedTouches.some(t=>t.identifier===active.id))return;this.touch=undefined;if(active.moved||active.drag)return;if(this.panel.open){this.panel.tap(active.x,active.y);return;}this.actions.find(a=>inside(a.rect,active.x,active.y))?.run();}
  private target(x:number){this.game.physics.setTarget((x-this.view.arena.x)/this.view.arena.width*C.width);}
  private async activate(){if(this.busy)return;this.busy=true;const generation=this.game.journal.generation,state=this.game.state;
@@ -101,12 +103,24 @@ export class MiniGameApp {
   }
   const result=await this.sync.submit();let refreshed=true;try{this.me=await this.api.me();}catch{this.me=undefined;refreshed=false;}this.toast((result.verificationStatus==='verified'?'成绩已登记':'成绩待复核')+(refreshed?'':'，个人记录暂无法刷新'));await this.board();
  });}
- private async board(offset=0){this.game.pause();const pageSize=this.view.height<650?3:5,revision=++this.boardRevision;this.boardLoading=true;try{
-  const result=await this.api.request<{items:BestScore[];nextOffset:number|null}&LeaderboardMetadata>(`/leaderboard?offset=${offset}&limit=${pageSize}&board=global`);assertGlobalBoard(result);
-  let me:Me|undefined,identityError='';try{if(this.api.authenticated)me=await this.api.me();}catch{this.me=undefined;identityError='个人记录暂不可用，请重新登录；全球榜单仍可查看';}if(revision!==this.boardRevision)return;if(me)this.me=me;
-  const lines=[...(identityError?[identityError]:[]),me?.best?`我的排名 ${me.best.rank}　历史最高 ${me.best.score}`:'我的排名：未上榜',...(me?.historicalBest?[`旧版记录 ${me.historicalBest.score}分（保留，需新版重赛上榜）`]:[]),...result.items.map(r=>`${r.rank}. ${r.display_name}　${r.score}分　${r.reached_level}关`)];
-  this.panel.show(GAME_NAME+' · 全球历史排行榜',lines,[{label:'刷新',run:()=>void this.board(offset)},{label:'上一页',run:()=>void this.board(Math.max(0,offset-pageSize)),half:true},{label:'下一页',run:()=>{if(result.nextOffset!==null)void this.board(result.nextOffset);},half:true},{label:'关闭排行榜',run:()=>this.panel.close()}]);
- }catch(error){if(revision===this.boardRevision)this.toast((error as Error).message);}finally{if(revision===this.boardRevision)this.boardLoading=false;}}
+ private async board(offset=0){
+  this.game.pause();const pageSize=20,revision=++this.boardRevision;this.boardLoading=true;
+  const show=(state:'loading'|'ready'|'error',items:RankingScore[]=[],nextOffset:number|null=null,best?:RankingScore|null,note='',personalAvailable=true,error?:string)=>{
+   if(revision!==this.boardRevision)return;
+   this.panel.showRanking({state,items,nextOffset,offset,best,note,personalAvailable,personalSignedOut:!this.api.authenticated,error},[
+    {label:'上一页',disabled:offset===0||state==='loading',run:()=>void this.board(Math.max(0,offset-pageSize))},
+    {label:'刷新',run:()=>void this.board(offset)},
+    {label:'下一页',disabled:nextOffset===null||state==='loading',run:()=>{if(nextOffset!==null)void this.board(nextOffset);}},
+    {label:'关闭',run:()=>{this.boardRevision++;this.boardLoading=false;this.panel.close();}}
+   ],row=>{const card=rankingCard(row);this.wx.showModal({title:card.name,content:`${card.rankLabel}\n最高总分 ${card.score}\n最高关卡 ${card.level}\n消除砖块 ${card.bricks}\n最佳时间 ${card.time}`,showCancel:false});});
+  };
+  show('loading',[],null,undefined,'正在连接星际榜单',false);
+  try{const result=await this.api.request<{items:BestScore[];nextOffset:number|null}&LeaderboardMetadata>(`/leaderboard?offset=${offset}&limit=${pageSize}&board=global`);assertGlobalBoard(result);
+   let me:Me|undefined,identityError='';try{if(this.api.authenticated)me=await this.api.me();}catch{this.me=undefined;identityError='个人记录暂不可用，请重新登录；全球榜单仍可查看';}if(revision!==this.boardRevision)return;if(me)this.me=me;
+   show('ready',result.items,result.nextOffset,me?.best,identityError||'每一份荣耀，都来自真实挑战',!identityError&&me?.rankingAvailable!==false);
+  }catch(error){if(revision===this.boardRevision){show('error',[],null,undefined,'全球 TOP100',false,(error as Error).message);this.toast((error as Error).message);}}
+  finally{if(revision===this.boardRevision)this.boardLoading=false;}
+ }
  private async regions(parent:Region|undefined,done:()=>void,query='',offset=0){
   try{const q=`q=${encodeURIComponent(query)}&offset=${offset}${parent?'&parent='+encodeURIComponent(parent.code):''}`;const result=await this.api.request<{items:Region[];nextOffset:number|null}>('/regions?'+q);this.regionPage(result.items,0,parent,done,query,offset,result.nextOffset);}catch(error){this.toast((error as Error).message);}
  }
