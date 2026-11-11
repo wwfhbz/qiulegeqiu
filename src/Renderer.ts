@@ -1,3 +1,4 @@
+import {StartHint,START_HINT} from './PlayfieldStart';
 import { POWER_LABELS,POWER_COLORS } from './PowerRules';
 import { C } from './GameConfig';
 import { Physics } from './Physics';
@@ -6,6 +7,7 @@ import type {CanvasSurface,RendererHost} from './platform/Contracts';
 export type {RendererHost} from './platform/Contracts';
 export class Renderer {
   private ctx: CanvasRenderingContext2D;
+  private startHint=new StartHint();
   private cache:CanvasSurface;
   private stopObserver?:()=>void;
   private cachedRevision = -1;
@@ -26,7 +28,7 @@ export class Renderer {
     this.canvas.width = Math.max(1, Math.round(C.width * this.ratio)); this.canvas.height = Math.max(1, Math.round(C.height * this.ratio));
     this.cache.width = this.canvas.width; this.cache.height = this.canvas.height; this.cachedRevision = -1;
   }
-  draw(p: Physics, _ready: boolean) {
+  draw(p: Physics, ready: boolean, now=0) {
     if (this.cachedRevision !== p.blocks.revision) {
       const c = this.cache.getContext('2d')!;
       c.setTransform(this.ratio, 0, 0, this.ratio, 0, 0);
@@ -77,5 +79,15 @@ export class Renderer {
     if(p.effects.powerRemaining>0&&p.effects.powerKind){c.fillStyle=POWER_COLORS[p.effects.powerKind];c.textAlign='center';c.font='bold 24px sans-serif';c.fillText(POWER_LABELS[p.effects.powerKind],a.x,a.y+a.radius+65);}
     c.textAlign='center';c.font='bold 15px sans-serif';
     for(const item of p.powers.items)if(item.alive){c.fillStyle=POWER_COLORS[item.kind];c.beginPath();c.roundRect(item.x-23,item.y-14,46,28,7);c.fill();c.fillStyle='#0b1525';c.fillText(item.kind==='life'?'生命':item.kind==='bomb'?'炸弹':POWER_LABELS[item.kind],item.x,item.y+5);}
+    const hintAlpha=this.startHint.alpha(ready,now);
+    if(hintAlpha>0){
+      c.save();c.globalAlpha=hintAlpha;c.textAlign='center';c.textBaseline='middle';
+      const fontSize=Math.max(28,Math.min(46,14*C.width/Math.max(1,this.host.viewport().width)));
+      c.font=`${fontSize}px "PingFang SC", "Microsoft YaHei", sans-serif`;
+      const width=Math.min(C.width-40,c.measureText(START_HINT).width+40);
+      c.fillStyle='#050c18';c.beginPath();c.roundRect(a.x-width/2,a.y-30,width,60,12);c.fill();
+      c.fillStyle='#d7efff';c.shadowColor='#a9deff';c.shadowBlur=4;c.fillText(START_HINT,a.x,a.y,width-24);c.restore();
+    }
+
   }
 }
