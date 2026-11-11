@@ -1,5 +1,7 @@
 # 微信小游戏架构与变更范围
 
+当前正式客户端路径为wechat-game，导入wechat-game/dist；下文保留原版本记录。最新说明见[独立客户端](../wechat-game/README.md)。
+
 选择微信小游戏原生Canvas运行环境，而非普通小程序web-view。现有核心已支持无HTMLCanvas驱动，因此保留src中的规则文件，避免为移动端复制/搬迁一整套规则导致后端验证漂移。
 
 ```mermaid

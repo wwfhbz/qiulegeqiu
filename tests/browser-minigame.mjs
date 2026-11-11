@@ -10,19 +10,20 @@ import {spawn} from 'node:child_process';
 const child=spawn(process.execPath,['--import','./server/node_modules/tsx/dist/loader.mjs','tests/minigame-server-harness.ts'],{stdio:['ignore','pipe','inherit'],env:{...process.env,APP_ROOT:resolve('server')}});
 // The child uses HTTP on a randomly assigned loopback port and an isolated in-memory SQLite DB.
 const endpoint=await new Promise((r,j)=>{const onData=data=>{const match=data.toString().match(/HARNESS_PORT=(\d+)/);if(match){child.stdout.off('data',onData);r(Number(match[1]));}};child.stdout.on('data',onData);child.once('exit',()=>j(Error('Backend harness exited')));});
-const game=readFileSync('minigame/dist/game.js','utf8');
+const gameRoot=process.env.WECHAT_GAME_DIR||'minigame',out=process.env.WECHAT_BROWSER_OUT||'work/minigame';
+const game=readFileSync(resolve(gameRoot,'dist/game.js'),'utf8');
 const server=createServer((req,res)=>{if(req.url==='/game.js'){res.setHeader('content-type','text/javascript');res.end(game);}else{res.setHeader('content-type','text/html');res.end('<meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0;background:#050c18}canvas{position:absolute;left:0;top:0}</style>');}});
 await new Promise(r=>server.listen(0,'127.0.0.1',r));const port=server.address().port;
 let browser;
 try{browser=await chromium.launch({headless:true,executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',args:['--no-sandbox']});}catch(error){server.close();child.kill('SIGTERM');throw error;}
-mkdirSync('work/minigame',{recursive:true});const reports=[];
+mkdirSync(out,{recursive:true});const reports=[];
 try{
  for(const [name,width,height,dpr] of [['phone',375,812,3],['small-phone',320,568,2],['tablet',768,1024,2]]){
   const page=await browser.newPage({viewport:{width,height},deviceScaleFactor:dpr});const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.route('https://ball.gmgnclaw.com/api/**',async route=>{const request=route.request();if(request.method()==='OPTIONS'){await route.fulfill({status:204,headers:{'access-control-allow-origin':'*','access-control-allow-methods':'GET,POST,OPTIONS','access-control-allow-headers':'content-type,authorization,x-csrf-token'}});return;}const path=new URL(request.url()).pathname+new URL(request.url()).search;
    const headers=request.headers();delete headers.origin;delete headers.host;const r=await fetch(`http://127.0.0.1:${endpoint}${path}`,{method:request.method(),headers,body:request.postData()||undefined});await route.fulfill({status:r.status,contentType:'application/json',headers:{'access-control-allow-origin':'*'},body:await r.text()});});
   await page.goto(`http://127.0.0.1:${port}`);
-  await page.exposeFunction('__captureEnd',()=>page.screenshot({path:`work/minigame/${name}-end.png`}));
+  await page.exposeFunction('__captureEnd',()=>page.screenshot({path:`${out}/${name}-end.png`}));
   await page.evaluate(version=>{
    window.__rulesVersion=version;const doc=document;let canvases=0;window.module={exports:{}};window.__touch={};window.__life={};window.__shares=[];
    window.wx={createCanvas(){const c=doc.createElement('canvas');if(canvases++===0){c.style.width=innerWidth+'px';c.style.height=innerHeight+'px';doc.body.append(c);}return c;},getWindowInfo:()=>({windowWidth:innerWidth,windowHeight:innerHeight,pixelRatio:devicePixelRatio,safeArea:{top:44,bottom:innerHeight-34,left:0,right:innerWidth}}),getMenuButtonBoundingClientRect:()=>({bottom:80,left:innerWidth-90}),
@@ -34,7 +35,7 @@ try{
    const script=doc.createElement('script');script.src='/game.js';doc.body.append(script);
   },RULES_VERSION);
   await page.waitForFunction(()=>window.module?.exports.app?.game.state==='ready');
-  await page.waitForTimeout(150);await page.screenshot({path:`work/minigame/${name}-ready.png`});
+  await page.waitForTimeout(150);await page.screenshot({path:`${out}/${name}-ready.png`});
   const result=await page.evaluate(async()=>{
    const app=module.exports.app,g=app.game;const click=(x,y)=>{const t={identifier:1,clientX:x,clientY:y};__touch.down({touches:[t],changedTouches:[t]});__touch.up({touches:[],changedTouches:[t]});};
    // Use the same central hit target and wx touch callbacks as a real host.
@@ -51,7 +52,7 @@ try{
    app.online=false;app.frame(performance.now());return {moved,balls,playedBricks,state:g.state,lives:g.lives,best:me.best,boardCount:board.items.length,width:app.canvas.width,share:__share()};
   });
   assert.equal(result.moved,true);assert(result.playedBricks>0);assert.equal(result.balls,3);assert.equal(result.lives,0);assert(result.best);assert(result.boardCount>=1);assert.equal(errors.length,0,errors.join('\n'));
-  await page.screenshot({path:`work/minigame/${name}-result.png`});const stress=await page.evaluate(()=>new Promise(resolve=>{const app=module.exports.app;app.online=false;app.panel.close();app.game.stress();let frames=0,start=performance.now(),last=start;const deltas=[];function sample(now){deltas.push(now-last);last=now;if(++frames<90)requestAnimationFrame(sample);else{app.game.pause();resolve({frames,elapsedMs:now-start,averageFps:frames*1000/(now-start),maxFrameMs:Math.max(...deltas),ballsAtEnd:app.game.physics.balls.length});}}requestAnimationFrame(sample);}));reports.push({name,width,height,...result,stress,errors});await page.close();
+  await page.screenshot({path:`${out}/${name}-result.png`});const stress=await page.evaluate(()=>new Promise(resolve=>{const app=module.exports.app;app.online=false;app.panel.close();app.game.stress();let frames=0,start=performance.now(),last=start;const deltas=[];function sample(now){deltas.push(now-last);last=now;if(++frames<90)requestAnimationFrame(sample);else{app.game.pause();resolve({frames,elapsedMs:now-start,averageFps:frames*1000/(now-start),maxFrameMs:Math.max(...deltas),ballsAtEnd:app.game.physics.balls.length});}}requestAnimationFrame(sample);}));reports.push({name,width,height,...result,stress,errors});await page.close();
  }
- writeFileSync('work/minigame/browser-results.json',JSON.stringify({harness:'Chromium wx API compatibility mock; not official DevTools',reports},null,2));console.log(JSON.stringify(reports,null,2));
+ writeFileSync(`${out}/browser-results.json`,JSON.stringify({harness:'Chromium wx API compatibility mock; not official DevTools',reports},null,2));console.log(JSON.stringify(reports,null,2));
 }finally{await browser.close();await new Promise(r=>server.close(r));child.kill('SIGTERM');}

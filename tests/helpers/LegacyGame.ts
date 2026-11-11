@@ -2,7 +2,8 @@
 import {Game} from '../../src/Game';
 import {LevelManager} from '../../src/LevelManager';
 import {LEGACY_LEVELS} from '../../src/LegacyLevels';
+import type {GameHost} from '../../src/platform/Contracts';
 import type {AudioSystem} from '../../src/Audio';
 export class LegacyGame extends Game {
- constructor(canvas?:HTMLCanvasElement,onChange?:(game:Game)=>void,levels=new LevelManager(LEGACY_LEVELS),audio?:AudioSystem){super(canvas,onChange,levels,audio);}
+ constructor(host?:GameHost,onChange?:(game:Game)=>void,levels=new LevelManager(LEGACY_LEVELS),audio?:AudioSystem){super(host,onChange,levels,audio);}
 }

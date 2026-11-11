@@ -1,15 +1,4 @@
-import {build} from 'esbuild';
-import {GAME_NAME,MINIGAME_VERSION} from '../../shared/Brand.ts';
-import {readFileSync,existsSync,mkdirSync,writeFileSync,copyFileSync} from 'node:fs';
-const dev=process.argv.includes('--dev');
-const local=existsSync('minigame/local.config.json')?JSON.parse(readFileSync('minigame/local.config.json','utf8')):{};
-if(Object.keys(local).some(k=>!['appid','apiBase'].includes(k)))throw Error('local.config只允许appid/apiBase，禁止放AppSecret');
-if(local.appid&&local.appid!=='touristappid'&&!/^wx[0-9a-f]{16}$/i.test(local.appid))throw Error('AppID格式无效，请填写真实小游戏AppID或游客占位值');
-const config={apiBase:local.apiBase||(dev?'http://127.0.0.1:8091/api':'https://ball.gmgnclaw.com/api'),development:dev};
-if(!/^https:\/\/[^/]+\/api\/?$/.test(config.apiBase)&&!(dev&&/^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?\/api\/?$/.test(config.apiBase)))throw Error('正式包必须使用HTTPS合法域名');
-mkdirSync('minigame/dist',{recursive:true});
-await build({entryPoints:['minigame/src/game.ts'],outfile:'minigame/dist/game.js',bundle:true,platform:'neutral',format:'cjs',target:'es2020',minify:!dev,sourcemap:dev,define:{__MINIGAME_CONFIG__:JSON.stringify(config)}});
-copyFileSync('minigame/game.json','minigame/dist/game.json');
-const project=JSON.parse(readFileSync('minigame/project.config.json','utf8'));project.appid=local.appid||'touristappid';project.miniprogramRoot='./';project.projectname=GAME_NAME;project.description=`${GAME_NAME} 微信小游戏 V${MINIGAME_VERSION}`;
-writeFileSync('minigame/dist/project.config.json',JSON.stringify(project,null,2)+'\n');
-console.log('微信小游戏产物：minigame/dist。游客AppID只供开发，不代表真实登录或审核资格。');
+// Legacy build command, same source and rules; only the config/output directory differs.
+import {cli} from '../../wechat-game/scripts/build.mjs';
+import {fileURLToPath} from 'node:url';
+await cli(fileURLToPath(new URL('../',import.meta.url)));

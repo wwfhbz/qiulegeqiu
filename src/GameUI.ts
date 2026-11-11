@@ -1,3 +1,5 @@
+import {createWebHost,createWebAudio} from './platform/WebPlatform';
+import {AudioSystem} from './Audio';
 import { LeaderboardUI } from './online/LeaderboardUI';
 import { GAME_NAME } from '../shared/Brand';
 import { Game } from './Game';
@@ -73,7 +75,7 @@ export function mountGame(root: HTMLElement) {
   wrap.style.setProperty('--arena-x', `${C.arena.x / C.width * 100}%`);
   wrap.style.setProperty('--arena-y', `${C.arena.y / C.height * 100}%`);
   fitGamePanel(root.querySelector('.stage-room')!, root.querySelector('.game-panel')!, wrap);
-  const game = new Game(root.querySelector('canvas')!, update);
+  const game = new Game(createWebHost(root.querySelector('canvas')!),update,undefined,new AudioSystem(createWebAudio));
   button('start').onclick = () => activateCentralAction(game);
   button('pause').onclick = () => game.state === 'paused' ? game.start() : game.pause();
   button('reset').onclick = () => game.reset();

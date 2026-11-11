@@ -35,3 +35,8 @@ __pycache__/
 # WeChat developer-local public configuration and generated bundle
 minigame/local.config.json
 minigame/project.private.config.json
+
+# Canonical WeChat project configuration and atomic build staging
+wechat-game/local.config.json
+wechat-game/project.private.config.json
+.build-*/
