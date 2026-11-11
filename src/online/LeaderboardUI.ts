@@ -9,6 +9,7 @@ export class LeaderboardUI {
   private boardRevision=0;private offset=0;private api=new ApiClient();private sync:ChallengeSync;private dialog:HTMLDialogElement;private me?:Me;private picker:RegionPicker;private lastEnd=-1;private checking=0;private busy=false;
   constructor(private root:HTMLElement,private game:Game){
     this.sync=new ChallengeSync(this.api,game);
+    this.sync.onProgress=(uploaded,total)=>{if(this.busy)this.message(`正在校验挑战记录… 已上传 ${uploaded}/${total} 条`);};
     const trophy=document.createElement('button');trophy.className='trophy';trophy.type='button';trophy.textContent='🏆';trophy.setAttribute('aria-label','全球排行榜');root.querySelector('header')!.append(trophy);
     this.dialog=document.createElement('dialog');this.dialog.className='ranking-dialog';this.dialog.setAttribute('aria-label','全球历史排行榜');this.dialog.innerHTML=`
       <div class="ranking-title"><h2>${GAME_NAME} · 全球历史排行榜</h2><button type="button" data-online-close aria-label="关闭排行榜">关闭</button></div>
@@ -60,7 +61,7 @@ export class LeaderboardUI {
       this.el('board-content').hidden=false;const loaded=await this.loadBoard(0,false);
       const saved=result.verificationStatus==='verified'?'成绩已登记':'成绩已登记，异常记录待复核后参与排名';
       this.message(saved+(refreshed?.rankingAvailable===false?'；统一排行榜后端需要更新，记录未丢失。':!loaded||!refreshed?'；榜单或个人记录暂无法刷新，请稍后重试。':'，排行榜显示个人最高有效成绩。'));
-    }catch(error){this.message((error as Error).message+'；您可以跳过提交直接重新挑战。');}
+    }catch(error){this.message((error as Error).message+'；挑战记录仍保留在本页面，可重试提交；也可跳过提交直接重新挑战。');}
     finally{this.busy=false;this.button('submit-score').disabled=false;}
   }
   private async loadBoard(offset:number,showError=true){const revision=++this.boardRevision;this.offset=offset;this.button('previous-page').disabled=offset===0;this.button('next-page').disabled=true;const body=this.el('ranking-rows');body.replaceChildren();try{const result=await this.api.request<{items:(BestScore&{nickname:string})[];nextOffset:number|null}&LeaderboardMetadata>(`/leaderboard?offset=${offset}&limit=20&board=global`);assertGlobalBoard(result);if(revision!==this.boardRevision)return;for(const row of result.items){const tr=document.createElement('tr');for(const text of [String(row.rank),row.display_name,String(row.score),String(row.reached_level)]){const cell=document.createElement('td');cell.textContent=text;cell.title=text;tr.append(cell);}body.append(tr);}if(!result.items.length){const row=document.createElement('tr'),cell=document.createElement('td');cell.colSpan=4;cell.textContent='还没有已验证成绩，来留下你的记录。';row.append(cell);body.append(row);}this.button('previous-page').onclick=()=>void this.loadBoard(Math.max(0,offset-20));this.button('next-page').disabled=result.nextOffset===null;this.button('next-page').onclick=()=>void this.loadBoard(result.nextOffset!);return true;}catch(error){if(showError&&revision===this.boardRevision)this.message((error as Error).message);return false;}}
