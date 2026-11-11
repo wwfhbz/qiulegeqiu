@@ -18,6 +18,7 @@ try{for(const [width,height] of [[1366,768],[390,844]]){
  await page.goto('http://127.0.0.1:4173');
  await page.evaluate(()=>{const g=window.ballCore;for(let n=0;n<5;n++){g.start();for(const b of g.physics.balls)Object.assign(b,{x:400,y:1080,vx:0,vy:760,outsideArena:true});g.update(1/120);}});
  await page.waitForFunction(()=>document.querySelector('.ranking-dialog').open);
+ await page.locator('#view-board').click();await page.waitForFunction(()=>document.querySelector('#challenge-entry').hidden);await page.locator('#return-score').click();await page.waitForFunction(()=>!document.querySelector('#challenge-entry').hidden);
  const snapshot=await page.evaluate(()=>JSON.stringify(window.ballCore.journal.events));await page.locator('#submit-score').click();
  await page.waitForFunction(()=>document.querySelector('#online-message').textContent.includes('无对应可拾取道具')&&!document.querySelector('#submit-score').disabled);
  assert((await page.locator('#online-message').textContent()).includes('可重试提交'));assert.equal(await page.evaluate(()=>JSON.stringify(window.ballCore.journal.events)),snapshot);

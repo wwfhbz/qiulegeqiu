@@ -169,3 +169,5 @@ SQLite数据默认在根work，不属于dist。生产独立数据库、systemd�
 成绩提交与道具回放问题的定位、兼容边界、测试及安全发布顺序见 [修复说明](docs/POWER_SUBMISSION_FIX.md)。
 
 球场点击开局、中央淡出提示与跨端验收见 [交互说明](docs/TAP_TO_START.md)。
+
+全球历史排行榜星际荣耀改版、截图与测试说明见 [排行榜UI说明](docs/GALACTIC_LEADERBOARD_UI.md)。

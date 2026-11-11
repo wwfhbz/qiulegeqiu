@@ -12,6 +12,7 @@
     "preview": "vite preview --host 127.0.0.1",
     "test:browser:arcade": "node tests/browser-arcade.mjs",
     "test:browser:layout": "node tests/browser-v031.mjs",
+    "test:browser:galactic": "npm run build:wechat && node tests/browser-galactic-ranking.mjs",
     "test:browser:tap-start": "node tests/browser-tap-start.mjs",
     "test:browser:central": "node tests/browser-central-start.mjs",
     "test:browser:exit": "node tests/browser-exit.mjs",

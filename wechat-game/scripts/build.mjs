@@ -26,6 +26,7 @@ export async function buildWechatGame({configRoot=CLIENT_ROOT,development=false,
   if(inputs.some(p=>/src\/(?:platform\/WebPlatform|GameUI|online\/ApiClient)\./.test(p)))throw Error('小游戏错误引入浏览器适配层');
   const bundle=fs.readFileSync(join(stage,'game.js'),'utf8');
   if(/\b(?:document|localStorage|sessionStorage)\s*[.\[]|\bwindow\s*\.|\bfetch\s*\(|WECHAT_APP_SECRET|jscode2session|node:sqlite/.test(bundle))throw Error('小游戏包包含浏览器依赖或服务端代码');
+  fs.mkdirSync(join(stage,'assets'),{recursive:true});fs.copyFileSync(join(REPO_ROOT,'public/ranking-art/reference-scene.png'),join(stage,'assets/ranking-scene.png'));
   fs.copyFileSync(join(CLIENT_ROOT,'game.json'),join(stage,'game.json'));
   const project=JSON.parse(fs.readFileSync(join(CLIENT_ROOT,'project.config.json'),'utf8'));Object.assign(project,{appid:config.appid,miniprogramRoot:'./',projectname:GAME_NAME,description:`${GAME_NAME} 微信小游戏 V${MINIGAME_VERSION}`});
   fs.writeFileSync(join(stage,'project.config.json'),JSON.stringify(project,null,2)+'\n');

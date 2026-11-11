@@ -6,6 +6,8 @@ export interface Canvas {
 }
 export interface Wx {
  createCanvas():Canvas;
+ createImage?():{src:string;onload?:()=>void;onerror?:()=>void};
+ getDeviceInfo?():{benchmarkLevel?:number};
  getWindowInfo():{windowWidth:number;windowHeight:number;pixelRatio:number;safeArea?:{top:number;bottom:number;left:number;right:number}};
  getMenuButtonBoundingClientRect?():{bottom:number;left:number};
  onTouchStart(fn:(e:TouchEvent)=>void):void;onTouchMove(fn:(e:TouchEvent)=>void):void;onTouchEnd(fn:(e:TouchEvent)=>void):void;onTouchCancel(fn:(e:TouchEvent)=>void):void;
