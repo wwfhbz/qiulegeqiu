@@ -19,3 +19,7 @@ export function assertChallengeSupport(data:{ok?:boolean;rulesVersion?:string;su
  const supported=data.supportedRulesVersions??(data.rulesVersion?[data.rulesVersion]:[]);
  if(!supported.includes(RULES_VERSION))throw Error('服务器尚不支持十二关挑战，请更新排行榜后端；本轮仍可单机游玩');
 }
+
+/** Wire format changes independently from gameplay/scoring rules. */
+export const CHALLENGE_PROTOCOL_VERSION=2;
+export function assertChallengeProtocol(data:{challengeProtocolVersion?:unknown}){if(data.challengeProtocolVersion!==CHALLENGE_PROTOCOL_VERSION)throw Error('排行榜后端日志协议需要更新（需要协议2，支持dropId）；规则版本相同不代表接口兼容，本轮仍可单机游玩');}

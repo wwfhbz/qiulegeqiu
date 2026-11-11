@@ -1,7 +1,6 @@
 import "./ranking/ranking.css";
 import "./ranking/reference.css";
 import {REFERENCE,referenceSeconds} from './ranking/ReferenceLayout';
-import {badgeSvg} from './ranking/Artwork';
 import {assertGlobalBoard,type LeaderboardMetadata} from '../../shared/Challenge';
 import {CUP_SVG,BALL_SVG} from './ranking/Artwork';
 import {rankingElement,boardStatus} from './ranking/WebCards';
@@ -31,7 +30,7 @@ export class LeaderboardUI {
         <div class="ranking-actions"><button type="button" id="view-board">查看排行榜</button><button type="button" id="skip-score">跳过提交，重新挑战</button></div>
       </section>
       <section id="board-content"><p class="ranking-caption"><span>★ 全球 TOP100</span><span>历史最高有效成绩</span></p><div class="reference-head">${REFERENCE.labels.map(label=>`<span>${label}</span>`).join('')}</div><div id="ranking-rows" role="list" aria-label="全球排名"></div><div class="ranking-actions ranking-pagination"><button type="button" id="previous-page">上一页</button><button type="button" id="refresh-board">↻ 刷新</button><button type="button" id="next-page">下一页</button></div><button type="button" id="return-score" hidden>本次挑战成绩</button><details class="ranking-account"><summary>账号与历史记录</summary><button type="button" id="wechat-link">生成微信账号绑定码</button><p id="historical-best"></p></details></section>
-      <p id="online-message" role="status"></p><details class="appeal"><summary>昵称或账号申诉</summary><label>申诉说明<textarea id="appeal-text" maxlength="500" placeholder="请说明问题，不要填写密码或联系方式"></textarea></label><button id="appeal-send" type="button">提交申诉</button></details></div><aside class="my-ranking"><div id="my-emblem"><small>我的排名</small><span id="my-medal">—</span></div><span class="ball-avatar" role="img" aria-label="统一球球默认头像">${BALL_SVG}</span><div class="my-ranking-content"><p id="my-best">我的排名：正在读取</p><span id="my-name"></span><div id="my-stats"></div></div></aside>`;
+      <p id="online-message" role="status"></p><details class="appeal"><summary>昵称或账号申诉</summary><label>申诉说明<textarea id="appeal-text" maxlength="500" placeholder="请说明问题，不要填写密码或联系方式"></textarea></label><button id="appeal-send" type="button">提交申诉</button></details></div><aside class="my-ranking"><span class="ball-avatar" role="img" aria-label="统一球球默认头像">${BALL_SVG}</span><div class="my-ranking-content"><p id="my-best">我的排名：正在读取</p><span id="my-name"></span><div id="my-stats"></div></div></aside>`;
     for(const key of ['champion','honor','card','borderGold','borderBlue','gold'] as const)this.dialog.style.setProperty('--rank-'+key,RANKING_THEME[key]);
     this.dialog.dataset.quality='low';
     this.motionPreference.addEventListener('change',()=>this.syncMotion());document.addEventListener('visibilitychange',()=>this.syncMotion());this.dialog.addEventListener('close',()=>this.syncMotion());
@@ -55,7 +54,7 @@ export class LeaderboardUI {
     const quality=this.dialog.open?motionQuality(!document.hidden,this.game.state==='paused',this.motionPreference.matches,this.qualityMotion.low||(device.hardwareConcurrency??4)<=4||(device.deviceMemory??4)<=4||innerWidth<360):'off';
     const animate=String(quality!=='off');if(this.dialog.dataset.animate!==animate)this.dialog.dataset.animate=animate;if(this.dialog.dataset.quality!==quality)this.dialog.dataset.quality=quality;
   }
-  private personalUnavailable(){this.el('my-best').textContent='我的排名：暂不可用';this.el('my-name').textContent='';this.el('my-medal').textContent='暂不可用';this.el('my-stats').textContent='个人记录读取失败，请稍后刷新';}
+  private personalUnavailable(){this.el('my-best').textContent='我的排名：暂不可用';this.el('my-name').textContent='';this.el('my-stats').textContent='个人记录读取失败，请稍后刷新';}
   get submitting(){return this.busy;}
   private el(id:string){return this.dialog.querySelector<HTMLElement>(`#${id}`)!;}
   private input(id:string){return this.el(id) as HTMLInputElement;}
@@ -66,9 +65,8 @@ export class LeaderboardUI {
     if(me.player){this.checking++;this.input('nickname').value=me.player.nickname;this.input('nickname').disabled=true;this.el('region-details').hidden=true;this.el('bound-region').hidden=false;this.el('bound-region').textContent=`地区：${me.player.prefix}`;this.el('nickname-check').textContent='已绑定当前玩家';this.el('region-label').textContent=me.player.display_name;}
     else{this.input('nickname').disabled=false;this.el('region-details').hidden=false;this.el('bound-region').hidden=true;if(previouslyBound){this.checking++;this.input('nickname').value='';this.el('nickname-check').textContent='当前身份已失效，请重新登记；不能仅凭昵称找回旧账号。';}this.el('region-label').textContent=`地区：${this.picker.prefix}`;}
     const mine=personalRanking(me.best,me.rankingAvailable!==false);
-    this.el('my-best').textContent=mine.card?`${mine.title} · 历史最高：${mine.card.score} 分`:me.rankingAvailable===false?'个人排名暂不可用，排行榜后端需要更新':'我的排名：未上榜 · 完成十二关规则挑战后登记成绩';
+    this.el('my-best').textContent=mine.card?mine.title:me.rankingAvailable===false?'个人排名暂不可用，排行榜后端需要更新':'我的排名：未上榜 · 完成十二关规则挑战后登记成绩';
     this.el('my-name').textContent=me.best?.display_name??me.player?.display_name??'';
-    this.el('my-medal').innerHTML=me.best?badgeSvg(me.best.rank):'';if(!me.best)this.el('my-medal').textContent=me.rankingAvailable===false?'暂不可用':'未上榜';
     const myStats=this.el('my-stats');myStats.replaceChildren();if(me.best){for(const [label,value] of [['最高总分',mine.card!.score],['最高关卡',mine.card!.level],['消除砖块',mine.card!.bricks],['最佳时间',referenceSeconds(me.best.duration_ms)]]){const item=document.createElement('span'),caption=document.createElement('small'),number=document.createElement('strong');caption.textContent=label;number.textContent=value;item.append(caption,number);myStats.append(item);}}else myStats.textContent=me.rankingAvailable===false?'个人排名暂不可用，排行榜后端需要更新':'完成挑战并提交有效成绩后上榜';
     this.el('historical-best').textContent=me.historicalBest?`旧版历史记录：${me.historicalBest.score} 分 · 第${me.historicalBest.reached_level}关（已完整保留，需新版重赛上榜）`:'';
   }
@@ -87,7 +85,7 @@ export class LeaderboardUI {
       this.dialog.classList.remove('submission-view');this.el('challenge-entry').hidden=true;this.button('return-score').hidden=false;this.el('board-content').hidden=false;const loaded=await this.loadBoard(0,false);
       const saved=result.verificationStatus==='verified'?'成绩已登记':'成绩已登记，异常记录待复核后参与排名';
       this.message(saved+(refreshed?.rankingAvailable===false?'；统一排行榜后端需要更新，记录未丢失。':!loaded||!refreshed?'；榜单或个人记录暂无法刷新，请稍后重试。':'，排行榜显示个人最高有效成绩。'));
-    }catch(error){this.message((error as Error).message+'；挑战记录仍保留在本页面，可重试提交；也可跳过提交直接重新挑战。');}
+    }catch(error){const detail=(error as Error).message;this.message(detail+'；挑战记录仍保留在本页面。'+(!this.sync.canRetry?'本轮无法继续登记，请先解决接口或身份问题，再重新挑战。':'修复接口或网络问题后可重试提交，也可跳过重新挑战。'));}
     finally{this.busy=false;this.button('submit-score').disabled=false;}
   }
   private async loadBoard(offset:number,showError=true){

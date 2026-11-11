@@ -7,7 +7,7 @@ import type {RankingScore} from '../src/online/ranking/Presentation';
 const rows:RankingScore[]=Array.from({length:20},(_,i)=>({rank:i+1,display_name:'中国·本地测试昵称很长的排行榜玩家',score:123456,reached_level:5,bricks_destroyed:10258,duration_ms:632700}));
 it.each([[320,568],[390,844],[768,1024]])('Canvas排行榜%s×%s滚动不覆盖固定个人卡及44像素操作区',(w,h)=>{
  const f=wxFixture(w,h),c=context(f.wx.createCanvas()),next=vi.fn(),inspect=vi.fn();const panel=new RankingCanvas({state:'ready',items:rows,offset:0,nextOffset:20,best:{...rows[0],rank:130}},[{label:'下一页',run:next}],inspect);
- panel.draw(c,w,86,h-42,0,true,w<360);expect(f.texts).toContain('我的排名');expect(f.texts).toContain('130');const geometry=rankingLayout(w,86,h-42);expect(geometry.body.y+geometry.body.height).toBeLessThan(geometry.my.y);expect(geometry.my.y+geometry.my.height).toBeLessThan(geometry.navY);expect(geometry.my.y+geometry.my.height).toBeLessThanOrEqual(h-42);
+ panel.draw(c,w,86,h-42,0,true,w<360);expect(f.texts).toContain('我的排名：130');const geometry=rankingLayout(w,86,h-42);expect(geometry.body.y+geometry.body.height).toBeLessThan(geometry.navY);expect(geometry.navY+44).toBeLessThan(geometry.my.y);expect(geometry.my.y+geometry.my.height).toBeLessThanOrEqual(h-42);
  panel.scroll(-100000);expect(panel.scrollY).toBeGreaterThan(0);panel.draw(c,w,86,h-42,16,true,w<360);expect(panel.hits.filter(hit=>hit.run!==next).every(hit=>hit.rect.y>=geometry.body.y-1e-8&&hit.rect.y+hit.rect.height<=geometry.body.y+geometry.body.height+1e-8)).toBe(true);
  const control=panel.hits.find(hit=>hit.run===next)!;panel.tap(control.rect.x+control.rect.width/2,control.rect.y+control.rect.height/2);expect(next).toHaveBeenCalledOnce();expect(inspect).not.toHaveBeenCalled();panel.scroll(100000);expect(panel.scrollY).toBe(0);
 });
