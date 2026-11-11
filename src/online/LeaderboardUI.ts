@@ -35,6 +35,7 @@ export class LeaderboardUI {
     this.button('appeal-send').onclick=()=>void this.appeal();
     void this.api.me().then(me=>this.applyMe(me)).catch(()=>{});
   }
+  get submitting(){return this.busy;}
   private el(id:string){return this.dialog.querySelector<HTMLElement>(`#${id}`)!;}
   private input(id:string){return this.el(id) as HTMLInputElement;}
   private button(id:string){return this.el(id) as HTMLButtonElement;}

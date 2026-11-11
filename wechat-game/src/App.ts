@@ -1,6 +1,7 @@
 import {assertGlobalBoard,type LeaderboardMetadata} from '../../shared/Challenge';
 import {GAME_NAME} from '../../shared/Brand';
 import {Game} from '../../src/Game';
+import {startFromPlayfield} from '../../src/PlayfieldStart';
 import {C} from '../../src/GameConfig';
 import {Renderer} from '../../src/Renderer';
 import {WechatPlatform} from './WechatPlatform';
@@ -22,7 +23,7 @@ export class MiniGameApp {
  private arena:Canvas;private renderer:Renderer;private ctx:CanvasRenderingContext2D;private sync:ChallengeSync;
  private view=layout(375,667);private dpr=1;private previous=0;private active=true;private online=false;private offlinePreference=false;private busy=false;private lastEnd=-1;
  private touch?:{id:number;x:number;y:number;moved:boolean;drag:boolean};private actions:{rect:Rect;run:()=>void}[]=[];
- private boardRevision=0;private me?:Me;private nicknameDraft='';private region:Region={code:'ISO:CN',prefix:'中国',name:'中国',hasChildren:true,path:''};private shareImage?:string;
+ private boardLoading=false;private boardRevision=0;private me?:Me;private nicknameDraft='';private region:Region={code:'ISO:CN',prefix:'中国',name:'中国',hasChildren:true,path:''};private shareImage?:string;
  constructor(private wx:Wx,config:Config){
   this.platform=new WechatPlatform(wx);this.canvas=this.platform.createCanvas();this.arena=this.platform.createCanvas();const cache=this.platform.createCanvas();
   this.ctx=context(this.canvas);context(this.arena);context(cache);
@@ -41,7 +42,7 @@ export class MiniGameApp {
  dispose(){this.platform.dispose();this.renderer.dispose();this.game.dispose();}
  hide(){this.platform.suspend();this.game.audio.suspend();this.active=false;this.previous=0;this.touch=undefined;this.game.pause();if(this.online)void this.sync.flush().catch(()=>{});}
  frame(now:number){if(!this.active)return;const dt=this.previous?Math.min(.1,Math.max(0,(now-this.previous)/1000)):0;this.previous=now;
-  this.game.update(dt);if(this.online)this.sync.observe();this.renderer.draw(this.game.physics,this.game.state==='ready');this.draw();
+  this.game.update(dt);if(this.online)this.sync.observe();this.renderer.draw(this.game.physics,this.game.state==='ready',now);this.draw();
   if((this.game.state==='gameOver'||this.game.state==='victory')&&this.lastEnd!==this.game.journal.generation){this.lastEnd=this.game.journal.generation;this.result();}
  }
  private draw(){const c=this.ctx,v=this.view;c.setTransform(this.dpr,0,0,this.dpr,0,0);c.fillStyle='#050c18';c.fillRect(0,0,v.width,v.height);c.fillStyle='#c7deec';c.textAlign='center';c.font='bold 15px sans-serif';c.fillText(GAME_NAME,v.width/2,v.top+28);
@@ -53,18 +54,18 @@ export class MiniGameApp {
   const button=(rect:Rect,label:string,run:()=>void)=>{c.fillStyle='#153047';c.fillRect(rect.x,rect.y,rect.width,rect.height);c.fillStyle='#bfedff';c.font='14px sans-serif';c.fillText(label,rect.x+rect.width/2,rect.y+28);this.actions.push({rect,run});};
   const action=centralActionFor(g);
   if(g.state==='levelComplete'&&g.result){c.fillStyle='#ffd0a0';c.font='14px sans-serif';c.fillText(`第${g.levels.current.number}关突破！本关 ${g.result.levelTotal} 分`,v.width/2,v.arena.y+C.arena.y*v.scale-38);}
-  if(action&&!this.busy){const centerY=v.arena.y+C.arena.y*v.scale;button({x:v.width/2-78,y:centerY-22,width:156,height:44},action.label,()=>void this.activate());}
+  if(action&&g.state!=='ready'&&!this.busy){const centerY=v.arena.y+C.arena.y*v.scale;button({x:v.width/2-78,y:centerY-22,width:156,height:44},action.label,()=>void this.activate());}
   button({x:v.width/2-116,y:v.buttonsY,width:108,height:44},g.state==='paused'?'继续':'暂停',()=>{if(g.state==='paused')g.start();else g.pause();});
   button({x:v.width/2+8,y:v.buttonsY,width:108,height:44},'重新开始',()=>{this.panel.close();g.reset();});
   // Compact native-style utility controls stay below the capsule safe area.
   button({x:8,y:v.top,width:44,height:44},'菜单',()=>this.menu());button({x:v.width-52,y:v.top,width:44,height:44},'排行',()=>void this.board());
   this.panel.draw(c,v.width,v.top,v.bottom);
  }
- private down(e:TouchEvent){if(this.touch)return;const t=e.changedTouches[0];if(!t)return;this.game.audio.unlock();this.touch={id:t.identifier,x:t.clientX,y:t.clientY,moved:false,drag:!this.panel.open&&inside(this.view.arena,t.clientX,t.clientY)&&!this.actions.some(a=>inside(a.rect,t.clientX,t.clientY))};if(this.touch.drag)this.target(t.clientX);}
+ private down(e:TouchEvent){if(this.touch)return;const t=e.changedTouches[0];if(!t)return;this.game.audio.unlock();this.touch={id:t.identifier,x:t.clientX,y:t.clientY,moved:false,drag:!this.panel.open&&inside(this.view.arena,t.clientX,t.clientY)&&!this.actions.some(a=>inside(a.rect,t.clientX,t.clientY))};if(this.touch.drag){this.target(t.clientX);if(!this.busy&&!this.boardLoading)startFromPlayfield(this.game,()=>void this.activate());}}
  private move(e:TouchEvent){const active=this.touch;if(!active)return;const t=e.touches.find(t=>t.identifier===active.id);if(!t)return;if(Math.hypot(t.clientX-active.x,t.clientY-active.y)>8)active.moved=true;if(active.drag)this.target(t.clientX);}
  private up(e:TouchEvent){const active=this.touch;if(!active||!e.changedTouches.some(t=>t.identifier===active.id))return;this.touch=undefined;if(active.moved||active.drag)return;if(this.panel.open){this.panel.tap(active.x,active.y);return;}this.actions.find(a=>inside(a.rect,active.x,active.y))?.run();}
  private target(x:number){this.game.physics.setTarget((x-this.view.arena.x)/this.view.arena.width*C.width);}
- private async activate(){if(this.busy)return;this.busy=true;
+ private async activate(){if(this.busy)return;this.busy=true;const generation=this.game.journal.generation,state=this.game.state;
   try{if(this.game.state==='ready'&&this.game.readyReason==='initial'){
     this.online=false;
     if(this.offlinePreference){}else if(this.api.authenticated){this.me=await this.api.me();this.online=true;}
@@ -72,7 +73,7 @@ export class MiniGameApp {
      if(network.confirm){const consent=await this.modal('隐私说明',privacy,'同意登录','单机游玩');if(consent.confirm){await this.loginWithPrivacy();this.me=await this.api.me();this.online=true;}}
     }
    }
-  }catch(error){this.online=false;this.toast((error as Error).message);}finally{this.busy=false;activateCentralAction(this.game);if(!this.active)this.game.pause();this.previous=0;}
+  }catch(error){this.online=false;this.toast((error as Error).message);}finally{this.busy=false;if(this.game.journal.generation===generation&&this.game.state===state)activateCentralAction(this.game);if(!this.active)this.game.pause();this.previous=0;}
  }
  private async loginWithPrivacy(){if(this.wx.requirePrivacyAuthorize)await new Promise<void>((r,j)=>this.wx.requirePrivacyAuthorize!({success:r,fail:()=>j(Error('未获得隐私授权，可继续单机'))}));await this.api.login();}
  private modal(title:string,content:string,confirmText='确定',cancelText='取消',editable=false,initialValue=''){return new Promise<{confirm:boolean;content?:string}>(resolve=>this.wx.showModal({title,content:editable?initialValue:content,placeholderText:editable?content:undefined,confirmText,cancelText,editable,success:resolve,fail:()=>resolve({confirm:false})}));}
@@ -100,12 +101,12 @@ export class MiniGameApp {
   }
   const result=await this.sync.submit();let refreshed=true;try{this.me=await this.api.me();}catch{this.me=undefined;refreshed=false;}this.toast((result.verificationStatus==='verified'?'成绩已登记':'成绩待复核')+(refreshed?'':'，个人记录暂无法刷新'));await this.board();
  });}
- private async board(offset=0){this.game.pause();const pageSize=this.view.height<650?3:5,revision=++this.boardRevision;try{
+ private async board(offset=0){this.game.pause();const pageSize=this.view.height<650?3:5,revision=++this.boardRevision;this.boardLoading=true;try{
   const result=await this.api.request<{items:BestScore[];nextOffset:number|null}&LeaderboardMetadata>(`/leaderboard?offset=${offset}&limit=${pageSize}&board=global`);assertGlobalBoard(result);
   let me:Me|undefined,identityError='';try{if(this.api.authenticated)me=await this.api.me();}catch{this.me=undefined;identityError='个人记录暂不可用，请重新登录；全球榜单仍可查看';}if(revision!==this.boardRevision)return;if(me)this.me=me;
   const lines=[...(identityError?[identityError]:[]),me?.best?`我的排名 ${me.best.rank}　历史最高 ${me.best.score}`:'我的排名：未上榜',...(me?.historicalBest?[`旧版记录 ${me.historicalBest.score}分（保留，需新版重赛上榜）`]:[]),...result.items.map(r=>`${r.rank}. ${r.display_name}　${r.score}分　${r.reached_level}关`)];
   this.panel.show(GAME_NAME+' · 全球历史排行榜',lines,[{label:'刷新',run:()=>void this.board(offset)},{label:'上一页',run:()=>void this.board(Math.max(0,offset-pageSize)),half:true},{label:'下一页',run:()=>{if(result.nextOffset!==null)void this.board(result.nextOffset);},half:true},{label:'关闭排行榜',run:()=>this.panel.close()}]);
- }catch(error){if(revision===this.boardRevision)this.toast((error as Error).message);}}
+ }catch(error){if(revision===this.boardRevision)this.toast((error as Error).message);}finally{if(revision===this.boardRevision)this.boardLoading=false;}}
  private async regions(parent:Region|undefined,done:()=>void,query='',offset=0){
   try{const q=`q=${encodeURIComponent(query)}&offset=${offset}${parent?'&parent='+encodeURIComponent(parent.code):''}`;const result=await this.api.request<{items:Region[];nextOffset:number|null}>('/regions?'+q);this.regionPage(result.items,0,parent,done,query,offset,result.nextOffset);}catch(error){this.toast((error as Error).message);}
  }

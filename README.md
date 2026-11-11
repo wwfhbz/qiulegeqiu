@@ -167,3 +167,5 @@ SQLite数据默认在根work，不属于dist。生产独立数据库、systemd�
 正式源码位于wechat-game，复用同一十二关与global排行榜，原网页保留。运行`npm run build:wechat`，微信开发者工具准确导入**wechat-game/dist**。独立命令、AppID、合法域名、真机步骤见[客户端说明](wechat-game/README.md)，架构与验证见[实施报告](docs/WECHAT_GAME_CLIENT.md)。旧minigame路径仍兼容，不维护第二份规则；本次不部署、不改数据库。
 
 成绩提交与道具回放问题的定位、兼容边界、测试及安全发布顺序见 [修复说明](docs/POWER_SUBMISSION_FIX.md)。
+
+球场点击开局、中央淡出提示与跨端验收见 [交互说明](docs/TAP_TO_START.md)。

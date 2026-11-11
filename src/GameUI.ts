@@ -5,6 +5,7 @@ import { GAME_NAME } from '../shared/Brand';
 import { Game } from './Game';
 import { C } from './GameConfig';
 import { activateCentralAction, centralActionFor } from './CentralAction';
+import { START_HINT } from './PlayfieldStart';
 import { STATE_LABELS } from './GameState';
 import { ARCADE } from './ArcadeRules';
 import { fitGamePanel } from './ViewportLayout';
@@ -53,9 +54,10 @@ export function mountGame(root: HTMLElement) {
     el('combo').textContent = g.score.combo > 1 ? `${g.score.combo} 连击 ×${g.score.multiplier}` : '';
     const action = centralActionFor(g);
     el('central-layer').hidden = action === null;
+    button('start').classList.toggle('sr-only',g.state==='ready');
     button('start').hidden = action === null;
     button('start').disabled = action === null;
-    if (action) button('start').textContent = action.label;
+    if (action) button('start').textContent = g.state==='ready'?START_HINT:action.label;
     button('pause').disabled = g.state !== 'running' && g.state !== 'paused';
     button('pause').textContent = g.state === 'paused' ? '继续' : '暂停';
     const completed = g.state === 'levelComplete' || g.state === 'victory';
@@ -75,7 +77,7 @@ export function mountGame(root: HTMLElement) {
   wrap.style.setProperty('--arena-x', `${C.arena.x / C.width * 100}%`);
   wrap.style.setProperty('--arena-y', `${C.arena.y / C.height * 100}%`);
   fitGamePanel(root.querySelector('.stage-room')!, root.querySelector('.game-panel')!, wrap);
-  const game = new Game(createWebHost(root.querySelector('canvas')!),update,undefined,new AudioSystem(createWebAudio));
+  const game = new Game(createWebHost(root.querySelector('canvas')!,()=>!document.hidden&&!online?.submitting&&!root.querySelector('dialog[open]')),update,undefined,new AudioSystem(createWebAudio));
   button('start').onclick = () => activateCentralAction(game);
   button('pause').onclick = () => game.state === 'paused' ? game.start() : game.pause();
   button('reset').onclick = () => game.reset();

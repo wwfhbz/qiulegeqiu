@@ -10,7 +10,7 @@ import type {FrameRuntime} from '../src/platform/Contracts';
 afterEach(()=>vi.unstubAllGlobals());
 function browserHost(){
  const frames=new Map<number,FrameRequestCallback>(),listeners=new Map<string,(e:any)=>void>(),visibility=new Map<string,()=>void>();let sequence=0,disconnected=false;
- const ctx=new Proxy({},{get:()=>()=>{},set:()=>true}) as CanvasRenderingContext2D;
+ const ctx=new Proxy({measureText:(text:string)=>({width:text.length*16})},{get:(target,key)=>Reflect.get(target,key)??(()=>{}),set:()=>true}) as CanvasRenderingContext2D;
  const canvas={width:0,height:0,getContext:()=>ctx,getBoundingClientRect:()=>({left:10,width:400,height:560}),addEventListener:(name:string,fn:(e:any)=>void)=>listeners.set(name,fn),removeEventListener:(name:string)=>listeners.delete(name),setPointerCapture:()=>{},hasPointerCapture:()=>true} as unknown as HTMLCanvasElement;
  const document={hidden:false,createElement:()=>({width:0,height:0,getContext:()=>ctx}),addEventListener:(name:string,fn:()=>void)=>visibility.set(name,fn),removeEventListener:(name:string)=>visibility.delete(name)};
  vi.stubGlobal('document',document);vi.stubGlobal('window',{devicePixelRatio:3,requestAnimationFrame:(fn:FrameRequestCallback)=>{frames.set(++sequence,fn);return sequence;},cancelAnimationFrame:(id:number)=>frames.delete(id)});vi.stubGlobal('ResizeObserver',class{observe(){}disconnect(){disconnected=true;}});
@@ -55,4 +55,60 @@ it('微信触摸开始即解锁原生音效，后台暂停音频，不等待异�
  const f=wxFixture();let state='suspended';const resume=vi.fn(()=>{state='running';return Promise.resolve();}),suspend=vi.fn(()=>{state='suspended';return Promise.resolve();}),close=vi.fn(()=>Promise.resolve());
  f.wx.createWebAudioContext=()=>({get state(){return state;},destination:{},createGain:()=>({gain:{value:0},connect:()=>{}}),resume,suspend,close}) as unknown as AudioContext;
  const app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});app.frame(100);f.events.down(f.touch(1,195,300));expect(resume).toHaveBeenCalledOnce();expect(f.requests).toHaveLength(0);f.events.hide();expect(suspend).toHaveBeenCalledOnce();app.dispose();expect(close).toHaveBeenCalledOnce();
+});
+
+import {startFromPlayfield,StartHint,START_HINT} from '../src/PlayfieldStart';
+it('球场开局入口只接受待发射状态，快速重复手势只产生一个launch',()=>{
+ const g=new Game();expect(startFromPlayfield(g)).toBe(true);for(let i=0;i<10;i++)expect(startFromPlayfield(g)).toBe(false);
+ expect(g.journal.events.filter(e=>e.type==='launch')).toHaveLength(1);
+ g.pause();expect(startFromPlayfield(g)).toBe(false);expect(g.state).toBe('paused');
+ for(const state of ['gameOver','victory','levelComplete'] as const){g.state=state;expect(startFromPlayfield(g)).toBe(false);expect(g.state).toBe(state);}
+ g.reset();expect(startFromPlayfield(g)).toBe(true);
+});
+it('引导首次可见、250毫秒自然淡出，重新等待立即恢复',()=>{
+ const hint=new StartHint();expect(hint.alpha(true,100)).toBe(.7);expect(hint.alpha(false,110)).toBe(.7);expect(hint.alpha(false,235)).toBeCloseTo(.35);expect(hint.alpha(false,360)).toBe(0);expect(hint.alpha(true,400)).toBe(.7);
+});
+it.each(['mouse','touch'])('Web %s任意球场坐标开局，主指针过滤与功能弹窗阻挡生效',pointerType=>{
+ const b=browserHost(),g=new Game(b.host);
+ for(const clientX of [30,210,390]){g.reset();b.listeners.get('pointerdown')!({pointerType,button:0,isPrimary:true,pointerId:1,clientX});expect(g.state).toBe('running');b.listeners.get('pointerdown')!({pointerType,button:0,pointerId:1,clientX});expect(g.journal.events.filter(e=>e.type==='launch')).toHaveLength(1);}
+ g.reset();b.listeners.get('pointerdown')!({pointerType,button:0,isPrimary:false,pointerId:2,clientX:200});expect(g.state).toBe('ready');g.dispose();
+});
+it('Web外部交互锁明确阻止球场开局',()=>{
+ browserHost();let allowed=false;
+ // Use the host permission callback with its real pointer listener.
+ const ctx=new Proxy({measureText:(text:string)=>({width:text.length*16})},{get:(target,key)=>Reflect.get(target,key)??(()=>{}),set:()=>true}) as CanvasRenderingContext2D;
+ const listeners=new Map<string,(e:any)=>void>();const surface={getContext:()=>ctx,getBoundingClientRect:()=>({left:0,width:400,height:560}),addEventListener:(n:string,f:(e:any)=>void)=>listeners.set(n,f),removeEventListener:()=>{},setPointerCapture:()=>{},hasPointerCapture:()=>true} as unknown as HTMLCanvasElement;
+ const g=new Game(createWebHost(surface,()=>allowed));const down=()=>listeners.get('pointerdown')!({pointerType:'mouse',button:0,clientX:200,pointerId:1});down();expect(g.state).toBe('ready');allowed=true;down();expect(g.state).toBe('running');g.dispose();
+});
+it.each([.15,.5,.85])('微信球场横向比例%s触摸开局，提示无交互矩形，单机选择不被绕过',async ratio=>{
+ const f=wxFixture(),modal=vi.fn(f.wx.showModal);f.wx.showModal=modal;const app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});app.frame(100);
+ expect(f.texts).toContain(START_HINT);const v=(app as unknown as {view:{arena:{x:number;y:number;width:number;height:number}}}).view;
+ const touch=f.touch(1,v.arena.x+v.arena.width*ratio,v.arena.y+v.arena.height*.45);
+ f.events.down(touch);f.events.down(f.touch(2,200,300));f.events.up(touch);await vi.waitFor(()=>expect(app.game.state).toBe('running'));
+ expect(modal).toHaveBeenCalledTimes(1);expect(app.game.journal.events.filter(e=>e.type==='launch')).toHaveLength(1);expect(f.requests).toHaveLength(0);
+ app.frame(110);f.texts.length=0;app.frame(400);expect(f.texts).not.toContain(START_HINT);app.game.reset();app.frame(410);expect(f.texts).toContain(START_HINT);app.dispose();
+});
+it('微信菜单和面板不穿透，暂停或结算点击球场不创建新挑战',()=>{
+ const f=wxFixture(),app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});app.frame(100);
+ const tap=(x:number,y:number)=>{const e=f.touch(1,x,y);f.events.down(e);f.events.up(e);};
+ const v=(app as unknown as {view:{top:number;arena:{x:number;y:number;width:number;height:number}}}).view;
+ tap(20,v.top+20);expect(app.panel.open).toBe(true);expect(app.game.state).toBe('ready');tap(v.arena.x+5,v.arena.y+5);expect(app.game.state).toBe('ready');app.panel.close();
+ for(const state of ['paused','gameOver','victory'] as const){app.game.state=state;app.frame(100);tap(v.arena.x+5,v.arena.y+5);expect(app.game.state).toBe(state);}
+ app.dispose();
+});
+it('微信授权未完成时重复触摸不重复开局，重置后旧授权回调不启动新一轮',async()=>{
+ const f=wxFixture();let complete:((result:{confirm:boolean})=>void)|undefined,modals=0;
+ f.wx.showModal=o=>{modals++;complete=o.success;};const app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});app.frame(100);
+ const v=(app as unknown as {view:{arena:{x:number;y:number;width:number;height:number}}}).view;
+ const tap=()=>{const e=f.touch(1,v.arena.x+5,v.arena.y+20);f.events.down(e);f.events.up(e);};tap();tap();
+ expect(modals).toBe(1);expect(app.game.state).toBe('ready');expect(app.game.journal.events).toHaveLength(0);
+ app.game.reset();complete!({confirm:false});await Promise.resolve();await Promise.resolve();expect(app.game.state).toBe('ready');expect(app.game.journal.events).toHaveLength(0);app.dispose();
+});
+it('微信排行榜加载中及成绩提交忙碌时，球场触摸不启动挑战',()=>{
+ const f=wxFixture();f.wx.request=()=>{};const app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});app.frame(100);
+ const view=(app as unknown as {view:{arena:{x:number;y:number};top:number};busy:boolean}).view;
+ const tap=(x:number,y:number)=>{const e=f.touch(1,x,y);f.events.down(e);f.events.up(e);};
+ tap(350,view.top+20);tap(view.arena.x+5,view.arena.y+5);expect(app.game.state).toBe('ready');expect(app.game.journal.events).toHaveLength(0);
+ (app as unknown as {boardLoading:boolean;busy:boolean}).boardLoading=false;(app as unknown as {busy:boolean}).busy=true;
+ tap(view.arena.x+5,view.arena.y+5);expect(app.game.state).toBe('ready');app.dispose();
 });
