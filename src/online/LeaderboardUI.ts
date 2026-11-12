@@ -1,6 +1,7 @@
 import {scoreHistoryLines} from '../../shared/ScoreHistory';
 import "./ranking/ranking.css";
 import "./ranking/reference.css";
+import "./ranking/legacy.css";
 import {REFERENCE,referenceSeconds} from './ranking/ReferenceLayout';
 import {assertGlobalBoard,type LeaderboardMetadata} from '../../shared/Challenge';
 import {CUP_SVG,BALL_SVG} from './ranking/Artwork';

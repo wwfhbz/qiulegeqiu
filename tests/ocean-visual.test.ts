@@ -11,9 +11,9 @@ it('主题六色与低饱和排名语义，共享配置不携带玩法参数',()
  expect(new Set(OCEAN.bricks).size).toBe(6);expect(rankColor(1)).toBe(OCEAN.rank.gold);expect(rankColor(2)).toBe(OCEAN.rank.silver);expect(rankColor(3)).toBe(OCEAN.rank.bronze);expect(rankColor(4)).not.toBe(rankColor(5));expect(Object.keys(OCEAN)).not.toContain('physics');expect(brickColorIndex(0,0)).toBe(0);
 });
 it.each([[20,0,12],[21,1,7],[50,1,7],[51,2,0],[100,2,0]])('%i球仅按预算降级拖尾：档位%i、长度%i',(balls,tier,length)=>{const b=visualBudget(balls);expect(b.tier).toBe(tier);expect(b.trailLength).toBe(length);expect(visualBudget(balls,true).particles).toBeLessThanOrEqual(b.particles);});
-it('600砖六色缓存只首次构建；击碎后仅清除对应格子，不为单砖创建渐变',()=>{
+it('600砖按行色带缓存只首次构建；击碎后仅清除对应格子，不为单砖创建渐变',()=>{
  const g=new Game(),{r,cc}=renderer(),colors=new Set(),fill=vi.fn(()=>{colors.add(cc.fillStyle);}),clear=vi.fn(),gradient=vi.fn();cc.fill=fill;cc.clearRect=clear;cc.createLinearGradient=gradient;
- r.draw(g.physics,true,0);expect(fill).toHaveBeenCalledTimes(600);for(const color of OCEAN.bricks)expect(colors.has(color)).toBe(true);expect(gradient).not.toHaveBeenCalled();
+ r.draw(g.physics,true,0);expect(fill).toHaveBeenCalledTimes(600);for(let i=0;i<g.physics.blocks.alive.length;i++)if(g.physics.blocks.alive[i])expect(colors.has(OCEAN.bricks[brickColorIndex(Math.floor(i/g.physics.blocks.cols))])).toBe(true);expect(gradient).not.toHaveBeenCalled();
  r.draw(g.physics,true,16);expect(fill).toHaveBeenCalledTimes(600);const before=clear.mock.calls.length;const index=g.physics.blocks.alive.findIndex(Boolean);g.physics.blocks.hit(index);r.draw(g.physics,true,32);expect(clear.mock.calls.length).toBe(before+1);expect(fill).toHaveBeenCalledTimes(600);r.dispose();
 });
 it.each([20,50,100])('连续渲染%i球不改变Physics、Effects、ChallengeJournal、得分或生命',count=>{
