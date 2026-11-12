@@ -1,0 +1,161 @@
+{
+  "note": "所有玩家与成绩均为明确标注的本地UI测试夹具，不调用生产API，不写正式数据库；微信为Chromium模拟宿主，非真机",
+  "reports": [
+    {
+      "client": "web",
+      "width": 1200,
+      "height": 1320,
+      "timing": {
+        "frames": 45,
+        "averageFps": 60.0080010668089,
+        "maxFrameMs": 16.800000000000068,
+        "simulationTickUnchanged": true
+      },
+      "distinguishedTop5": true,
+      "quietBlueCards": true,
+      "pagination": true,
+      "serverRank130": true,
+      "fixedPersonal": true,
+      "empty": true,
+      "error": true,
+      "loading": true,
+      "longUnicodeName": true,
+      "reducedMotion": true,
+      "pausedFrozen": true,
+      "backgroundFrozen": true,
+      "errors": []
+    },
+    {
+      "client": "web",
+      "width": 1366,
+      "height": 1000,
+      "timing": {
+        "frames": 45,
+        "averageFps": 60,
+        "maxFrameMs": 16.800000000000182,
+        "simulationTickUnchanged": true
+      },
+      "distinguishedTop5": true,
+      "quietBlueCards": true,
+      "pagination": true,
+      "serverRank130": true,
+      "fixedPersonal": true,
+      "empty": true,
+      "error": true,
+      "loading": true,
+      "longUnicodeName": true,
+      "reducedMotion": true,
+      "pausedFrozen": true,
+      "backgroundFrozen": true,
+      "errors": []
+    },
+    {
+      "client": "web",
+      "width": 390,
+      "height": 844,
+      "timing": {
+        "frames": 45,
+        "averageFps": 59.99200106652447,
+        "maxFrameMs": 16.799999999999955,
+        "simulationTickUnchanged": true
+      },
+      "distinguishedTop5": true,
+      "quietBlueCards": true,
+      "pagination": true,
+      "serverRank130": true,
+      "fixedPersonal": true,
+      "empty": true,
+      "error": true,
+      "loading": true,
+      "longUnicodeName": true,
+      "reducedMotion": true,
+      "pausedFrozen": true,
+      "backgroundFrozen": true,
+      "errors": []
+    },
+    {
+      "client": "web",
+      "width": 320,
+      "height": 568,
+      "timing": {
+        "frames": 45,
+        "averageFps": 60,
+        "maxFrameMs": 16.800000000000068,
+        "simulationTickUnchanged": true
+      },
+      "distinguishedTop5": true,
+      "quietBlueCards": true,
+      "pagination": true,
+      "serverRank130": true,
+      "fixedPersonal": true,
+      "empty": true,
+      "error": true,
+      "loading": true,
+      "longUnicodeName": true,
+      "reducedMotion": true,
+      "pausedFrozen": true,
+      "backgroundFrozen": true,
+      "errors": []
+    },
+    {
+      "client": "wechat-canvas-mock",
+      "width": 390,
+      "height": 844,
+      "timing": {
+        "frames": 45,
+        "averageFps": 60,
+        "maxFrameMs": 16.800000000000068,
+        "simulationTickUnchanged": true
+      },
+      "serverRank": 130,
+      "dragScroll": true,
+      "pausedFrozen": true,
+      "backgroundFrozen": true,
+      "pagination": true,
+      "unranked": true,
+      "error": true,
+      "myY": 638,
+      "errors": []
+    },
+    {
+      "client": "wechat-canvas-mock",
+      "width": 320,
+      "height": 568,
+      "timing": {
+        "frames": 45,
+        "averageFps": 60.00000000000001,
+        "maxFrameMs": 16.800000000000068,
+        "simulationTickUnchanged": true
+      },
+      "serverRank": 130,
+      "dragScroll": true,
+      "pausedFrozen": true,
+      "backgroundFrozen": true,
+      "pagination": true,
+      "unranked": true,
+      "error": true,
+      "myY": 362,
+      "errors": []
+    },
+    {
+      "client": "wechat-canvas-mock",
+      "width": 768,
+      "height": 1024,
+      "timing": {
+        "frames": 45,
+        "averageFps": 47.36842105263158,
+        "maxFrameMs": 50.10000000000002,
+        "simulationTickUnchanged": true
+      },
+      "serverRank": 130,
+      "dragScroll": true,
+      "pausedFrozen": true,
+      "backgroundFrozen": true,
+      "pagination": true,
+      "unranked": true,
+      "error": true,
+      "myY": 818,
+      "errors": []
+    }
+  ]
+}

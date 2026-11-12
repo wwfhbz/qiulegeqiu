@@ -24,6 +24,7 @@ function clientId(){return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/
 export class MiniGameApp {
  readonly game:Game;readonly api:WechatApi;readonly panel=new Panel();readonly canvas:Canvas;
  readonly platform:WechatPlatform;
+ private rankingArt?:CanvasImageSource;
  private backgroundFill?:CanvasGradient|string;
  private arena:Canvas;private renderer:Renderer;private ctx:CanvasRenderingContext2D;private sync:ChallengeSync;
  private view=layout(375,667);private dpr=1;private previous=0;private active=true;private online=false;private offlinePreference=false;private busy=false;private lastEnd=-1;
@@ -34,6 +35,7 @@ export class MiniGameApp {
   this.platform=new WechatPlatform(wx);this.canvas=this.platform.createCanvas();this.arena=this.platform.createCanvas();const cache=this.platform.createCanvas();
   this.panel.configureRankingCache(()=>this.platform.createCanvas());
 
+  const rankingImage=wx.createImage?.();if(rankingImage){rankingImage.onload=()=>{this.rankingArt=rankingImage as unknown as CanvasImageSource;};rankingImage.src="assets/ranking-scene.png";}
   this.ctx=context(this.canvas);context(this.arena);context(cache);
   this.api=new WechatApi(wx,config);
   this.game=new Game(undefined,()=>{},undefined,this.platform.createAudio());
@@ -71,7 +73,7 @@ export class MiniGameApp {
   button({x:v.width/2+8,y:v.buttonsY,width:108,height:44},'重新开始',()=>{this.panel.close();g.reset();});
   // Compact native-style utility controls stay below the capsule safe area.
   button({x:8,y:v.top,width:44,height:44},'菜单',()=>this.menu());button({x:v.width-52,y:v.top,width:44,height:44},'排行',()=>void this.board());
-  this.panel.draw(c,v.width,v.top,v.bottom,now,g.state!=='paused',this.lowDevice||v.width<360,undefined,this.dpr);
+  this.panel.draw(c,v.width,v.top,v.bottom,now,g.state!=='paused',this.lowDevice||v.width<360,this.rankingArt,this.dpr);
  }
  private down(e:TouchEvent){if(this.touch)return;const t=e.changedTouches[0];if(!t)return;this.game.audio.unlock();this.touch={id:t.identifier,x:t.clientX,y:t.clientY,moved:false,lastY:t.clientY,drag:!this.panel.open&&inside(this.view.arena,t.clientX,t.clientY)&&!this.actions.some(a=>inside(a.rect,t.clientX,t.clientY))};if(this.touch.drag){this.target(t.clientX);if(!this.busy&&!this.boardLoading)startFromPlayfield(this.game,()=>void this.activate());}}
  private move(e:TouchEvent){const active=this.touch;if(!active)return;const t=e.touches.find(t=>t.identifier===active.id);if(!t)return;if(Math.hypot(t.clientX-active.x,t.clientY-active.y)>8)active.moved=true;if(this.panel.open)this.panel.scroll(t.clientY-active.lastY,active.x,active.y);else if(active.drag)this.target(t.clientX);active.lastY=t.clientY;}

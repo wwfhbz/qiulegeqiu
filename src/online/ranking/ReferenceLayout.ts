@@ -5,8 +5,8 @@ export function referenceStage(width:number,top:number,bottom:number){const scal
 export function referenceSeconds(ms:number|undefined){return ms===undefined||!Number.isFinite(ms)?'—':`${(ms/1000).toFixed(1)} 秒`;}
 /** Content-sized panel geometry; the footer belongs to the panel, never the viewport. */
 export function rankingFlowGeometry(width:number,top:number,bottom:number,items:readonly {rank:number}[]){
- const scale=Math.max(.01,(width-16)/REFERENCE.width),headerPixels=64,head=32,footer=92,nav=44,gap=8,pad=12;
- const rowHeight=(rank:number)=>Math.max(referenceRowHeight(rank),(width<480?68:50)/scale);
+ const scale=Math.max(.01,(width-16)/REFERENCE.width),headerPixels=Math.max(68,Math.min(150,(width-16)*.18)),head=32,footer=92,nav=44,gap=8,pad=12;
+ const rowHeight=(rank:number)=>Math.max(referenceRowHeight(rank),44/scale);
  const natural=items.length?items.reduce((n,row)=>n+rowHeight(row.rank)*scale+6,0)-6:140;
  const available=Math.max(60,bottom-top-headerPixels-head-footer-nav-gap*3-pad);
  const bodyPixels=Math.min(natural,available),bodyY=headerPixels+head+gap,navY=bodyY+bodyPixels+gap,myY=navY+nav+gap,height=myY+footer+pad;

@@ -12,6 +12,7 @@ export function rankingElement(row:RankingScore){const card=rankingCard(row),el=
  const level=text('span',card.level,'reference-level');level.setAttribute('aria-label','最高关卡 '+card.level);
  const bricks=text('span',card.bricks,'reference-bricks');bricks.setAttribute('aria-label','消除砖块 '+card.bricks);
  const time=text('span',referenceSeconds(row.duration_ms),'reference-time');time.setAttribute('aria-label','最佳时间 '+time.textContent);time.title='精确时间 '+card.time;
+ if(card.honor){const spark=text("span","✦","honor-spark");spark.setAttribute("aria-hidden","true");el.append(spark);}
  el.append(rank,identity,score,level,bricks,time);return el;
 }
 export function boardStatus(container:HTMLElement,message:string,state:'loading'|'empty'|'error',detail?:string){const box=document.createElement('div');box.className=`stellar-state state-${state}`;box.setAttribute('role',state==='error'?'alert':'status');const icon=text('span',state==='loading'?'◌':state==='error'?'☄':'✧','state-icon');icon.setAttribute('aria-hidden','true');box.append(icon,text('strong',message),text('small',detail??(state==='loading'?'正在读取全球成绩…':state==='error'?'游戏不受影响，点击刷新重试':'完成挑战，留下你的真实成绩')));container.replaceChildren(box);}

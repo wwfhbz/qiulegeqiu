@@ -1,7 +1,6 @@
-import {OCEAN} from '../../../shared/VisualTheme';
 /** Read-only presentation: server order, rank and score are never recalculated here. */
 export interface RankingScore {rank:number;display_name:string;score:number;reached_level:number;bricks_destroyed?:number;duration_ms?:number}
-export const RANKING_THEME={champion:OCEAN.colors.panel,honor:OCEAN.colors.panel,card:OCEAN.colors.arena,borderGold:OCEAN.rank.gold,borderBlue:OCEAN.colors.border,purple:OCEAN.colors.background,blue:OCEAN.colors.arena,cyan:OCEAN.colors.accent,gold:OCEAN.rank.gold,ink:OCEAN.colors.text,muted:OCEAN.colors.muted} as const;
+export const RANKING_THEME={champion:'#79547f',honor:'#513570',card:'#203d7c',borderGold:'#ffe18a',borderBlue:'#7ba9ed',purple:'#291650',blue:'#142c72',cyan:'#73e6ff',gold:'#ffe185',ink:'#f4efff',muted:'#c0b6e2'} as const;
 export const RANKING_TITLE='全球历史排行榜';
 export function numberText(value:number|undefined){return value!==undefined&&Number.isFinite(value)?Math.trunc(value).toLocaleString('en-US'):'—';}
 /** Keep milliseconds visible when otherwise tied scores differ only by duration. */

@@ -1,0 +1,487 @@
+{
+  "viewports": [
+    {
+      "width": 320,
+      "height": 568,
+      "canvas": {
+        "x": 26.421875,
+        "y": 112,
+        "width": 267.140625,
+        "height": 374,
+        "bottom": 486
+      },
+      "hud": {
+        "x": 26.421875,
+        "y": 48,
+        "width": 267.140625,
+        "height": 64,
+        "bottom": 112
+      },
+      "buttons": {
+        "x": 26.421875,
+        "y": 512,
+        "width": 267.140625,
+        "height": 48,
+        "bottom": 560
+      },
+      "scroll": [
+        320,
+        568
+      ],
+      "items": 6,
+      "rankingPanelFooter": true,
+      "emptyError": true,
+      "startPauseReset": true,
+      "touch": true
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "canvas": {
+        "x": 8,
+        "y": 112,
+        "width": 373.984375,
+        "height": 523.59375,
+        "bottom": 635.59375
+      },
+      "hud": {
+        "x": 8,
+        "y": 48,
+        "width": 374,
+        "height": 64,
+        "bottom": 112
+      },
+      "buttons": {
+        "x": 8,
+        "y": 661.59375,
+        "width": 374,
+        "height": 48,
+        "bottom": 709.59375
+      },
+      "scroll": [
+        390,
+        844
+      ],
+      "items": 6,
+      "rankingPanelFooter": true,
+      "emptyError": true,
+      "startPauseReset": true,
+      "touch": true
+    },
+    {
+      "width": 430,
+      "height": 932,
+      "canvas": {
+        "x": 8,
+        "y": 112,
+        "width": 413.984375,
+        "height": 579.59375,
+        "bottom": 691.59375
+      },
+      "hud": {
+        "x": 8,
+        "y": 48,
+        "width": 414,
+        "height": 64,
+        "bottom": 112
+      },
+      "buttons": {
+        "x": 8,
+        "y": 717.59375,
+        "width": 414,
+        "height": 48,
+        "bottom": 765.59375
+      },
+      "scroll": [
+        430,
+        932
+      ],
+      "items": 6,
+      "rankingPanelFooter": true,
+      "emptyError": true,
+      "startPauseReset": true,
+      "touch": true
+    },
+    {
+      "width": 768,
+      "height": 1024,
+      "canvas": {
+        "x": 89,
+        "y": 116,
+        "width": 590,
+        "height": 826,
+        "bottom": 942
+      },
+      "hud": {
+        "x": 89,
+        "y": 52,
+        "width": 590,
+        "height": 64,
+        "bottom": 116
+      },
+      "buttons": {
+        "x": 89,
+        "y": 968,
+        "width": 590,
+        "height": 48,
+        "bottom": 1016
+      },
+      "scroll": [
+        768,
+        1024
+      ],
+      "items": 6,
+      "rankingPanelFooter": true,
+      "emptyError": true,
+      "startPauseReset": true,
+      "touch": false
+    },
+    {
+      "width": 1440,
+      "height": 1000,
+      "canvas": {
+        "x": 433.578125,
+        "y": 116,
+        "width": 572.84375,
+        "height": 802,
+        "bottom": 918
+      },
+      "hud": {
+        "x": 433.578125,
+        "y": 52,
+        "width": 572.84375,
+        "height": 64,
+        "bottom": 116
+      },
+      "buttons": {
+        "x": 433.578125,
+        "y": 944,
+        "width": 572.84375,
+        "height": 48,
+        "bottom": 992
+      },
+      "scroll": [
+        1440,
+        1000
+      ],
+      "items": 6,
+      "rankingPanelFooter": true,
+      "emptyError": true,
+      "startPauseReset": true,
+      "touch": false
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "canvas": {
+        "x": 645,
+        "y": 116,
+        "width": 630,
+        "height": 882,
+        "bottom": 998
+      },
+      "hud": {
+        "x": 645,
+        "y": 52,
+        "width": 630,
+        "height": 64,
+        "bottom": 116
+      },
+      "buttons": {
+        "x": 645,
+        "y": 1024,
+        "width": 630,
+        "height": 48,
+        "bottom": 1072
+      },
+      "scroll": [
+        1920,
+        1080
+      ],
+      "items": 6,
+      "rankingPanelFooter": true,
+      "emptyError": true,
+      "startPauseReset": true,
+      "touch": false
+    }
+  ],
+  "performance": [
+    {
+      "scenario": "dense-grid",
+      "width": 1440,
+      "height": 1000,
+      "requested": 20,
+      "ballsAtEnd": 20,
+      "startingBricks": 4203,
+      "activeDrops": 5,
+      "remainingBricks": 4130,
+      "physicsTicks": 205,
+      "addedFixtureBalls": 21,
+      "frames": 89,
+      "averageFps": 58.04474010304571,
+      "frameP95": 16.800000000000068,
+      "updateAndDrawP95": 1.0999999940395355,
+      "budget": {
+        "tier": 0,
+        "trailLength": 12,
+        "trailAlpha": 0.22,
+        "particles": 64,
+        "highlights": true
+      }
+    },
+    {
+      "scenario": "dense-grid",
+      "width": 1440,
+      "height": 1000,
+      "requested": 50,
+      "ballsAtEnd": 50,
+      "startingBricks": 4203,
+      "activeDrops": 11,
+      "remainingBricks": 4048,
+      "physicsTicks": 199,
+      "addedFixtureBalls": 56,
+      "frames": 89,
+      "averageFps": 60.00539374325782,
+      "frameP95": 16.799999999999955,
+      "updateAndDrawP95": 0.6000000014901161,
+      "budget": {
+        "tier": 1,
+        "trailLength": 7,
+        "trailAlpha": 0.1,
+        "particles": 32,
+        "highlights": true
+      }
+    },
+    {
+      "scenario": "dense-grid",
+      "width": 1440,
+      "height": 1000,
+      "requested": 100,
+      "ballsAtEnd": 100,
+      "startingBricks": 4203,
+      "activeDrops": 22,
+      "remainingBricks": 3890,
+      "physicsTicks": 201,
+      "addedFixtureBalls": 112,
+      "frames": 89,
+      "averageFps": 59.33728915261017,
+      "frameP95": 16.700000000000045,
+      "updateAndDrawP95": 0.4000000059604645,
+      "budget": {
+        "tier": 2,
+        "trailLength": 0,
+        "trailAlpha": 0.22,
+        "particles": 16,
+        "highlights": false
+      }
+    },
+    {
+      "scenario": "dense-grid",
+      "width": 390,
+      "height": 844,
+      "requested": 20,
+      "ballsAtEnd": 20,
+      "startingBricks": 4203,
+      "activeDrops": 5,
+      "remainingBricks": 4131,
+      "physicsTicks": 201,
+      "addedFixtureBalls": 21,
+      "frames": 89,
+      "averageFps": 59.33333333333333,
+      "frameP95": 16.700000000000045,
+      "updateAndDrawP95": 0.4000000059604645,
+      "budget": {
+        "tier": 0,
+        "trailLength": 12,
+        "trailAlpha": 0.22,
+        "particles": 64,
+        "highlights": true
+      }
+    },
+    {
+      "scenario": "dense-grid",
+      "width": 390,
+      "height": 844,
+      "requested": 50,
+      "ballsAtEnd": 50,
+      "startingBricks": 4203,
+      "activeDrops": 11,
+      "remainingBricks": 4047,
+      "physicsTicks": 201,
+      "addedFixtureBalls": 56,
+      "frames": 89,
+      "averageFps": 60.00539374325782,
+      "frameP95": 16.799999999999955,
+      "updateAndDrawP95": 1.1000000014901161,
+      "budget": {
+        "tier": 1,
+        "trailLength": 7,
+        "trailAlpha": 0.1,
+        "particles": 32,
+        "highlights": true
+      }
+    },
+    {
+      "scenario": "dense-grid",
+      "width": 390,
+      "height": 844,
+      "requested": 100,
+      "ballsAtEnd": 100,
+      "startingBricks": 4203,
+      "activeDrops": 22,
+      "remainingBricks": 3890,
+      "physicsTicks": 199,
+      "addedFixtureBalls": 112,
+      "frames": 89,
+      "averageFps": 60.001348344906624,
+      "frameP95": 16.799999999999955,
+      "updateAndDrawP95": 0.6000000014901161,
+      "budget": {
+        "tier": 2,
+        "trailLength": 0,
+        "trailAlpha": 0.22,
+        "particles": 16,
+        "highlights": false
+      }
+    },
+    {
+      "scenario": "tutorial-drops",
+      "width": 1440,
+      "height": 1000,
+      "requested": 20,
+      "ballsAtEnd": 20,
+      "startingBricks": 600,
+      "activeDrops": 480,
+      "remainingBricks": 1,
+      "physicsTicks": 201,
+      "addedFixtureBalls": 19,
+      "frames": 89,
+      "averageFps": 60.001348344906624,
+      "frameP95": 16.700000000000045,
+      "updateAndDrawP95": 0.8000000044703484,
+      "budget": {
+        "tier": 0,
+        "trailLength": 12,
+        "trailAlpha": 0.22,
+        "particles": 64,
+        "highlights": true
+      }
+    },
+    {
+      "scenario": "tutorial-drops",
+      "width": 1440,
+      "height": 1000,
+      "requested": 50,
+      "ballsAtEnd": 50,
+      "startingBricks": 600,
+      "activeDrops": 480,
+      "remainingBricks": 0,
+      "physicsTicks": 200,
+      "addedFixtureBalls": 49,
+      "frames": 89,
+      "averageFps": 59.99730349197788,
+      "frameP95": 16.700000000000045,
+      "updateAndDrawP95": 0.8999999985098839,
+      "budget": {
+        "tier": 1,
+        "trailLength": 7,
+        "trailAlpha": 0.1,
+        "particles": 32,
+        "highlights": true
+      }
+    },
+    {
+      "scenario": "tutorial-drops",
+      "width": 1440,
+      "height": 1000,
+      "requested": 100,
+      "ballsAtEnd": 100,
+      "startingBricks": 600,
+      "activeDrops": 480,
+      "remainingBricks": 0,
+      "physicsTicks": 199,
+      "addedFixtureBalls": 99,
+      "frames": 89,
+      "averageFps": 60.00539374325782,
+      "frameP95": 16.700000000000045,
+      "updateAndDrawP95": 1,
+      "budget": {
+        "tier": 2,
+        "trailLength": 0,
+        "trailAlpha": 0.22,
+        "particles": 16,
+        "highlights": false
+      }
+    },
+    {
+      "scenario": "tutorial-drops",
+      "width": 390,
+      "height": 844,
+      "requested": 20,
+      "ballsAtEnd": 20,
+      "startingBricks": 600,
+      "activeDrops": 480,
+      "remainingBricks": 1,
+      "physicsTicks": 199,
+      "addedFixtureBalls": 19,
+      "frames": 89,
+      "averageFps": 60.001348344906624,
+      "frameP95": 16.700000000000045,
+      "updateAndDrawP95": 0.7999999970197678,
+      "budget": {
+        "tier": 0,
+        "trailLength": 12,
+        "trailAlpha": 0.22,
+        "particles": 64,
+        "highlights": true
+      }
+    },
+    {
+      "scenario": "tutorial-drops",
+      "width": 390,
+      "height": 844,
+      "requested": 50,
+      "ballsAtEnd": 50,
+      "startingBricks": 600,
+      "activeDrops": 480,
+      "remainingBricks": 0,
+      "physicsTicks": 201,
+      "addedFixtureBalls": 49,
+      "frames": 89,
+      "averageFps": 60.00539374325782,
+      "frameP95": 16.799999999999955,
+      "updateAndDrawP95": 1.2000000029802322,
+      "budget": {
+        "tier": 1,
+        "trailLength": 7,
+        "trailAlpha": 0.1,
+        "particles": 32,
+        "highlights": true
+      }
+    },
+    {
+      "scenario": "tutorial-drops",
+      "width": 390,
+      "height": 844,
+      "requested": 100,
+      "ballsAtEnd": 100,
+      "startingBricks": 600,
+      "activeDrops": 480,
+      "remainingBricks": 0,
+      "physicsTicks": 200,
+      "addedFixtureBalls": 99,
+      "frames": 89,
+      "averageFps": 60.001348344906624,
+      "frameP95": 16.700000000000045,
+      "updateAndDrawP95": 1,
+      "budget": {
+        "tier": 2,
+        "trailLength": 0,
+        "trailAlpha": 0.22,
+        "particles": 16,
+        "highlights": false
+      }
+    }
+  ],
+  "errors": []
+}
