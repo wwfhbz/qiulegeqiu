@@ -9,7 +9,7 @@ import { seedRegions, region, regionView, searchRegions } from './regions.js';
 import { ApiError, moderateNickname } from './moderation.js';
 import { leaderboard, personalBest, refreshBest,globalLeaderboard,globalPersonalBest } from './leaderboard.js';
 import { verifyTrace } from './verifier.js';
-import { CHALLENGE_PROTOCOL_VERSION,RULES_VERSION,LEGACY_RULES_VERSION,SUPPORTED_RULES_VERSIONS,GLOBAL_BOARD, type ChallengeEvent } from '../../shared/Challenge.js';
+import { CHALLENGE_PROTOCOL_VERSION,CHALLENGE_FEATURES,RULES_VERSION,LEGACY_RULES_VERSION,SUPPORTED_RULES_VERSIONS,GLOBAL_BOARD, type ChallengeEvent } from '../../shared/Challenge.js';
 const ruleSchema=z.enum(SUPPORTED_RULES_VERSIONS);
 const selection=(req:FastifyRequest)=>{const q=z.object({board:z.literal(GLOBAL_BOARD).optional(),rulesVersion:ruleSchema.optional()}).parse(req.query);if(q.board&&q.rulesVersion&&q.rulesVersion!==RULES_VERSION)throw new ApiError(400,'统一排行榜只接受十二关挑战记录');return {global:q.board===GLOBAL_BOARD,rules:q.board?RULES_VERSION:q.rulesVersion??LEGACY_RULES_VERSION};};
 const selectedRules=(req:FastifyRequest)=>selection(req).rules;
@@ -18,7 +18,8 @@ const hash=(value:string)=>createHash('sha256').update(value).digest('hex');
 const id=z.string().uuid(), integer=z.number().int().nonnegative().max(100000000);
 const base={tick:integer,level:z.number().int().min(1).max(100)};
 export const challengeEvent=z.discriminatedUnion('type',[
- z.object({...base,type:z.enum(['launch','ballLost','lost','clear','next','finish'])}).strict(),
+ z.object({...base,type:z.literal('launch'),tripleRuleVersion:z.literal(2).optional()}).strict(),
+ z.object({...base,type:z.enum(['ballLost','lost','clear','next','finish'])}).strict(),
  z.object({...base,type:z.literal('hit'),index:integer}).strict(),
  z.object({...base,type:z.literal('power'),kind:z.enum(['halve','triple','wide','life','bomb']),dropId:z.number().int().positive().max(50000).optional()}).strict(),
  z.object({...base,type:z.literal('bomb'),target:z.string().max(50).nullable()}).strict()
@@ -90,7 +91,7 @@ export async function createApp(options:AppOptions={}) {
    return {id:proof.player_id};
   });
  });
- app.get('/api/health',async()=>{db.prepare('SELECT 1').get();return {ok:true,challengeProtocolVersion:CHALLENGE_PROTOCOL_VERSION,rulesVersion:RULES_VERSION,database:'ready',supportedRulesVersions:activeRules,leaderboard:boardMetadata};});
+ app.get('/api/health',async()=>{db.prepare('SELECT 1').get();return {ok:true,challengeProtocolVersion:CHALLENGE_PROTOCOL_VERSION,challengeFeatures:CHALLENGE_FEATURES,rulesVersion:RULES_VERSION,database:'ready',supportedRulesVersions:activeRules,leaderboard:boardMetadata};});
  app.get('/api/me',async(req,reply)=>{
   const rules=selectedRules(req);
   let s=session(req,false);
@@ -118,7 +119,7 @@ export async function createApp(options:AppOptions={}) {
   const s=session(req)!;if(s.player_id)active(s);rate(`challenge:${s.id}`,30,3600000);const input=z.object({rulesVersion:z.string().max(100),unranked:z.boolean().default(false),seed:z.number().int().min(0).max(4294967295).default(1)}).strict().parse(req.body);
   if(freshDatabase&&input.rulesVersion!==RULES_VERSION)throw new ApiError(400,'本排行榜已启用十二关，请刷新客户端后重新开始','CLIENT_UPDATE_REQUIRED');
   if(!SUPPORTED_RULES_VERSIONS.includes(input.rulesVersion as typeof SUPPORTED_RULES_VERSIONS[number]))throw new ApiError(400,'服务器不支持当前游戏规则，请更新排行榜后端；本次仍可单机游玩','UNSUPPORTED_RULES');
-  const cid=randomUUID();transaction(db,()=>{db.prepare('INSERT INTO challenges(id,session_id,rules_version,created_at,expires_at,unranked,seed) VALUES(?,?,?,?,?,?,?)').run(cid,s.id,input.rulesVersion,now(),now()+6*3600000,input.unranked?1:0,input.seed);});reply.status(201);return {id:cid,expiresAt:now()+6*3600000,rulesVersion:input.rulesVersion,challengeProtocolVersion:CHALLENGE_PROTOCOL_VERSION};
+  const cid=randomUUID();transaction(db,()=>{db.prepare('INSERT INTO challenges(id,session_id,rules_version,created_at,expires_at,unranked,seed) VALUES(?,?,?,?,?,?,?)').run(cid,s.id,input.rulesVersion,now(),now()+6*3600000,input.unranked?1:0,input.seed);});reply.status(201);return {id:cid,expiresAt:now()+6*3600000,rulesVersion:input.rulesVersion,challengeProtocolVersion:CHALLENGE_PROTOCOL_VERSION,challengeFeatures:CHALLENGE_FEATURES};
  });
  app.post('/api/challenges/:id/events',async(req)=>{
   const {c}=challenge(req);const batch=z.object({sequence:integer,events:z.array(challengeEvent).min(1).max(256)}).strict().parse(req.body);const payload=JSON.stringify(batch.events),digest=hash(payload);

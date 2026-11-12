@@ -6,7 +6,7 @@ import { Effects } from '../src/Effects';
 const run=(p:Physics,seconds:number)=>{for(let i=0;i<Math.round(seconds/C.step);i++)p.advance(C.step);};
 describe('多球与强化',()=>{
  it('三倍基于有效球数量，新增球独立且方向不同',()=>{const p=new Physics();const first=p.balls[0];p.collect('triple');expect(p.balls).toHaveLength(3);expect(new Set(p.balls).size).toBe(3);expect(new Set(p.balls.map(b=>b.vx)).size).toBe(3);expect(p.balls[1].x).not.toBe(first.x);p.collect('triple');expect(p.balls).toHaveLength(9);});
- it('连续三倍也不超过100个球',()=>{const p=new Physics();for(let i=0;i<10;i++)p.collect('triple');expect(p.balls).toHaveLength(100);});
+ it('连续三倍也不超过100个球',()=>{const p=new Physics();for(let i=0;i<40;i++){p.collect('triple');expect(p.balls.length).toBeLessThanOrEqual(100);}expect(p.balls).toHaveLength(100);});
  it('死亡球回收复用，三倍排除死亡球',()=>{const p=new Physics();p.triple();const dead=p.balls[1];dead.alive=false;p.triple();expect(p.balls).toHaveLength(6);expect(p.balls).toContain(dead);expect(p.balls.every(b=>b.alive)).toBe(true);});
  it('边界附近生成球均在圆内',()=>{const p=new Physics();p.balls[0].x=C.arena.x+C.arena.radius-C.ball.radius-.1;p.balls[0].y=C.arena.y;p.balls[0].outsideArena=false;p.triple();for(const b of p.balls)expect(Math.hypot(b.x-C.arena.x,b.y-C.arena.y)+b.radius).toBeLessThanOrEqual(C.arena.radius);});
  it('加宽为1.8倍，5秒后恢复并保持合法区域',()=>{const p=new Physics();p.setTarget(9999);run(p,.3);p.collect('wide');expect(p.paddleWidth).toBeCloseTo(C.paddle.width*1.8);expect(p.wideRemaining).toBe(5);const chord=C.arena.radius;expect(p.paddleX+p.paddleWidth/2).toBeLessThanOrEqual(C.arena.x+chord);run(p,4.9);expect(p.paddleWidth).toBeGreaterThan(C.paddle.width);run(p,.1);expect(p.wideRemaining).toBe(0);expect(p.paddleWidth).toBe(C.paddle.width);});

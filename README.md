@@ -173,3 +173,7 @@ SQLite数据默认在根work，不属于dist。生产独立数据库、systemd�
 全球历史排行榜星际荣耀改版、截图与测试说明见 [排行榜UI说明](docs/GALACTIC_LEADERBOARD_UI.md)。
 
 成绩日志协议与个人排名卡布局修复见 [修复说明](docs/SUBMISSION_PROTOCOL_LAYOUT_FIX.md)。
+
+### X3 多球规则
+
+当前有效球数≤20时乘3，超过20时增加3，上限100。详见[规则、兼容性与验证说明](docs/x3-threshold-rule.md)。

@@ -1,3 +1,4 @@
+import {C} from './GameConfig';
 export type PowerKind='halve'|'triple'|'wide'|'life'|'bomb';
 export const POWER_WEIGHTS={
   first:[{kind:'triple',weight:50},{kind:'wide',weight:50}],
@@ -10,3 +11,13 @@ export function newSeed(){if(typeof crypto!=='undefined'&&crypto.getRandomValues
 
 export const POWER_LABELS:Record<PowerKind,string>={halve:'÷2',triple:'×3',wide:'加宽',life:'生命＋1',bomb:'爆炸炸弹'};
 export const POWER_COLORS:Record<PowerKind,string>={halve:'#ff7880',triple:'#ffc28b',wide:'#91e9d4',life:'#f4a1bc',bomb:'#ffb365'};
+
+/** Version 1 is retained only for replaying pre-threshold clients. */
+export type TripleRuleVersion=1|2;
+export const TRIPLE_RULE_VERSION:TripleRuleVersion=2;
+export const TRIPLE_THRESHOLD=20;
+export function tripleTarget(count:number,version:TripleRuleVersion=TRIPLE_RULE_VERSION){
+ if(version!==1&&version!==2)throw new RangeError('未知X3规则');
+ if(!Number.isSafeInteger(count)||count<0||count>C.maxBalls)throw new RangeError('有效球数超出范围');
+ return Math.min(C.maxBalls,version===1||count<=TRIPLE_THRESHOLD?count*3:count+3);
+}

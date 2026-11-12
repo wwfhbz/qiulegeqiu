@@ -1,4 +1,4 @@
-export type ChallengeEvent = { type: 'launch' | 'ballLost' | 'lost' | 'clear' | 'next' | 'finish'; tick: number; level: number } | { type: 'hit'; tick: number; level: number; index: number } | { type: 'power'; tick: number; level: number; kind: 'halve'|'triple'|'wide'|'life'|'bomb'; dropId?:number } | { type:'bomb'; tick:number; level:number; target:string|null };
+export type ChallengeEvent = {type:'launch';tick:number;level:number;tripleRuleVersion?:2} | { type: 'ballLost' | 'lost' | 'clear' | 'next' | 'finish'; tick: number; level: number } | { type: 'hit'; tick: number; level: number; index: number } | { type: 'power'; tick: number; level: number; kind: 'halve'|'triple'|'wide'|'life'|'bomb'; dropId?:number } | { type:'bomb'; tick:number; level:number; target:string|null };
 export interface ChallengeSummary { score: number; reachedLevel: number; bricksDestroyed: number; durationMs: number; completedAllLevels: boolean }
 export const LEGACY_RULES_VERSION = '0.8.0-arcade-5l-10lv-v1';
 export const RULES_VERSION = '1.2.0-arcade-5l-12lv-v1';
@@ -23,3 +23,8 @@ export function assertChallengeSupport(data:{ok?:boolean;rulesVersion?:string;su
 /** Wire format changes independently from gameplay/scoring rules. */
 export const CHALLENGE_PROTOCOL_VERSION=2;
 export function assertChallengeProtocol(data:{challengeProtocolVersion?:unknown}){if(data.challengeProtocolVersion!==CHALLENGE_PROTOCOL_VERSION)throw Error('排行榜后端日志协议需要更新（需要协议2，支持dropId）；规则版本相同不代表接口兼容，本轮仍可单机游玩');}
+
+/** Additive capability keeps the protocol-2 handshake compatible with existing clients. */
+export const TRIPLE_RULE_FEATURE='triple-threshold20-v1';
+export const CHALLENGE_FEATURES=[TRIPLE_RULE_FEATURE] as const;
+export function assertTripleRuleSupport(data:{challengeFeatures?:unknown}){if(!Array.isArray(data.challengeFeatures)||!data.challengeFeatures.includes(TRIPLE_RULE_FEATURE))throw Error('排行榜后端尚不支持新版X3规则，请先更新后端；本轮仍可单机游玩');}

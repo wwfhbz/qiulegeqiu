@@ -1,6 +1,6 @@
 /** Read-only response gates shared by candidate smoke tests and production verification. */
 export function verifyLeaderboardHealth(data,rules=data?.rulesVersion){
- if(data?.ok!==true||data.challengeProtocolVersion!==2||data.database!=='ready'||typeof rules!=='string'||!rules||data.rulesVersion!==rules||!Array.isArray(data.supportedRulesVersions)||!data.supportedRulesVersions.includes(rules)||data.leaderboard?.board!=='global'||data.leaderboard?.rankingRulesVersion!==rules)throw Error('API未满足统一排行榜、十二关与日志协议2，停止切换');
+ if(data?.ok!==true||data.challengeProtocolVersion!==2||!Array.isArray(data.challengeFeatures)||!data.challengeFeatures.includes('triple-threshold20-v1')||data.database!=='ready'||typeof rules!=='string'||!rules||data.rulesVersion!==rules||!Array.isArray(data.supportedRulesVersions)||!data.supportedRulesVersions.includes(rules)||data.leaderboard?.board!=='global'||data.leaderboard?.rankingRulesVersion!==rules)throw Error('API未满足统一排行榜、十二关、日志协议2及新版X3能力，停止切换');
 }
 export function verifyLeaderboardPage(data,rules,offset=0,limit=20){
  if(data?.board!=='global'||data.rankingRulesVersion!==rules||!Array.isArray(data.items)||data.items.length>limit||(data.nextOffset!==null&&data.nextOffset!==offset+data.items.length))throw Error('统一排行榜分页协议无效');

@@ -41,7 +41,7 @@ describe('机关碰撞、销毁与高速安全',()=>{
  });
  it('高速球不会穿固定、移动、旋转机关，100球长时间更新无NaN',()=>{
   for(const level of [LEVELS[1],LEVELS[3],LEVELS[6]]){const p=new Physics();p.level=level;p.reset();const o=p.obstacles.items[0];const ball=b(o.x+20,o.y-20,0,760);p.balls=[ball];p.advance(C.step*2);expect(ball.vy).toBeLessThan(0);expect(ball.alive).toBe(true);}
-  const p=new Physics();p.level=LEVELS[9];p.reset();for(let i=0;i<5;i++)p.triple();expect(p.balls.length).toBe(100);for(let i=0;i<1200;i++)p.advance(C.step);expect(p.balls.every(b=>Number.isFinite(b.x+b.y+b.vx+b.vy)&&Math.hypot(b.vx,b.vy)<=760+.001)).toBe(true);
+  const p=new Physics();p.level=LEVELS[9];p.reset();for(let i=0;i<40;i++)p.triple();expect(p.balls.length).toBe(100);for(let i=0;i<1200;i++)p.advance(C.step);expect(p.balls.every(b=>Number.isFinite(b.x+b.y+b.vx+b.vy)&&Math.hypot(b.vx,b.vy)<=760+.001)).toBe(true);
  });
  it('爆心固定、最近表面决定目标、等距按ID；其他机关仍可碰撞',()=>{const o=new Obstacles();o.load([{id:'b',kind:'fixed',x:350,y:740,length:60,thickness:10,angle:0},{id:'a',kind:'fixed',x:450,y:740,length:60,thickness:10,angle:0}]);expect(o.destroyNearest(400,492)!.config.id).toBe('a');expect(o.items.find(i=>i.config.id==='b')!.destroyed).toBe(false);expect(o.collide(b(350,733),0)).toBe(true);});
 });
