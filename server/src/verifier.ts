@@ -1,18 +1,18 @@
 import {allocateBrickPowers,brickPowerCounts,brickPowerKind,type BrickPowerVersion} from '../../src/BrickPowerRules.js';
 import {LEGACY_LEVELS} from '../../src/LegacyLevels.js';
-import {RULES_VERSION,LEGACY_RULES_VERSION} from '../../shared/Challenge.js';
+import {RULES_VERSION,PREVIOUS_RULES_VERSION,LEGACY_RULES_VERSION} from '../../shared/Challenge.js';
 import { Blocks } from '../../src/Blocks.js';
 import { ScoreSystem } from '../../src/ScoreSystem.js';
 import { ARCADE } from '../../src/ArcadeRules.js';
 import { C } from '../../src/GameConfig.js';
-import {LEVELS,dropMultiplier,powerProfile}  from '../../src/Levels.js';
+import {LEVELS,PREVIOUS_LEVELS,dropMultiplier,powerProfile}  from '../../src/Levels.js';
 import { seededRandom,weightedPower,tripleTarget,type TripleRuleVersion,type PowerKind } from '../../src/PowerRules.js';
 import { Obstacles } from '../../src/Obstacles.js';
 import type { ChallengeEvent, ChallengeSummary } from '../../shared/Challenge.js';
 import { ApiError } from './moderation.js';
 /** Event/rule replay, not authoritative physical replay. Client seed is a declared run parameter, not a secret. */
 export function verifyTrace(events: ChallengeEvent[], wallMs: number,seed=1,rulesVersion:string=LEGACY_RULES_VERSION): { summary: ChallengeSummary; suspicious: string[] } {
-  const levels=rulesVersion===RULES_VERSION?LEVELS:rulesVersion===LEGACY_RULES_VERSION?LEGACY_LEVELS:undefined;if(!levels)throw new ApiError(422,'不支持的规则版本');
+  const levels=rulesVersion===RULES_VERSION?LEVELS:rulesVersion===PREVIOUS_RULES_VERSION?PREVIOUS_LEVELS:rulesVersion===LEGACY_RULES_VERSION?LEGACY_LEVELS:undefined;if(!levels)throw new ApiError(422,'不支持的规则版本');
   const blocks=new Blocks(),score=new ScoreSystem(blocks.alive.length),obstacles=new Obstacles(),random=seededRandom(seed);
   blocks.reset(levels[0].obstacles??[],levels[0]);obstacles.load(levels[0].obstacles??[]);
   let valid=blocks.alive.slice(),level=1,lives:number=ARCADE.initialLives,phase='ready',balls=0,lastTick=0,bricks=0,finished=false,levelStartTick=0;
@@ -35,7 +35,7 @@ export function verifyTrace(events: ChallengeEvent[], wallMs: number,seed=1,rule
         if(e.tripleRuleVersion!==undefined&&e.tripleRuleVersion!==2)throw new ApiError(422,'无效X3规则版本');
         if(hasLaunched&&e.brickPowerVersion!==undefined)throw new ApiError(422,'预分配规则只能在首次发射声明');
         if(e.brickPowerVersion!==undefined&&e.brickPowerVersion!==2)throw new ApiError(422,'无效预分配规则版本');
-        if(!hasLaunched){brickPowerVersion=e.brickPowerVersion??1;if(brickPowerVersion===2&&(rulesVersion!==RULES_VERSION||e.tripleRuleVersion!==2))throw new ApiError(422,'新手关道具需要十二关与新版X3规则');allocation();tripleRule=e.tripleRuleVersion??1;if(tripleRule===2&&rulesVersion!==RULES_VERSION)throw new ApiError(422,'旧十关挑战不支持新版X3规则');hasLaunched=true;}
+        if(!hasLaunched){if(rulesVersion===RULES_VERSION&&(e.brickPowerVersion!==2||e.tripleRuleVersion!==2))throw new ApiError(422,'新版排行榜需要新手关预分配道具和新版X3规则，请重新挑战');brickPowerVersion=e.brickPowerVersion??1;if(brickPowerVersion===2&&(rulesVersion!==RULES_VERSION||e.tripleRuleVersion!==2))throw new ApiError(422,'新手关道具需要十二关与新版X3规则');allocation();tripleRule=e.tripleRuleVersion??1;if(tripleRule===2&&rulesVersion===LEGACY_RULES_VERSION)throw new ApiError(422,'旧十关挑战不支持新版X3规则');hasLaunched=true;}
         phase='running';balls=1;break;
       case 'hit':{
         if(phase!=='running'||!balls||!valid[e.index])throw new ApiError(422,'重复或不可能的方块事件');valid[e.index]=0;score.hit(e.index);bricks++;destroyedThisLevel++;

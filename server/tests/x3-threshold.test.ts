@@ -1,7 +1,7 @@
 import {expect,it} from 'vitest';
 import {Game} from '../../src/Game';
 import {C} from '../../src/GameConfig';
-import {RULES_VERSION} from '../../shared/Challenge';
+import {PREVIOUS_RULES_VERSION as RULES_VERSION} from '../../shared/Challenge';
 import {verifyTrace} from '../src/verifier';
 function run(version:1|2){
  const g=new Game();g.physics.brickPowerVersion=1;g.physics.tripleRuleVersion=version;g.physics.reset();g.journal.seed=4;g.physics.setSeed(4);g.start();
@@ -42,6 +42,8 @@ it('新旧客户端真实规则日志均可提交同一API，伪分拒绝，安�
  const accepted=await post(payload);expect(accepted.statusCode,accepted.body).toBe(200);expect(accepted.json().verificationStatus).toBe('verified');expect((await post(payload)).json().id).toBe(accepted.json().id);
  }
  expect(s.db.prepare('SELECT COUNT(*) n FROM players').get()!.n).toBe(1);expect(s.db.prepare('SELECT COUNT(*) n FROM scores').get()!.n).toBe(2);
- expect((await s.app.inject({url:'/api/leaderboard?board=global'})).json().items).toHaveLength(1);
+ expect((await s.app.inject({url:'/api/leaderboard?board=global'})).json().items).toHaveLength(0);
+ expect((await s.app.inject({url:'/api/leaderboard?rulesVersion='+RULES_VERSION})).json().items).toHaveLength(1);
+ expect((await s.app.inject({url:'/api/me?board=global',headers})).json().historicalBests[0].rules_version).toBe(RULES_VERSION);
  }finally{await s.app.close();}
 });

@@ -2,7 +2,7 @@
 
 这是微信**小游戏**（Canvas 2D），不是普通小程序页面或web-view。源码位于wechat-game，复用仓库src中的Game、Physics、Levels、Blocks、ScoreSystem、PowerRules与ChallengeJournal，不复制玩法。网页继续由原Vite工程运行。
 
-规则仍为`1.2.0-arcade-5l-12lv-v1`：十二关、初始/上限5命、100球、五种道具、固定/移动/旋转机关、600/1200砖新手关、圆外水平挡板及160逻辑像素间距完全不变。统一全球榜使用`/leaderboard?board=global`，排名只显示服务端结果。
+当前规则为`1.3.0-arcade-5l-12lv-drops-v2`：十二关、初始/上限5命、100球、五种道具、固定/移动/旋转机关、600/1200砖新手关、圆外水平挡板及160逻辑像素间距保持不变；前两关道具使用固定预分配配额。统一全球榜使用`/leaderboard?board=global`，排名只显示服务端结果。
 
 ## 构建与准确导入目录
 

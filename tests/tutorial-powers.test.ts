@@ -57,3 +57,10 @@ it('第三至十二关配置、掉落间隔、类型随机序列和24格池保�
  for(const level of LEVELS){const outputs:string[][]=[];for(const p of [current,old]){p.level=level;p.powerUpDropMultiplier=level.powerDropMultiplier??1;p.reset();const kinds:string[]=[];const spawn=p.powers.spawn.bind(p.powers);p.powers.spawn=(x,y,kind)=>{kinds.push(kind);spawn(x,y,kind);};for(let i=0;i<p.blocks.alive.length;i++)p.blocks.hit(i);p.powers.spawn=spawn;outputs.push(kinds);}
  if(level.number>=3){expect(outputs[0]).toEqual(outputs[1]);expect(current.blocks.powerKinds.every(v=>v===0)).toBe(true);expect(current.powers.items).toHaveLength(C.power.maxDrops);expect(current.level.obstacles).toEqual(old.level.obstacles);}}
 });
+import {scoreHistoryLines} from '../shared/ScoreHistory';
+import {RULES_VERSION,PREVIOUS_RULES_VERSION,LEGACY_RULES_VERSION} from '../shared/Challenge';
+it('独立新版规则与双端个人历史格式：旧记录明确标记、不换算、不显示为当前排名',()=>{
+ expect(RULES_VERSION).toBe('1.3.0-arcade-5l-12lv-drops-v2');expect(RULES_VERSION).not.toBe(PREVIOUS_RULES_VERSION);
+ expect(scoreHistoryLines([{score:314115,reached_level:5,rules_version:PREVIOUS_RULES_VERSION},{score:100,reached_level:1,rules_version:LEGACY_RULES_VERSION}])).toEqual(['旧版十二关记录：314115 分 · 第5关','旧版十关记录：100 分 · 第1关']);
+ expect(scoreHistoryLines([],{score:1,reached_level:1})).toEqual([]);expect(scoreHistoryLines(undefined,{score:2,reached_level:1})).toEqual(['旧版记录：2 分 · 第1关']);
+});

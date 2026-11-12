@@ -106,3 +106,12 @@ POST挑战明确声明任一支持版本，提交校验严格使用该挑战存�
 新界面不再使用赛季查询，固定为`GET /api/leaderboard?board=global&offset=0&limit=20`、`/api/me?board=global`、`/api/me/best?board=global`。返回board=global和rankingRulesVersion=1.2.0-arcade-5l-12lv-v1，me附historicalBest。统一榜按十二关verified有效记录派生，不依赖best缓存，个人rank不限TOP100。旧原分保留，不换算，采用经确认的新版重赛上榜。无参数及旧rulesVersion接口仅为旧客户端兼容保留，新UI没有入口。V1.3无新迁移、无历史回填。
 
 health新增leaderboard协议元数据；不支持的挑战版本返回UNSUPPORTED_RULES。新客户端不再拿me缺少rulesVersion阻止身份初始化，健康检查不支持十二关则阻止联网挑战，不影响单机。完整排查与安全/发布/回滚见[V1.3说明](V1_3_GLOBAL_LEADERBOARD.md)。
+
+
+## 新手关固定配额版本：统一重赛上榜
+
+当前 `rulesVersion=1.3.0-arcade-5l-12lv-drops-v2`。health同时声明接受 `1.2.0-arcade-5l-12lv-v1`（冻结旧十二关）与旧十关；已有reset epoch库不重新接纳旧十关，但继续接纳旧十二关。`/leaderboard?board=global`、`/me?board=global`、`/me/best?board=global` 的当前排名只统计1.3版本，不混排、不换算旧分。旧客户端仍可提交旧版本挑战，按原验证器校验；旧版显式rulesVersion查询仍保留用于兼容，不在新版界面提供多榜入口。
+
+身份响应新增 `historicalBests:[{rules_version,score,reached_level,...}]`，分别为旧十二关、旧十关的个人有效最高记录（各自规则内排名），保留 `historicalBest` 为首个历史记录的兼容字段。无历史时为 `[]`/`null`。当前 `best` 可为null，绝不能把旧成绩或未上榜默认成排名1。历史读取由verified成绩计算，不依赖可能过时的best引用。
+
+当前版本首次launch必须携带 `brickPowerVersion:2,tripleRuleVersion:2`，并在health/创建挑战中声明 `challengeFeatures:["triple-threshold20-v1","tutorial-brick-powers-v1"]`。旧12版本允许缺少X3标记或X3标记2，但禁止新版预分配标记。无数据库迁移，现有索引/版本字段继续使用。[后端先行与安全回退步骤](tutorial-power-allocation.md)。

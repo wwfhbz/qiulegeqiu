@@ -2,7 +2,7 @@ import {afterEach,expect,it} from 'vitest';
 import {randomUUID} from 'node:crypto';
 import {Game} from '../../src/Game';
 import {C} from '../../src/GameConfig';
-import {RULES_VERSION,type ChallengeEvent} from '../../shared/Challenge';
+import {RULES_VERSION,PREVIOUS_RULES_VERSION,type ChallengeEvent} from '../../shared/Challenge';
 import {verifyTrace} from '../src/verifier';
 import {createApp} from '../src/app';
 const apps:Awaited<ReturnType<typeof createApp>>[]=[];
@@ -45,7 +45,7 @@ it('新旧道具日志均可提交；Web与微信共享真实排名，旧成绩�
  let old:unknown,id:string|undefined;
  for(const [level,version,headers] of [[1,1,web],[1,2,web],[2,2,wechat]] as const){
   const g=run(level,4,version),summary=g.journal.summary(g.score.total,level,false);
-  const created=(await s.app.inject({method:'POST',url:'/api/challenges',headers,payload:{rulesVersion:RULES_VERSION,seed:4}})).json();expect(created.challengeFeatures).toContain('tutorial-brick-powers-v1');now+=summary.durationMs+5000;
+  const created=(await s.app.inject({method:'POST',url:'/api/challenges',headers,payload:{rulesVersion:version===1?PREVIOUS_RULES_VERSION:RULES_VERSION,seed:4}})).json();expect(created.challengeFeatures).toContain('tutorial-brick-powers-v1');now+=summary.durationMs+5000;
   for(let offset=0;offset<g.journal.events.length;offset+=256){const r=await s.app.inject({method:'POST',url:`/api/challenges/${created.id}/events`,headers,payload:{sequence:offset/256,events:g.journal.events.slice(offset,offset+256)}});expect(r.statusCode,r.body).toBe(200);}
   const payload={idempotencyKey:randomUUID(),summary},submit=(body:unknown)=>s.app.inject({method:'POST',url:`/api/challenges/${created.id}/submit`,headers,payload:body});
   expect((await submit({...payload,summary:{...summary,score:summary.score+1}})).statusCode).toBe(422);

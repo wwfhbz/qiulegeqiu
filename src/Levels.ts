@@ -15,3 +15,6 @@ export const LEVELS:readonly LevelConfig[]=[
 ];
 export function dropMultiplier(level:LevelConfig){return level.powerDropMultiplier??((level.legacyNumber??level.number)===1?1:.5);}
 export function powerProfile(level:LevelConfig){return level.powerProfile??((level.legacyNumber??level.number)===1?'first':'later');}
+
+/** Immutable twelve-level baseline before the fixed tutorial quotas. */
+export const PREVIOUS_LEVELS:readonly LevelConfig[]=LEVELS.map(({brickPowers:_removed,...level})=>level);
