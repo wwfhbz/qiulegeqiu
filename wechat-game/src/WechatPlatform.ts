@@ -12,7 +12,7 @@ export class WechatPlatform {
  constructor(private wx:Wx,private suppliedRuntime?:Partial<FrameRuntime>){}
  createCanvas(){const canvas=this.wx.createCanvas();context(canvas);return canvas;}
  createAudio(){return new AudioSystem(()=>{if(!this.wx.createWebAudioContext)throw Error('设备音频暂不可用');return this.wx.createWebAudioContext();});}
- rendererHost(cache:Canvas,viewport:RendererHost['viewport'],pixelRatio:()=>number):RendererHost{return {cache,viewport,pixelRatio};}
+ rendererHost(cache:Canvas,viewport:RendererHost['viewport'],pixelRatio:()=>number):RendererHost{return {cache,viewport,pixelRatio,createSurface:()=>this.createCanvas()};}
  read(key:string){try{return this.wx.getStorageSync(key);}catch{return undefined;}}
  write(key:string,value:unknown){try{this.wx.setStorageSync(key,value);}catch{/* Storage may be disabled; gameplay continues in memory. */}}
  start(frame:(time:number)=>void){this.frame=frame;this.resume();}

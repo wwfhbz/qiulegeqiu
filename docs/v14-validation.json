@@ -1,0 +1,935 @@
+{
+  "release": "1.4.0",
+  "rulesVersion": "1.3.0-arcade-5l-12lv-drops-v2",
+  "baselineCommit": "5ec1854024377a1e0aa6fad9260a9645500d3056",
+  "scope": "仅视觉与布局，未连接生产服务器",
+  "sourceProof": [
+    {
+      "file": "src/Game.ts",
+      "unchanged": true,
+      "sha256": "e008ae271580226ed95d71d52034213a97bf84e34a6e3282b68abb1793f757dc"
+    },
+    {
+      "file": "src/Physics.ts",
+      "unchanged": true,
+      "sha256": "251bbff91e9fb39f5fa7b7bd94af703125c3e2edac42e967e7288ebaa2cc87f3"
+    },
+    {
+      "file": "src/GameConfig.ts",
+      "unchanged": true,
+      "sha256": "6ad593496b91eed73fb1e2f36d682c142b366ea33e90e4c6dd77a5cc2c6ee194"
+    },
+    {
+      "file": "src/Blocks.ts",
+      "unchanged": true,
+      "sha256": "eb158a9f82167419d91a9be08c47f21593627fb5efc9ca4321a6f033bfe8500d"
+    },
+    {
+      "file": "src/Effects.ts",
+      "unchanged": true,
+      "sha256": "f82ad1e50a2ba3cabbc9b10beb84eee3a71d756c2a01943589c0c425f0b015af"
+    },
+    {
+      "file": "src/PowerUps.ts",
+      "unchanged": true,
+      "sha256": "eede8990a99856774a6fc2c9936676d7e91a52e89b4b3c471a6ea7fe38ffb3ba"
+    },
+    {
+      "file": "src/PowerRules.ts",
+      "unchanged": true,
+      "sha256": "0b0db63745df31ba36f001bcc7fd4b5f79d0b7d691daa56b50ea8ae8f23fd103"
+    },
+    {
+      "file": "src/BrickPowerRules.ts",
+      "unchanged": true,
+      "sha256": "1e312700fd6231e5098f1c533524b864774f14ba2134f59eaf46da033305037d"
+    },
+    {
+      "file": "src/Levels.ts",
+      "unchanged": true,
+      "sha256": "0c0d70cb4bed61ab541acc612c43614c80cec0e218a2c91fb8687c6c93c0f4e3"
+    },
+    {
+      "file": "src/LegacyLevels.ts",
+      "unchanged": true,
+      "sha256": "a05d9be64d8983b2b69c3a1d8217450c8286f4d325c331d869d46362a9a8b483"
+    },
+    {
+      "file": "src/ScoreSystem.ts",
+      "unchanged": true,
+      "sha256": "0968afc9edc205bd41523d63029628ac02990304b1843b32ae23c641ee103f3e"
+    },
+    {
+      "file": "src/ChallengeJournal.ts",
+      "unchanged": true,
+      "sha256": "0921cb7027d66128eda7813dd21a125825e2695a4de2b6dbcd01af7400d15e28"
+    },
+    {
+      "file": "src/ArcadeRules.ts",
+      "unchanged": true,
+      "sha256": "2b300a04835f34997f8e492fc5d0d246097f72f42fa3148a5eb4bb83c2c653d6"
+    },
+    {
+      "file": "src/ArenaGeometry.ts",
+      "unchanged": true,
+      "sha256": "136e31e52024e38ef03518ad2d6e8661bfdc0a3fd6d152f723e4944d3a699f5a"
+    },
+    {
+      "file": "src/WorldGeometry.ts",
+      "unchanged": true,
+      "sha256": "0bfbe8da29ef1751478a6aa979d9b11403e36ea677dd4745b9b590da9ca82037"
+    },
+    {
+      "file": "src/Obstacles.ts",
+      "unchanged": true,
+      "sha256": "a867c5d074a876df82b61a407a1a07527e960912b60e3f104a061ab506a3173d"
+    },
+    {
+      "file": "shared/Challenge.ts",
+      "unchanged": true,
+      "sha256": "92b22a3d87d17f53838e6288a64a2a8110961914027f5a5959e0a27bf30111ae"
+    },
+    {
+      "file": "server/.env.example",
+      "unchanged": true,
+      "sha256": "ac003b179a0a3048cb8c2f3cf2db0cc2707a9db9144bf1fc09a9d31ae7816a78"
+    },
+    {
+      "file": "server/data/AREACODES-LICENSE.txt",
+      "unchanged": true,
+      "sha256": "a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499"
+    },
+    {
+      "file": "server/data/COUNTRIES-LICENSE.txt",
+      "unchanged": true,
+      "sha256": "9b3bd707c23dd2bdc57df2a4b42f402dc5d6c6f54e527608eeef24bbb161ac1b"
+    },
+    {
+      "file": "server/data/cn-2025.txt",
+      "unchanged": true,
+      "sha256": "73520f533c8e3f1aadb3bb55166656a491fb1e7703b2e2172e5694ec8845bab0"
+    },
+    {
+      "file": "server/data/nickname-rules.json",
+      "unchanged": true,
+      "sha256": "33fdc7249064c92dd5878b35db26ce558e7bceaee4f79598da8edf5e05dd29f4"
+    },
+    {
+      "file": "server/data/regions-manifest.json",
+      "unchanged": true,
+      "sha256": "9e9051232d04b021a85a85aa4c91d48ac5e72f48e97fd9207c850bb3b10d9f8d"
+    },
+    {
+      "file": "server/data/regions.json",
+      "unchanged": true,
+      "sha256": "d3cb5e79d398e1d0a7e028de04df6ff51da93f3fc14c523aca55ac6042170ddb"
+    },
+    {
+      "file": "server/migrations/001-initial.sql",
+      "unchanged": true,
+      "sha256": "c3717845dc2e9a4a0a00724af679062c8916c30984211502c3d5eb044f20d4f0"
+    },
+    {
+      "file": "server/migrations/002-challenge-seed.sql",
+      "unchanged": true,
+      "sha256": "7e9849442bf1b6c4cb6742e76a7754c883b043046bf3bef609df2a8e5903368e"
+    },
+    {
+      "file": "server/migrations/003-wechat.down.sql",
+      "unchanged": true,
+      "sha256": "64a2cb49b13630322eadbf558025f7deef8892744d4ae5ee1fa541621899cbb3"
+    },
+    {
+      "file": "server/migrations/003-wechat.sql",
+      "unchanged": true,
+      "sha256": "1782b731d48c67110d1b2e268234a36d0f1a3b0e1ef0d643694b8c183148d423"
+    },
+    {
+      "file": "server/migrations/004-seasons.sql",
+      "unchanged": true,
+      "sha256": "b27b7d5f1f12ad0813589a3beb5f70b96fbfd02e30afc696c3f15f86e3666fc7"
+    },
+    {
+      "file": "server/package-lock.json",
+      "unchanged": true,
+      "sha256": "82756d2738b78457aaaff4de4082f567d6793b641e88ecfc8718c2ef08511285"
+    },
+    {
+      "file": "server/package.json",
+      "unchanged": true,
+      "sha256": "c21f0dde140b54e9d01c5a947e3b220e4e43f903d6a6c3d8d2f982046e467dab"
+    },
+    {
+      "file": "server/src/app.ts",
+      "unchanged": true,
+      "sha256": "69daf66324299233458f0897b72d0485abe02dd779b48b9e811ece3fe53ee293"
+    },
+    {
+      "file": "server/src/db.ts",
+      "unchanged": true,
+      "sha256": "f735268386ca697be2126362afc2c991a5b8f246c329fed54ee393321f33a72f"
+    },
+    {
+      "file": "server/src/index.ts",
+      "unchanged": true,
+      "sha256": "b71bc6614eac2fa739fc1516af0a6e73cc411f63cbc37867e1b6747611634b5a"
+    },
+    {
+      "file": "server/src/leaderboard.ts",
+      "unchanged": true,
+      "sha256": "d4a4b646838a8045932669d196cc822069ad12170e29af64ce3437bc2a935989"
+    },
+    {
+      "file": "server/src/manage.ts",
+      "unchanged": true,
+      "sha256": "175c04b79daa0c1d6fcbfb4f140aed30fd247aa20b1c54d501cb77b10b7e2ff9"
+    },
+    {
+      "file": "server/src/moderation.ts",
+      "unchanged": true,
+      "sha256": "328e2567cfc7227025bd7190eec5633dd5591ed7b970cdfdd66ef108da4986a6"
+    },
+    {
+      "file": "server/src/regions.ts",
+      "unchanged": true,
+      "sha256": "c71a2cd8019dd617b0d2bbb7579d92c24345ea0b5f51e4515e6c24c14ba446ea"
+    },
+    {
+      "file": "server/src/validation.ts",
+      "unchanged": true,
+      "sha256": "868bff0dc472b407cb3619d9bc94c1ba247e64f02c5f1cfc88fdd1ab3a5c717b"
+    },
+    {
+      "file": "server/src/verifier.ts",
+      "unchanged": true,
+      "sha256": "ce2433f70deec429b943a05788c191ff6a9566641141cf560766fcfb16677c95"
+    },
+    {
+      "file": "server/src/wechat.ts",
+      "unchanged": true,
+      "sha256": "6b82d1eb96ba5d63fe1d83c9f072e2b60135892940b15b153792476a69987f4f"
+    },
+    {
+      "file": "server/tests/api.test.ts",
+      "unchanged": true,
+      "sha256": "0d47ba99a5070d57c6fc6dfec7c99cfdf47b9f0370acc5e618f9a746ef388c55"
+    },
+    {
+      "file": "server/tests/global-leaderboard.test.ts",
+      "unchanged": true,
+      "sha256": "e84d728dbf9aec214193c44a27990aa8e3cdea9d0a708bb2c4b5cb2dc95fe711"
+    },
+    {
+      "file": "server/tests/power-replay.test.ts",
+      "unchanged": true,
+      "sha256": "ef87a74c2d2b07f7e9da5151f993f4d5b1882453de0dcba59d8f2ce73ce322f3"
+    },
+    {
+      "file": "server/tests/production.test.ts",
+      "unchanged": true,
+      "sha256": "d99645f082dd140ceb1d2cd75ac18c3c5a2552cf577ff6841ea6bf1207f1cfdd"
+    },
+    {
+      "file": "server/tests/requalification.test.ts",
+      "unchanged": true,
+      "sha256": "86091c62371458bc25ee1469cd2f7d73c5bae0e271b0226b8e7b6bff3844ef15"
+    },
+    {
+      "file": "server/tests/seasons.test.ts",
+      "unchanged": true,
+      "sha256": "ad0f1db4c84d6d2a4de6474b5da25b56962c89838088e0c3cb7efb31bd7166f2"
+    },
+    {
+      "file": "server/tests/submission-protocol.test.ts",
+      "unchanged": true,
+      "sha256": "d3f70bf1d2176ae0cab4ac6beb4496490e99363ffa2a0396f94ebe413e01631f"
+    },
+    {
+      "file": "server/tests/tutorial-power-replay.test.ts",
+      "unchanged": true,
+      "sha256": "0e922c18d4bc50a01de09f90a36af9069e364e733737eb1fed45720c0133e1e4"
+    },
+    {
+      "file": "server/tests/wechat.test.ts",
+      "unchanged": true,
+      "sha256": "2be5362491dbf54b6ed296ecb3aff4521fb91f01bac8df4668e23bdd4a523d75"
+    },
+    {
+      "file": "server/tests/x3-threshold.test.ts",
+      "unchanged": true,
+      "sha256": "51939fb8ca345784badfed2fee56c64c28e893d110b526dae227049a5ce729b2"
+    },
+    {
+      "file": "server/tsconfig.json",
+      "unchanged": true,
+      "sha256": "759bad86482fd2c001c06343a2b02c5dccca105ba6ea9f234931c89cad494661"
+    },
+    {
+      "file": "server/vitest.config.ts",
+      "unchanged": true,
+      "sha256": "0bf342a44a930f03b060ea63188caed0991d2f5b6b1f28c39f2bc242d1a16fcd"
+    }
+  ],
+  "tests": {
+    "frontend": 291,
+    "backend": 75,
+    "deployment": 42,
+    "wechatBuild": 5,
+    "compatMinigameBuild": 5,
+    "typecheck": "Web/API/WeChat/兼容入口通过",
+    "build": "Web/API/WeChat/兼容入口通过"
+  },
+  "browser": {
+    "viewports": [
+      {
+        "width": 320,
+        "height": 568,
+        "canvas": {
+          "x": 26.421875,
+          "y": 112,
+          "width": 267.140625,
+          "height": 374,
+          "bottom": 486
+        },
+        "hud": {
+          "x": 26.421875,
+          "y": 48,
+          "width": 267.140625,
+          "height": 64,
+          "bottom": 112
+        },
+        "buttons": {
+          "x": 26.421875,
+          "y": 512,
+          "width": 267.140625,
+          "height": 48,
+          "bottom": 560
+        },
+        "scroll": [
+          320,
+          568
+        ],
+        "items": 6,
+        "rankingPanelFooter": true,
+        "emptyError": true,
+        "startPauseReset": true,
+        "touch": true
+      },
+      {
+        "width": 390,
+        "height": 844,
+        "canvas": {
+          "x": 8,
+          "y": 112,
+          "width": 373.984375,
+          "height": 523.59375,
+          "bottom": 635.59375
+        },
+        "hud": {
+          "x": 8,
+          "y": 48,
+          "width": 374,
+          "height": 64,
+          "bottom": 112
+        },
+        "buttons": {
+          "x": 8,
+          "y": 661.59375,
+          "width": 374,
+          "height": 48,
+          "bottom": 709.59375
+        },
+        "scroll": [
+          390,
+          844
+        ],
+        "items": 6,
+        "rankingPanelFooter": true,
+        "emptyError": true,
+        "startPauseReset": true,
+        "touch": true
+      },
+      {
+        "width": 430,
+        "height": 932,
+        "canvas": {
+          "x": 8,
+          "y": 112,
+          "width": 413.984375,
+          "height": 579.59375,
+          "bottom": 691.59375
+        },
+        "hud": {
+          "x": 8,
+          "y": 48,
+          "width": 414,
+          "height": 64,
+          "bottom": 112
+        },
+        "buttons": {
+          "x": 8,
+          "y": 717.59375,
+          "width": 414,
+          "height": 48,
+          "bottom": 765.59375
+        },
+        "scroll": [
+          430,
+          932
+        ],
+        "items": 6,
+        "rankingPanelFooter": true,
+        "emptyError": true,
+        "startPauseReset": true,
+        "touch": true
+      },
+      {
+        "width": 768,
+        "height": 1024,
+        "canvas": {
+          "x": 89,
+          "y": 116,
+          "width": 590,
+          "height": 826,
+          "bottom": 942
+        },
+        "hud": {
+          "x": 89,
+          "y": 52,
+          "width": 590,
+          "height": 64,
+          "bottom": 116
+        },
+        "buttons": {
+          "x": 89,
+          "y": 968,
+          "width": 590,
+          "height": 48,
+          "bottom": 1016
+        },
+        "scroll": [
+          768,
+          1024
+        ],
+        "items": 6,
+        "rankingPanelFooter": true,
+        "emptyError": true,
+        "startPauseReset": true,
+        "touch": false
+      },
+      {
+        "width": 1440,
+        "height": 1000,
+        "canvas": {
+          "x": 433.578125,
+          "y": 116,
+          "width": 572.84375,
+          "height": 802,
+          "bottom": 918
+        },
+        "hud": {
+          "x": 433.578125,
+          "y": 52,
+          "width": 572.84375,
+          "height": 64,
+          "bottom": 116
+        },
+        "buttons": {
+          "x": 433.578125,
+          "y": 944,
+          "width": 572.84375,
+          "height": 48,
+          "bottom": 992
+        },
+        "scroll": [
+          1440,
+          1000
+        ],
+        "items": 6,
+        "rankingPanelFooter": true,
+        "emptyError": true,
+        "startPauseReset": true,
+        "touch": false
+      },
+      {
+        "width": 1920,
+        "height": 1080,
+        "canvas": {
+          "x": 645,
+          "y": 116,
+          "width": 630,
+          "height": 882,
+          "bottom": 998
+        },
+        "hud": {
+          "x": 645,
+          "y": 52,
+          "width": 630,
+          "height": 64,
+          "bottom": 116
+        },
+        "buttons": {
+          "x": 645,
+          "y": 1024,
+          "width": 630,
+          "height": 48,
+          "bottom": 1072
+        },
+        "scroll": [
+          1920,
+          1080
+        ],
+        "items": 6,
+        "rankingPanelFooter": true,
+        "emptyError": true,
+        "startPauseReset": true,
+        "touch": false
+      }
+    ],
+    "performance": [
+      {
+        "scenario": "dense-grid",
+        "width": 1440,
+        "height": 1000,
+        "requested": 20,
+        "ballsAtEnd": 20,
+        "startingBricks": 4203,
+        "activeDrops": 5,
+        "remainingBricks": 4131,
+        "physicsTicks": 200,
+        "addedFixtureBalls": 21,
+        "frames": 89,
+        "averageFps": 60.00539374325782,
+        "frameP95": 16.799999999999955,
+        "updateAndDrawP95": 0.3999999985098839,
+        "budget": {
+          "tier": 0,
+          "trailLength": 12,
+          "trailAlpha": 0.22,
+          "particles": 64,
+          "highlights": true
+        }
+      },
+      {
+        "scenario": "dense-grid",
+        "width": 1440,
+        "height": 1000,
+        "requested": 50,
+        "ballsAtEnd": 50,
+        "startingBricks": 4203,
+        "activeDrops": 10,
+        "remainingBricks": 4052,
+        "physicsTicks": 199,
+        "addedFixtureBalls": 56,
+        "frames": 89,
+        "averageFps": 60.001348344906624,
+        "frameP95": 16.700000000000045,
+        "updateAndDrawP95": 0.5,
+        "budget": {
+          "tier": 1,
+          "trailLength": 7,
+          "trailAlpha": 0.1,
+          "particles": 32,
+          "highlights": true
+        }
+      },
+      {
+        "scenario": "dense-grid",
+        "width": 1440,
+        "height": 1000,
+        "requested": 100,
+        "ballsAtEnd": 100,
+        "startingBricks": 4203,
+        "activeDrops": 22,
+        "remainingBricks": 3890,
+        "physicsTicks": 200,
+        "addedFixtureBalls": 112,
+        "frames": 89,
+        "averageFps": 59.99730349197788,
+        "frameP95": 16.799999999999955,
+        "updateAndDrawP95": 0.8000000007450581,
+        "budget": {
+          "tier": 2,
+          "trailLength": 0,
+          "trailAlpha": 0.22,
+          "particles": 16,
+          "highlights": false
+        }
+      },
+      {
+        "scenario": "dense-grid",
+        "width": 390,
+        "height": 844,
+        "requested": 20,
+        "ballsAtEnd": 20,
+        "startingBricks": 4203,
+        "activeDrops": 5,
+        "remainingBricks": 4132,
+        "physicsTicks": 199,
+        "addedFixtureBalls": 21,
+        "frames": 89,
+        "averageFps": 60.001348344906624,
+        "frameP95": 16.799999999999955,
+        "updateAndDrawP95": 0.30000000074505806,
+        "budget": {
+          "tier": 0,
+          "trailLength": 12,
+          "trailAlpha": 0.22,
+          "particles": 64,
+          "highlights": true
+        }
+      },
+      {
+        "scenario": "dense-grid",
+        "width": 390,
+        "height": 844,
+        "requested": 50,
+        "ballsAtEnd": 50,
+        "startingBricks": 4203,
+        "activeDrops": 10,
+        "remainingBricks": 4052,
+        "physicsTicks": 199,
+        "addedFixtureBalls": 56,
+        "frames": 89,
+        "averageFps": 60.001348344906624,
+        "frameP95": 16.799999999999955,
+        "updateAndDrawP95": 0.4000000022351742,
+        "budget": {
+          "tier": 1,
+          "trailLength": 7,
+          "trailAlpha": 0.1,
+          "particles": 32,
+          "highlights": true
+        }
+      },
+      {
+        "scenario": "dense-grid",
+        "width": 390,
+        "height": 844,
+        "requested": 100,
+        "ballsAtEnd": 100,
+        "startingBricks": 4203,
+        "activeDrops": 22,
+        "remainingBricks": 3888,
+        "physicsTicks": 199,
+        "addedFixtureBalls": 112,
+        "frames": 89,
+        "averageFps": 60.00539374325783,
+        "frameP95": 16.799999999999955,
+        "updateAndDrawP95": 0.9000000022351742,
+        "budget": {
+          "tier": 2,
+          "trailLength": 0,
+          "trailAlpha": 0.22,
+          "particles": 16,
+          "highlights": false
+        }
+      },
+      {
+        "scenario": "tutorial-drops",
+        "width": 1440,
+        "height": 1000,
+        "requested": 20,
+        "ballsAtEnd": 20,
+        "startingBricks": 600,
+        "activeDrops": 480,
+        "remainingBricks": 1,
+        "physicsTicks": 199,
+        "addedFixtureBalls": 19,
+        "frames": 89,
+        "averageFps": 60.00539374325783,
+        "frameP95": 16.700000000000045,
+        "updateAndDrawP95": 0.6000000014901161,
+        "budget": {
+          "tier": 0,
+          "trailLength": 12,
+          "trailAlpha": 0.22,
+          "particles": 64,
+          "highlights": true
+        }
+      },
+      {
+        "scenario": "tutorial-drops",
+        "width": 1440,
+        "height": 1000,
+        "requested": 50,
+        "ballsAtEnd": 50,
+        "startingBricks": 600,
+        "activeDrops": 480,
+        "remainingBricks": 0,
+        "physicsTicks": 199,
+        "addedFixtureBalls": 49,
+        "frames": 89,
+        "averageFps": 60.00539374325782,
+        "frameP95": 16.800000000000068,
+        "updateAndDrawP95": 1,
+        "budget": {
+          "tier": 1,
+          "trailLength": 7,
+          "trailAlpha": 0.1,
+          "particles": 32,
+          "highlights": true
+        }
+      },
+      {
+        "scenario": "tutorial-drops",
+        "width": 1440,
+        "height": 1000,
+        "requested": 100,
+        "ballsAtEnd": 100,
+        "startingBricks": 600,
+        "activeDrops": 480,
+        "remainingBricks": 0,
+        "physicsTicks": 199,
+        "addedFixtureBalls": 99,
+        "frames": 89,
+        "averageFps": 60.001348344906624,
+        "frameP95": 16.700000000000045,
+        "updateAndDrawP95": 0.8000000007450581,
+        "budget": {
+          "tier": 2,
+          "trailLength": 0,
+          "trailAlpha": 0.22,
+          "particles": 16,
+          "highlights": false
+        }
+      },
+      {
+        "scenario": "tutorial-drops",
+        "width": 390,
+        "height": 844,
+        "requested": 20,
+        "ballsAtEnd": 20,
+        "startingBricks": 600,
+        "activeDrops": 480,
+        "remainingBricks": 1,
+        "physicsTicks": 201,
+        "addedFixtureBalls": 19,
+        "frames": 89,
+        "averageFps": 60.00539374325782,
+        "frameP95": 16.700000000000045,
+        "updateAndDrawP95": 0.8999999985098839,
+        "budget": {
+          "tier": 0,
+          "trailLength": 12,
+          "trailAlpha": 0.22,
+          "particles": 64,
+          "highlights": true
+        }
+      },
+      {
+        "scenario": "tutorial-drops",
+        "width": 390,
+        "height": 844,
+        "requested": 50,
+        "ballsAtEnd": 50,
+        "startingBricks": 600,
+        "activeDrops": 480,
+        "remainingBricks": 0,
+        "physicsTicks": 199,
+        "addedFixtureBalls": 49,
+        "frames": 89,
+        "averageFps": 60.00539374325783,
+        "frameP95": 16.799999999999955,
+        "updateAndDrawP95": 0.8999999985098839,
+        "budget": {
+          "tier": 1,
+          "trailLength": 7,
+          "trailAlpha": 0.1,
+          "particles": 32,
+          "highlights": true
+        }
+      },
+      {
+        "scenario": "tutorial-drops",
+        "width": 390,
+        "height": 844,
+        "requested": 100,
+        "ballsAtEnd": 100,
+        "startingBricks": 600,
+        "activeDrops": 480,
+        "remainingBricks": 0,
+        "physicsTicks": 199,
+        "addedFixtureBalls": 99,
+        "frames": 89,
+        "averageFps": 60.001348344906624,
+        "frameP95": 16.799999999999955,
+        "updateAndDrawP95": 1,
+        "budget": {
+          "tier": 2,
+          "trailLength": 0,
+          "trailAlpha": 0.22,
+          "particles": 16,
+          "highlights": false
+        }
+      }
+    ],
+    "errors": []
+  },
+  "rankingBrowser": {
+    "note": "所有玩家与成绩均为明确标注的本地UI测试夹具，不调用生产API，不写正式数据库；微信为Chromium模拟宿主，非真机",
+    "reports": [
+      {
+        "client": "web",
+        "width": 1200,
+        "height": 1320,
+        "timing": {
+          "frames": 45,
+          "averageFps": 60.00800106680891,
+          "maxFrameMs": 16.799999999999955,
+          "simulationTickUnchanged": true
+        },
+        "distinguishedTop5": true,
+        "quietBlueCards": true,
+        "pagination": true,
+        "serverRank130": true,
+        "fixedPersonal": true,
+        "empty": true,
+        "error": true,
+        "loading": true,
+        "longUnicodeName": true,
+        "reducedMotion": true,
+        "pausedFrozen": true,
+        "backgroundFrozen": true,
+        "errors": []
+      },
+      {
+        "client": "web",
+        "width": 1366,
+        "height": 1000,
+        "timing": {
+          "frames": 45,
+          "averageFps": 60.00000000000001,
+          "maxFrameMs": 16.700000000000045,
+          "simulationTickUnchanged": true
+        },
+        "distinguishedTop5": true,
+        "quietBlueCards": true,
+        "pagination": true,
+        "serverRank130": true,
+        "fixedPersonal": true,
+        "empty": true,
+        "error": true,
+        "loading": true,
+        "longUnicodeName": true,
+        "reducedMotion": true,
+        "pausedFrozen": true,
+        "backgroundFrozen": true,
+        "errors": []
+      },
+      {
+        "client": "web",
+        "width": 390,
+        "height": 844,
+        "timing": {
+          "frames": 45,
+          "averageFps": 60.00000000000001,
+          "maxFrameMs": 16.799999999999955,
+          "simulationTickUnchanged": true
+        },
+        "distinguishedTop5": true,
+        "quietBlueCards": true,
+        "pagination": true,
+        "serverRank130": true,
+        "fixedPersonal": true,
+        "empty": true,
+        "error": true,
+        "loading": true,
+        "longUnicodeName": true,
+        "reducedMotion": true,
+        "pausedFrozen": true,
+        "backgroundFrozen": true,
+        "errors": []
+      },
+      {
+        "client": "web",
+        "width": 320,
+        "height": 568,
+        "timing": {
+          "frames": 45,
+          "averageFps": 60,
+          "maxFrameMs": 16.799999999999955,
+          "simulationTickUnchanged": true
+        },
+        "distinguishedTop5": true,
+        "quietBlueCards": true,
+        "pagination": true,
+        "serverRank130": true,
+        "fixedPersonal": true,
+        "empty": true,
+        "error": true,
+        "loading": true,
+        "longUnicodeName": true,
+        "reducedMotion": true,
+        "pausedFrozen": true,
+        "backgroundFrozen": true,
+        "errors": []
+      },
+      {
+        "client": "wechat-canvas-mock",
+        "width": 390,
+        "height": 844,
+        "timing": {
+          "frames": 45,
+          "averageFps": 59.99200106652446,
+          "maxFrameMs": 16.800000000000068,
+          "simulationTickUnchanged": true
+        },
+        "serverRank": 130,
+        "dragScroll": true,
+        "pausedFrozen": true,
+        "backgroundFrozen": true,
+        "pagination": true,
+        "unranked": true,
+        "error": true,
+        "myY": 638,
+        "errors": []
+      },
+      {
+        "client": "wechat-canvas-mock",
+        "width": 320,
+        "height": 568,
+        "timing": {
+          "frames": 45,
+          "averageFps": 60,
+          "maxFrameMs": 16.800000000000068,
+          "simulationTickUnchanged": true
+        },
+        "serverRank": 130,
+        "dragScroll": true,
+        "pausedFrozen": true,
+        "backgroundFrozen": true,
+        "pagination": true,
+        "unranked": true,
+        "error": true,
+        "myY": 362,
+        "errors": []
+      },
+      {
+        "client": "wechat-canvas-mock",
+        "width": 768,
+        "height": 1024,
+        "timing": {
+          "frames": 45,
+          "averageFps": 60.0080010668089,
+          "maxFrameMs": 16.800000000000068,
+          "simulationTickUnchanged": true
+        },
+        "serverRank": 130,
+        "dragScroll": true,
+        "pausedFrozen": true,
+        "backgroundFrozen": true,
+        "pagination": true,
+        "unranked": true,
+        "error": true,
+        "myY": 818,
+        "errors": []
+      }
+    ]
+  },
+  "limits": [
+    "Chromium和微信Canvas宿主为仿真，不是真实Android/iPhone或微信开发者工具",
+    "WebKit安装包下载被网络策略HTTP403拒绝，未声称Safari通过"
+  ],
+  "benchmarkMethod": "Linux Chromium，真实Physics.advance与Renderer.draw，帧中回收后补球保持20/50/100颗，前10帧热身后89个样本；4203砖和真实预分配480掉落两种夹具；移动尺寸非真机；不提交排行榜成绩"
+}

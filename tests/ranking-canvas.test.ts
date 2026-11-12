@@ -15,7 +15,7 @@ it.each(['loading','error','ready'] as const)('Canvas %s、空榜和未上榜均
  const f=wxFixture(),c=context(f.wx.createCanvas()),panel=new RankingCanvas({state,items:[],offset:0,nextOffset:null,best:null},[]);
  panel.draw(c,375,86,770,100,true,false);expect(f.texts).toContain('我的排名：未上榜');expect(f.texts.some(t=>t.includes(state==='loading'?'正在加载':state==='error'?'无法加载':'没有上榜'))).toBe(true);
 });
-it('Canvas暂停不推进光效时钟，低端设备绘制更少星芒，不改变数据',()=>{
+it('Canvas暂停不推进光效时钟，低端设备绘制更少装饰边缘，不改变数据',()=>{
  const f=wxFixture(),c=context(f.wx.createCanvas()),panel=new RankingCanvas({state:'ready',items:rows,offset:0,nextOffset:20,best:null},[]),copy=JSON.stringify(rows);
  panel.draw(c,390,86,800,0,true,false);panel.draw(c,390,86,800,16,true,false);const segments=vi.fn();c.lineTo=segments;panel.draw(c,390,86,800,32,true,false);const fullCount=segments.mock.calls.length;segments.mockClear();panel.draw(c,390,86,800,48,true,true);expect(segments.mock.calls.length).toBeLessThan(fullCount);const before=panel.motion.time;panel.draw(c,390,86,800,1000,false,false);panel.draw(c,390,86,800,2000,false,false);expect(panel.motion.time).toBe(before);expect(JSON.stringify(rows)).toBe(copy);
 });

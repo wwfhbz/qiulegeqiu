@@ -1,3 +1,4 @@
+import {OCEAN,OCEAN_CSS} from '../shared/VisualTheme';
 import {createWebHost,createWebAudio} from './platform/WebPlatform';
 import {AudioSystem} from './Audio';
 import { LeaderboardUI } from './online/LeaderboardUI';
@@ -12,15 +13,19 @@ import { fitGamePanel } from './ViewportLayout';
 
 /** DOM presentation and inputs only; scoring, lives and levels are owned by Game. */
 export function mountGame(root: HTMLElement) {
+  for(const [key,value] of Object.entries(OCEAN_CSS))document.documentElement.style.setProperty(key,value);
+  document.querySelector('meta[name=theme-color]')?.setAttribute('content',OCEAN.colors.background);
   root.innerHTML = `
   <main class="shell">
-    <header><h1>${GAME_NAME}</h1></header>
+    <header><h1><span class="brand-mark" aria-hidden="true">◉</span>${GAME_NAME}</h1></header>
     <div class="stage-room"><section class="game-panel" aria-label="游戏区域">
       <div class="hud" aria-label="游戏状态">
-        <div class="hud-item"><span class="label">关卡</span><strong id="level"></strong><span id="ball-badge" hidden>球×<span id="balls">1</span></span></div>
+        <div class="hud-item"><span class="label">关卡</span><strong id="level"></strong></div>
         <div class="hud-item"><span class="label">生命</span><span id="hearts" role="img" aria-live="polite"></span><span id="lives" class="sr-only"></span></div>
         <div class="hud-item"><span class="label">分数</span><strong id="score">0</strong></div>
+        <div class="hud-item"><span class="label">弹球</span><strong id="ball-badge">球×<span id="balls">1</span></strong></div>
         <div class="hud-item"><span class="label">剩余方块</span><strong id="remaining">0</strong></div>
+        <div class="hud-item hud-progress"><span class="label">进度 <span id="progress-value">0%</span></span><span id="progress-meter" role="progressbar" aria-label="本关消除进度" aria-valuemin="0" aria-valuemax="100"><i></i></span></div>
       </div>
       <div class="canvas-wrap"><canvas id="arena-canvas" aria-label="圆形弹球竞技场，移动鼠标或拖动控制挡板"></canvas>
         <span id="status" class="sr-only" role="status"></span><span id="removed" class="sr-only"></span><span id="total" class="sr-only"></span>
@@ -48,7 +53,8 @@ export function mountGame(root: HTMLElement) {
     el('lives').textContent = String(g.lives); el('score').textContent = String(g.score.total);
     el('removed').textContent = String(blocks.removed); el('total').textContent = String(blocks.total);
     el('balls').textContent = String(g.physics.balls.length);
-    el('ball-badge').hidden = g.physics.balls.length <= 1;
+    const percent=Math.round(blocks.removed/Math.max(1,blocks.total)*100);el('progress-value').textContent=percent+'%';el('progress-meter').setAttribute('aria-valuenow',String(percent));el('progress-meter').style.setProperty('--fill',percent+'%');
+    wrap.dataset.state=g.state;
     el('status').textContent = STATE_LABELS[g.state];
     el('wide').textContent = g.physics.wideRemaining > 0 ? `挡板加宽：${g.physics.wideRemaining.toFixed(1)} 秒` : '';
     el('combo').textContent = g.score.combo > 1 ? `${g.score.combo} 连击 ×${g.score.multiplier}` : '';
