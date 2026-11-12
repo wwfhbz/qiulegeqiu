@@ -14,7 +14,9 @@ function run(seed:number,initialLevel=3,ticks=4800,spacing=2){
  for(let tick=1;tick<=ticks;tick++){
   g.journal.tick++;g.score.update(C.step);
   if(tick%spacing===0&&cells.length>1){const n=Math.floor(random()*cells.length);g.physics.blocks.hit(cells.splice(n,1)[0]);}
-  const nearest=g.physics.powers.items.filter(p=>p.alive).sort((a,b)=>Math.abs(a.y-C.paddle.y)-Math.abs(b.y-C.paddle.y))[0];
+  // The level-3 sweep uses a scripted paddle target; do not allocate/sort
+  // 4800 arrays per seed for a nearest drop that only levels 4+ consume.
+  const nearest=initialLevel>=4?g.physics.powers.items.filter(p=>p.alive).sort((a,b)=>Math.abs(a.y-C.paddle.y)-Math.abs(b.y-C.paddle.y))[0]:undefined;
   const target=initialLevel>=4&&nearest?nearest.x:180+Math.floor(tick/90)%5*110;
   g.physics.powers.update(C.step,target,g.physics.paddleWidth,(kind,id)=>g.physics.collect(kind,id));
  }
@@ -29,7 +31,9 @@ it('真实道具池连续掉落、拾取和多球日志可被服务端回放',()
   const g=run(seed);
   expect(()=>verifyTrace(g.journal.events,1000000,seed,RULES_VERSION),`seed=${seed}`).not.toThrow();
  }
-});
+ // 100 complete fixtures plus strict replay are CPU-bound; CI/Lighthouse can
+ // exceed Vitest's 5s default. Keep this budget local, never reduce the sweep.
+},30_000);
 
 it('旧客户端不带标识的同类型交错掉落也按最早拾取截止时间回放',()=>{
  for(const seed of [4]){
