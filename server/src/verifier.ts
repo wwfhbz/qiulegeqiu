@@ -1,3 +1,4 @@
+import {allocateBrickPowers,brickPowerCounts,brickPowerKind,type BrickPowerVersion} from '../../src/BrickPowerRules.js';
 import {LEGACY_LEVELS} from '../../src/LegacyLevels.js';
 import {RULES_VERSION,LEGACY_RULES_VERSION} from '../../shared/Challenge.js';
 import { Blocks } from '../../src/Blocks.js';
@@ -15,6 +16,9 @@ export function verifyTrace(events: ChallengeEvent[], wallMs: number,seed=1,rule
   const blocks=new Blocks(),score=new ScoreSystem(blocks.alive.length),obstacles=new Obstacles(),random=seededRandom(seed);
   blocks.reset(levels[0].obstacles??[],levels[0]);obstacles.load(levels[0].obstacles??[]);
   let valid=blocks.alive.slice(),level=1,lives:number=ARCADE.initialLives,phase='ready',balls=0,lastTick=0,bricks=0,finished=false,levelStartTick=0;
+  let brickPowerVersion:BrickPowerVersion=1;
+  const allocation=()=>{blocks.powerKinds.set(allocateBrickPowers(blocks.alive,brickPowerVersion===2?levels[level-1].brickPowers:undefined,seed,level));};
+  const dropCapacity=()=>brickPowerVersion===2&&levels[level-1].brickPowers?brickPowerCounts(blocks.total,levels[level-1].brickPowers!).drops:C.power.maxDrops;
   let tripleRule:TripleRuleVersion=1,hasLaunched=false;let dropSequence=0;let destroyedThisLevel=0;const suspicious=new Set<string>(),drops:{id:number;kind:PowerKind;tick:number;y:number}[]=[];
   let peakBalls=1,budgetTick=-1,tickBallMax=0;
   let tickHits=0,hitTick=-1,expectedBomb:string|null|undefined;
@@ -29,13 +33,17 @@ export function verifyTrace(events: ChallengeEvent[], wallMs: number,seed=1,rule
         if(phase!=='ready')throw new ApiError(422,'重复发射或无效回合');
         if(hasLaunched&&e.tripleRuleVersion!==undefined)throw new ApiError(422,'X3规则标记只能在首次发射声明');
         if(e.tripleRuleVersion!==undefined&&e.tripleRuleVersion!==2)throw new ApiError(422,'无效X3规则版本');
-        if(!hasLaunched){tripleRule=e.tripleRuleVersion??1;if(tripleRule===2&&rulesVersion!==RULES_VERSION)throw new ApiError(422,'旧十关挑战不支持新版X3规则');hasLaunched=true;}
+        if(hasLaunched&&e.brickPowerVersion!==undefined)throw new ApiError(422,'预分配规则只能在首次发射声明');
+        if(e.brickPowerVersion!==undefined&&e.brickPowerVersion!==2)throw new ApiError(422,'无效预分配规则版本');
+        if(!hasLaunched){brickPowerVersion=e.brickPowerVersion??1;if(brickPowerVersion===2&&(rulesVersion!==RULES_VERSION||e.tripleRuleVersion!==2))throw new ApiError(422,'新手关道具需要十二关与新版X3规则');allocation();tripleRule=e.tripleRuleVersion??1;if(tripleRule===2&&rulesVersion!==RULES_VERSION)throw new ApiError(422,'旧十关挑战不支持新版X3规则');hasLaunched=true;}
         phase='running';balls=1;break;
       case 'hit':{
         if(phase!=='running'||!balls||!valid[e.index])throw new ApiError(422,'重复或不可能的方块事件');valid[e.index]=0;score.hit(e.index);bricks++;destroyedThisLevel++;
         if(hitTick!==e.tick){hitTick=e.tick;tickHits=0;}if(++tickHits>Math.max(tickBallMax,balls)*12)suspicious.add('单步击碎数量异常');
         const interval=Math.round(C.power.dropEvery/dropMultiplier(levels[level-1]));
-        if(destroyedThisLevel%interval===0){const kind=weightedPower(powerProfile(levels[level-1]),random);const id=++dropSequence;if(drops.length<C.power.maxDrops)drops.push({id,kind,tick:e.tick,y:blocks.top+Math.floor(e.index/blocks.cols)*blocks.step+blocks.size/2});}break;
+        const legacyKind=destroyedThisLevel%interval===0?weightedPower(powerProfile(levels[level-1]),random):undefined;
+        const kind=brickPowerVersion===2&&levels[level-1].brickPowers?brickPowerKind(blocks.powerKinds[e.index]):legacyKind;
+        if(kind){const id=++dropSequence;if(drops.length<dropCapacity())drops.push({id,kind,tick:e.tick,y:blocks.top+Math.floor(e.index/blocks.cols)*blocks.step+blocks.size/2});}break;
       }
       case 'power':{
         if(phase!=='running'||balls<=0)throw new ApiError(422,'道具拾取状态无效');
@@ -54,7 +62,7 @@ export function verifyTrace(events: ChallengeEvent[], wallMs: number,seed=1,rule
       case 'ballLost':if(phase!=='running'||balls<=0)throw new ApiError(422,'重复弹球死亡');balls--;break;
       case 'lost':if(phase!=='running'||balls!==0||destroyedThisLevel===blocks.total)throw new ApiError(422,'回合扣命无效');lives--;if(lives<0)throw new ApiError(422,'生命异常');phase=lives?'ready':'gameOver';drops.length=0;dropSequence=0;score.resetCombo();break;
       case 'clear':if(phase!=='running'||destroyedThisLevel!==blocks.total)throw new ApiError(422,'未完成本关');score.complete(lives);phase=level===levels.length?'victory':'cleared';break;
-      case 'next':if(phase!=='cleared')throw new ApiError(422,'无效切关');level++;phase='ready';blocks.reset(levels[level-1].obstacles??[],levels[level-1]);valid=blocks.alive.slice();destroyedThisLevel=0;drops.length=0;dropSequence=0;score.beginLevel();obstacles.load(levels[level-1].obstacles??[]);levelStartTick=e.tick;break;
+      case 'next':if(phase!=='cleared')throw new ApiError(422,'无效切关');level++;phase='ready';blocks.reset(levels[level-1].obstacles??[],levels[level-1]);valid=blocks.alive.slice();allocation();destroyedThisLevel=0;drops.length=0;dropSequence=0;score.beginLevel();obstacles.load(levels[level-1].obstacles??[]);levelStartTick=e.tick;break;
       case 'finish':if(phase!=='gameOver'&&phase!=='victory')throw new ApiError(422,'挑战尚未结束');finished=true;break;
     }
     peakBalls=Math.max(peakBalls,balls);tickBallMax=Math.max(tickBallMax,balls);

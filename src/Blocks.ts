@@ -7,6 +7,7 @@ export class Blocks {
   readonly left = C.arena.x - C.arena.radius;
   readonly top = C.arena.y - C.arena.radius;
   readonly alive = new Uint8Array(this.cols * this.rows);
+  readonly powerKinds = new Uint8Array(this.alive.length);
   step:number=C.grid.step;size:number=C.grid.size;
   readonly destroyed: number[] = [];
   generation = 0;
@@ -18,7 +19,7 @@ export class Blocks {
     this.cols=this.rows=Math.ceil(C.arena.radius*2/this.step);
     if(this.cols*this.rows>this.alive.length)throw Error('方块网格超过固定存储容量');
     this.destroyed.length = 0; this.generation++;
-    this.alive.fill(0); this.total = 0;
+    this.alive.fill(0); this.powerKinds.fill(0); this.total = 0;
     const { x: cx, y: cy, radius: r } = C.arena;
     for (let row = 0; row < this.rows; row++) for (let col = 0; col < this.cols; col++) {
       const x = this.left + col * this.step, y = this.top + row * this.step;

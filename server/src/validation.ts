@@ -1,6 +1,6 @@
 import {z} from 'zod';
 /** Names only: never serialize input, values, cookies, tokens, or arbitrary user-supplied keys. */
-const safeNames=new Set(['events','sequence','tick','level','type','index','kind','dropId','target','summary','score','reachedLevel','bricksDestroyed','durationMs','completedAllLevels','idempotencyKey','rulesVersion','seed','unranked','tripleRuleVersion','nickname','regionCode','code','ticket','offset','limit','board']);
+const safeNames=new Set(['events','sequence','tick','level','type','index','kind','dropId','target','summary','score','reachedLevel','bricksDestroyed','durationMs','completedAllLevels','idempotencyKey','rulesVersion','seed','unranked','tripleRuleVersion','brickPowerVersion','nickname','regionCode','code','ticket','offset','limit','board']);
 export function validationFailure(error:z.ZodError){
  const fields=error.issues.slice(0,8).flatMap(issue=>{
   const path=issue.path.map(p=>typeof p==='number'?`[${p}]`:safeNames.has(String(p))?String(p):'字段').join('.').replaceAll('.[','[');

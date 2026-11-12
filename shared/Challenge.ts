@@ -1,4 +1,4 @@
-export type ChallengeEvent = {type:'launch';tick:number;level:number;tripleRuleVersion?:2} | { type: 'ballLost' | 'lost' | 'clear' | 'next' | 'finish'; tick: number; level: number } | { type: 'hit'; tick: number; level: number; index: number } | { type: 'power'; tick: number; level: number; kind: 'halve'|'triple'|'wide'|'life'|'bomb'; dropId?:number } | { type:'bomb'; tick:number; level:number; target:string|null };
+export type ChallengeEvent = {type:'launch';tick:number;level:number;tripleRuleVersion?:2;brickPowerVersion?:2} | { type: 'ballLost' | 'lost' | 'clear' | 'next' | 'finish'; tick: number; level: number } | { type: 'hit'; tick: number; level: number; index: number } | { type: 'power'; tick: number; level: number; kind: 'halve'|'triple'|'wide'|'life'|'bomb'; dropId?:number } | { type:'bomb'; tick:number; level:number; target:string|null };
 export interface ChallengeSummary { score: number; reachedLevel: number; bricksDestroyed: number; durationMs: number; completedAllLevels: boolean }
 export const LEGACY_RULES_VERSION = '0.8.0-arcade-5l-10lv-v1';
 export const RULES_VERSION = '1.2.0-arcade-5l-12lv-v1';
@@ -26,5 +26,8 @@ export function assertChallengeProtocol(data:{challengeProtocolVersion?:unknown}
 
 /** Additive capability keeps the protocol-2 handshake compatible with existing clients. */
 export const TRIPLE_RULE_FEATURE='triple-threshold20-v1';
-export const CHALLENGE_FEATURES=[TRIPLE_RULE_FEATURE] as const;
+export const BRICK_POWER_FEATURE='tutorial-brick-powers-v1';
+export const CHALLENGE_FEATURES=[TRIPLE_RULE_FEATURE,BRICK_POWER_FEATURE] as const;
 export function assertTripleRuleSupport(data:{challengeFeatures?:unknown}){if(!Array.isArray(data.challengeFeatures)||!data.challengeFeatures.includes(TRIPLE_RULE_FEATURE))throw Error('排行榜后端尚不支持新版X3规则，请先更新后端；本轮仍可单机游玩');}
+
+export function assertBrickPowerSupport(data:{challengeFeatures?:unknown}){if(!Array.isArray(data.challengeFeatures)||!data.challengeFeatures.includes(BRICK_POWER_FEATURE))throw Error('排行榜后端尚不支持新手关预分配道具，请先更新后端；本轮仍可单机游玩');}

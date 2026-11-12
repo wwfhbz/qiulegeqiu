@@ -1,3 +1,4 @@
+import {allocateBrickPowers,brickPowerCounts,brickPowerKind,BRICK_POWER_VERSION,type BrickPowerVersion} from './BrickPowerRules';
 import {LEGACY_LEVELS} from './LegacyLevels';
 import {powerProfile, type LevelConfig } from './Levels';
 import { Obstacles } from './Obstacles';
@@ -107,7 +108,10 @@ export class Physics {
   level:LevelConfig=LEGACY_LEVELS[0];
   readonly obstacles=new Obstacles();
   private random=seededRandom(1);
-  setSeed(seed:number){this.random=seededRandom(seed);}
+  private seed=1;
+  brickPowerVersion:BrickPowerVersion=BRICK_POWER_VERSION;
+  private allocatePowers(){this.blocks.powerKinds.set(allocateBrickPowers(this.blocks.alive,this.brickPowerVersion===2?this.level.brickPowers:undefined,this.seed,this.level.number));}
+  setSeed(seed:number){this.seed=seed;this.random=seededRandom(seed);if(this.blocks.removed===0)this.allocatePowers();}
   onBomb?: (target:string|null) => void;
   speedScale = 1;
   powerUpDropMultiplier = 1;
@@ -131,7 +135,10 @@ export class Physics {
     this.onBlockDestroyed?.(index);
     this.onSound?.(this.effects.combo > 1 ? 'combo' : 'break', this.effects.combo);
     const interval = this.powerDropEvery;
-    if (b.removed % interval === 0) this.powers.spawn(x, y, weightedPower(powerProfile(this.level),this.random));
+    // Preserve the original random stream for unchanged later levels.
+    const legacyKind=b.removed%interval===0?weightedPower(powerProfile(this.level),this.random):undefined;
+    const kind=this.brickPowerVersion===2&&this.level.brickPowers?brickPowerKind(b.powerKinds[index]):legacyKind;
+    if(kind)this.powers.spawn(x,y,kind);
   };
   private pickup = (kind: PowerKind, dropId:number) => this.collect(kind,dropId);
   collect(kind: PowerKind, dropId?:number) {
@@ -192,7 +199,8 @@ export class Physics {
   }
   constructor() { this.blocks.onHit = this.destroyed; this.reset(); }
   reset() {
-    this.obstacles.load(this.level.obstacles??[]);this.blocks.reset(this.level.obstacles??[],this.level); this.resetRound();
+    this.obstacles.load(this.level.obstacles??[]);this.blocks.reset(this.level.obstacles??[],this.level);this.allocatePowers();
+    this.powers.setCapacity(this.brickPowerVersion===2&&this.level.brickPowers?brickPowerCounts(this.blocks.total,this.level.brickPowers).drops:C.power.maxDrops);this.resetRound();
   }
   /** A lost round clears transient objects while retaining the current block grid. */
   resetRound(spawn = true) {

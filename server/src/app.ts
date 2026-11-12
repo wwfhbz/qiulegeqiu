@@ -18,7 +18,7 @@ const hash=(value:string)=>createHash('sha256').update(value).digest('hex');
 const id=z.string().uuid(), integer=z.number().int().nonnegative().max(100000000);
 const base={tick:integer,level:z.number().int().min(1).max(100)};
 export const challengeEvent=z.discriminatedUnion('type',[
- z.object({...base,type:z.literal('launch'),tripleRuleVersion:z.literal(2).optional()}).strict(),
+ z.object({...base,type:z.literal('launch'),tripleRuleVersion:z.literal(2).optional(),brickPowerVersion:z.literal(2).optional()}).strict(),
  z.object({...base,type:z.enum(['ballLost','lost','clear','next','finish'])}).strict(),
  z.object({...base,type:z.literal('hit'),index:integer}).strict(),
  z.object({...base,type:z.literal('power'),kind:z.enum(['halve','triple','wide','life','bomb']),dropId:z.number().int().positive().max(50000).optional()}).strict(),
