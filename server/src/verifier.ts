@@ -5,7 +5,7 @@ import { ScoreSystem } from '../../src/ScoreSystem.js';
 import { ARCADE } from '../../src/ArcadeRules.js';
 import { C } from '../../src/GameConfig.js';
 import {LEVELS,dropMultiplier,powerProfile}  from '../../src/Levels.js';
-import { seededRandom,weightedPower,type PowerKind } from '../../src/PowerRules.js';
+import { seededRandom,weightedPower,tripleTarget,type TripleRuleVersion,type PowerKind } from '../../src/PowerRules.js';
 import { Obstacles } from '../../src/Obstacles.js';
 import type { ChallengeEvent, ChallengeSummary } from '../../shared/Challenge.js';
 import { ApiError } from './moderation.js';
@@ -15,7 +15,7 @@ export function verifyTrace(events: ChallengeEvent[], wallMs: number,seed=1,rule
   const blocks=new Blocks(),score=new ScoreSystem(blocks.alive.length),obstacles=new Obstacles(),random=seededRandom(seed);
   blocks.reset(levels[0].obstacles??[],levels[0]);obstacles.load(levels[0].obstacles??[]);
   let valid=blocks.alive.slice(),level=1,lives:number=ARCADE.initialLives,phase='ready',balls=0,lastTick=0,bricks=0,finished=false,levelStartTick=0;
-  let dropSequence=0;let destroyedThisLevel=0;const suspicious=new Set<string>(),drops:{id:number;kind:PowerKind;tick:number;y:number}[]=[];
+  let tripleRule:TripleRuleVersion=1,hasLaunched=false;let dropSequence=0;let destroyedThisLevel=0;const suspicious=new Set<string>(),drops:{id:number;kind:PowerKind;tick:number;y:number}[]=[];
   let peakBalls=1,budgetTick=-1,tickBallMax=0;
   let tickHits=0,hitTick=-1,expectedBomb:string|null|undefined;
   for(const e of events){
@@ -25,7 +25,12 @@ export function verifyTrace(events: ChallengeEvent[], wallMs: number,seed=1,rule
     score.update((e.tick-lastTick)*C.step);lastTick=e.tick;obstacles.time=(e.tick-levelStartTick)*C.step;
     for(let i=drops.length-1;i>=0;i--)if((e.tick-drops[i].tick)*C.step*C.power.fallSpeed>C.height+C.power.radius-drops[i].y+.02)drops.splice(i,1);
     switch(e.type){
-      case 'launch':if(phase!=='ready')throw new ApiError(422,'重复发射或无效回合');phase='running';balls=1;break;
+      case 'launch':
+        if(phase!=='ready')throw new ApiError(422,'重复发射或无效回合');
+        if(hasLaunched&&e.tripleRuleVersion!==undefined)throw new ApiError(422,'X3规则标记只能在首次发射声明');
+        if(e.tripleRuleVersion!==undefined&&e.tripleRuleVersion!==2)throw new ApiError(422,'无效X3规则版本');
+        if(!hasLaunched){tripleRule=e.tripleRuleVersion??1;if(tripleRule===2&&rulesVersion!==RULES_VERSION)throw new ApiError(422,'旧十关挑战不支持新版X3规则');hasLaunched=true;}
+        phase='running';balls=1;break;
       case 'hit':{
         if(phase!=='running'||!balls||!valid[e.index])throw new ApiError(422,'重复或不可能的方块事件');valid[e.index]=0;score.hit(e.index);bricks++;destroyedThisLevel++;
         if(hitTick!==e.tick){hitTick=e.tick;tickHits=0;}if(++tickHits>Math.max(tickBallMax,balls)*12)suspicious.add('单步击碎数量异常');
@@ -39,7 +44,7 @@ export function verifyTrace(events: ChallengeEvent[], wallMs: number,seed=1,rule
         const candidates=drops.map((d,index)=>({d,index})).filter(({d})=>d.kind===e.kind&&(e.dropId===undefined||d.id===e.dropId)&&(e.tick-d.tick)*C.step*C.power.fallSpeed>=C.paddle.y-C.paddle.height/2-C.power.radius-d.y-C.power.fallSpeed*C.step-.02&&(e.tick-d.tick)*C.step*C.power.fallSpeed<=C.paddle.y+C.paddle.height/2+C.power.radius-d.y+.02).sort((a,b)=>(a.d.tick-a.d.y/(C.step*C.power.fallSpeed))-(b.d.tick-b.d.y/(C.step*C.power.fallSpeed)));
         const index=candidates[0]?.index??-1;
         if(index<0)throw new ApiError(422,'无对应可拾取道具');drops.splice(index,1);
-        if(e.kind==='triple')balls=Math.min(C.maxBalls,balls*3);
+        if(e.kind==='triple')balls=tripleTarget(balls,tripleRule);
         if(e.kind==='halve'&&balls>0)balls=Math.max(1,Math.ceil(balls/2));
         if(e.kind==='life')lives=Math.min(ARCADE.maxLives,lives+1);
         if(e.kind==='bomb')expectedBomb=obstacles.destroyNearest(C.arena.x,C.arena.y)?.config.id??null;

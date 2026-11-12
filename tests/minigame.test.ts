@@ -32,7 +32,7 @@ it('后台自动暂停，前台不自动发射、不累计后台时间，手动�
 });
 it('道具、多球上限、五条命和继续挑战沿用网页版Game',()=>{
  const f=fixture(),app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false}),g=app.game;g.start();g.physics.triple();expect(g.physics.balls).toHaveLength(3);
- for(let i=0;i<5;i++)g.physics.triple();expect(g.physics.balls.length).toBe(100);
+ for(let i=0;i<40;i++)g.physics.triple();expect(g.physics.balls.length).toBe(100);
  for(const b of g.physics.balls)Object.assign(b,{x:400,y:1080,vx:0,vy:760,outsideArena:true});g.update(C.step);expect(g.lives).toBe(4);expect(g.readyReason).toBe('lifeLost');expect(g.physics.balls.length).toBe(1);
 });
 it('网络异常不阻止单机开始、暂停、重开；结束可跳过成绩登记',async()=>{

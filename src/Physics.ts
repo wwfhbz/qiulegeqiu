@@ -1,7 +1,7 @@
 import {LEGACY_LEVELS} from './LegacyLevels';
 import {powerProfile, type LevelConfig } from './Levels';
 import { Obstacles } from './Obstacles';
-import { seededRandom,weightedPower } from './PowerRules';
+import { seededRandom,weightedPower,tripleTarget,TRIPLE_RULE_VERSION,type TripleRuleVersion } from './PowerRules';
 import type { SoundKind } from './Audio';
 import { C } from './GameConfig';
 import { Blocks } from './Blocks';
@@ -158,12 +158,13 @@ export class Physics {
     for(let i=keep;i<this.balls.length;i++)this.balls[i].alive=false;
     this.recycleDead(); // Administrative removal deliberately emits no death event.
   }
+  tripleRuleVersion:TripleRuleVersion=TRIPLE_RULE_VERSION;
   triple() {
-    this.recycleDead(); const count = this.balls.length;
-    for (let i = 0; i < count && this.balls.length < C.maxBalls; i++) {
+    this.recycleDead(); const count = this.balls.length,target=tripleTarget(count,this.tripleRuleVersion);
+    for (let i = 0; i < count && this.balls.length < target; i++) {
       const source = this.balls[i];
       for (const sign of [-1, 1]) {
-        if (this.balls.length >= C.maxBalls) break;
+        if (this.balls.length >= target) break;
         const b = this.newBall(), angle = sign * .19;
         b.vx = source.vx * Math.cos(angle) - source.vy * Math.sin(angle);
         b.vy = source.vx * Math.sin(angle) + source.vy * Math.cos(angle);

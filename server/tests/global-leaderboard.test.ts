@@ -56,7 +56,7 @@ it('零球不能继续拾取生命/三倍球，不能通过构造请求抵消扣
  for(const kind of ['life','triple'] as const){let seed=1;const g=new Game(undefined,undefined,new LevelManager(LEGACY_LEVELS));
  // Replay only needs one valid drop. Find a seed producing desired kind at legacy level 2.
  for(;seed<10000;seed++){const random=seededRandom(seed);for(let i=0;i<300;i++)weightedPower(1,random);if(weightedPower(2,random)===kind)break;}
- g.journal.seed=seed;g.physics.setSeed(seed);g.start();for(let i=0;i<g.physics.blocks.alive.length;i++)g.physics.blocks.hit(i);g.update(0);g.nextLevel();g.start();let n=28;for(let i=0;i<g.physics.blocks.alive.length&&n;i++)if(g.physics.blocks.alive[i]){g.physics.blocks.hit(i);n--;}
+ g.physics.tripleRuleVersion=1;g.journal.seed=seed;g.physics.setSeed(seed);g.start();for(let i=0;i<g.physics.blocks.alive.length;i++)g.physics.blocks.hit(i);g.update(0);g.nextLevel();g.start();let n=28;for(let i=0;i<g.physics.blocks.alive.length&&n;i++)if(g.physics.blocks.alive[i]){g.physics.blocks.hit(i);n--;}
  const events:ChallengeEvent[]=g.journal.events.map(e=>({...e}));const tick=g.journal.tick+1000;events.push({type:'ballLost',level:2,tick},{type:'power',kind,level:2,tick});expect(()=>verifyTrace(events,600000,seed,LEGACY_RULES_VERSION)).toThrow('道具拾取状态无效');
  }
 });

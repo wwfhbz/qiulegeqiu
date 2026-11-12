@@ -40,7 +40,7 @@ export class Game {
 
   start() {
     if (this.lives <= 0 || (this.state !== 'ready' && this.state !== 'paused')) return;
-    if (this.state === 'ready') { this.journal.record({type:'launch',level:this.levels.current.number}); this.roundActive = true; for (const b of this.physics.balls) this.physics.aimLaunch(b); }
+    if (this.state === 'ready') { this.journal.record({type:'launch',level:this.levels.current.number,...(this.journal.events.length===0&&this.physics.tripleRuleVersion===2?{tripleRuleVersion:2 as const}:{})}); this.roundActive = true; for (const b of this.physics.balls) this.physics.aimLaunch(b); }
     this.audio.unlock(); this.physics.paused = false; this.physics.accumulator = 0;
     this.state = 'running'; this.onChange(this);
   }
