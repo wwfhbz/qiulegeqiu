@@ -6,7 +6,7 @@ import {startFromPlayfield} from '../PlayfieldStart';
 export function createWebHost(canvas:HTMLCanvasElement,canStart:()=>boolean=()=>true):GameHost {
  let currentRenderer:Renderer|undefined;
  return {get renderer(){return currentRenderer;},mount(game){
-  const renderer=new Renderer(canvas,{cache:document.createElement('canvas'),viewport:()=>canvas.getBoundingClientRect(),pixelRatio:()=>window.devicePixelRatio||1,observe:resize=>{const observer=new ResizeObserver(resize);observer.observe(canvas);return ()=>observer.disconnect();}});
+  const renderer=new Renderer(canvas,{cache:document.createElement('canvas'),createSurface:()=>document.createElement('canvas'),lowPerformance:()=>window.innerWidth<360||(navigator.hardwareConcurrency??8)<=4,viewport:()=>canvas.getBoundingClientRect(),pixelRatio:()=>window.devicePixelRatio||1,observe:resize=>{const observer=new ResizeObserver(resize);observer.observe(canvas);return ()=>observer.disconnect();}});
   currentRenderer=renderer;
   const move=(event:PointerEvent)=>{if(event.pointerType!=='mouse'&&!canvas.hasPointerCapture(event.pointerId))return;const rect=canvas.getBoundingClientRect();if(rect.width>0)game.physics.setTarget((event.clientX-rect.left)/rect.width*C.width);};
   const down=(event:PointerEvent)=>{

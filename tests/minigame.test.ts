@@ -64,7 +64,7 @@ it('选择联网但API失败时立即降级单机，仍可暂停和重新开始'
 
 it('新版品牌与Canvas HUD读取同一个真实生命源，逐轮立即显示5至0',()=>{
  const f=fixture(),app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});let now=100;app.frame(now);expect(f.texts).toContain('球球出击');
- for(let lives=4;lives>=0;lives--){app.game.start();for(const b of app.game.physics.balls)Object.assign(b,{x:400,y:1080,vx:0,vy:760,outsideArena:true});app.game.physics.powers.spawn(400,C.paddle.y,'life');f.texts.length=0;now+=20;app.frame(now);expect(app.game.lives).toBe(lives);expect(f.texts.some(s=>s.includes('生命 ♥×'+lives))).toBe(true);}
+ for(let lives=4;lives>=0;lives--){app.game.start();for(const b of app.game.physics.balls)Object.assign(b,{x:400,y:1080,vx:0,vy:760,outsideArena:true});app.game.physics.powers.spawn(400,C.paddle.y,'life');f.texts.length=0;now+=20;app.frame(now);expect(app.game.lives).toBe(lives);expect(f.texts).toContain('生命');expect(f.texts).toContain('♥×'+lives);}
  expect(app.game.state).toBe('gameOver');
 });
 it('微信个人会话失效不能隐藏公开全球榜，只有一个榜单且可刷新',async()=>{

@@ -19,11 +19,11 @@ export class LeaderboardUI {
   constructor(private root:HTMLElement,private game:Game){
     this.sync=new ChallengeSync(this.api,game);
     this.sync.onProgress=(uploaded,total)=>{if(this.busy)this.message(`正在校验挑战记录… 已上传 ${uploaded}/${total} 条`);};
-    const trophy=document.createElement('button');trophy.className='trophy';trophy.type='button';trophy.textContent='🏆';trophy.setAttribute('aria-label','全球排行榜');root.querySelector('header')!.append(trophy);
+    const trophy=document.createElement('button');trophy.className='trophy';trophy.type='button';trophy.innerHTML=CUP_SVG;trophy.setAttribute('aria-label','全球排行榜');root.querySelector('header')!.append(trophy);
     this.dialog=document.createElement('dialog');this.dialog.className='ranking-dialog';this.dialog.setAttribute('aria-label','全球历史排行榜');this.dialog.innerHTML=`
-      <div class="ranking-title"><span class="stellar-cup">${CUP_SVG}</span><div><small>${GAME_NAME} · 星际荣誉殿堂</small><h2>全球历史排行榜</h2><p>每一份荣耀，都来自真实挑战</p></div><button type="button" data-online-close aria-label="关闭排行榜">×</button></div>
+      <div class="ranking-title"><span class="stellar-cup">${CUP_SVG}</span><div><small>${GAME_NAME} · 挑战记录</small><h2>全球历史排行榜</h2><p>同一个榜单，每一次真实突破</p></div><button type="button" data-online-close aria-label="关闭排行榜">×</button></div>
       <div class="ranking-scroll">
-      <section id="challenge-entry" hidden><h3>挑战成绩</h3><p id="challenge-stats"></p>
+      <section id="challenge-entry" hidden><h3>挑战成绩</h3><div id="challenge-stats"><div class="challenge-total"><span>本次总分</span><strong id="challenge-score">0</strong></div><div class="challenge-metrics"><span>关卡<strong id="challenge-level"></strong></span><span>消除砖块<strong id="challenge-bricks"></strong></span><span>挑战时间<strong id="challenge-time"></strong></span></div></div>
         <form id="score-form"><label>玩家昵称<input id="nickname" maxlength="24" autocomplete="nickname" placeholder="2～12个字符" required></label>
         <details id="region-details"><summary id="region-label">地区：中国</summary><div id="region-picker"></div></details>
         <p id="bound-region" hidden></p><p id="nickname-check" role="status"></p><p class="identity-note">身份由本浏览器安全会话保留。清除浏览器数据后，不能仅凭昵称找回。</p>
@@ -43,7 +43,7 @@ export class LeaderboardUI {
     this.el('score-form').onsubmit=e=>{e.preventDefault();void this.submit();};
     this.button('skip-score').onclick=()=>{this.dialog.close();activateCentralAction(game);};
     this.button('return-score').onclick=()=>this.open(true);
-    this.button('view-board').onclick=()=>{this.dialog.classList.remove('submission-view');this.el('challenge-entry').hidden=true;this.button('return-score').hidden=false;this.el('board-content').hidden=false;void this.loadBoard(0);};
+    this.button('view-board').onclick=()=>{this.dialog.querySelector('h2')!.textContent='全球历史排行榜';this.dialog.setAttribute('aria-label','全球历史排行榜');this.dialog.classList.remove('submission-view');this.el('challenge-entry').hidden=true;this.button('return-score').hidden=false;this.el('board-content').hidden=false;void this.loadBoard(0);};
     this.input('nickname').oninput=()=>{const revision=++this.checking;window.setTimeout(()=>{if(revision===this.checking)void this.checkNickname();},350);};
     this.button('wechat-link').onclick=()=>void this.linkWechat();
     this.button('appeal-send').onclick=()=>void this.appeal();
@@ -73,7 +73,7 @@ export class LeaderboardUI {
     this.el('historical-best').textContent=history.length?history.join('；')+'（已完整保留，需新版重赛上榜）':'';
   }
   observe(game:Game){this.syncMotion();this.sync.observe();if((game.state==='gameOver'||game.state==='victory')&&this.lastEnd!==game.journal.generation){this.lastEnd=game.journal.generation;this.open(true);}}
-  private open(ended:boolean){this.dialog.classList.toggle('submission-view',ended);this.button('return-score').hidden=ended||(this.game.state!=='gameOver'&&this.game.state!=='victory');this.el('challenge-entry').hidden=!ended;this.el('board-content').hidden=ended;this.message('');if(ended){const s=this.game.journal.summary(this.game.score.total,this.game.levels.current.number,this.game.state==='victory');this.el('challenge-stats').textContent=`总分 ${s.score} · 到达第${s.reachedLevel}关 · 消除 ${s.bricksDestroyed} 块 · ${(s.durationMs/1000).toFixed(1)} 秒`;}
+  private open(ended:boolean){this.dialog.querySelector('h2')!.textContent=ended?'本次挑战成绩':'全球历史排行榜';this.dialog.setAttribute('aria-label',ended?'本次挑战成绩':'全球历史排行榜');this.dialog.classList.toggle('submission-view',ended);this.button('return-score').hidden=ended||(this.game.state!=='gameOver'&&this.game.state!=='victory');this.el('challenge-entry').hidden=!ended;this.el('board-content').hidden=ended;this.message('');if(ended){const s=this.game.journal.summary(this.game.score.total,this.game.levels.current.number,this.game.state==='victory');this.el('challenge-score').textContent=s.score.toLocaleString('zh-CN');this.el('challenge-level').textContent=`到达第${s.reachedLevel}关`;this.el('challenge-bricks').textContent=s.bricksDestroyed.toLocaleString('zh-CN');this.el('challenge-time').textContent=`${(s.durationMs/1000).toFixed(1)} 秒`;}
     if(!this.dialog.open)this.dialog.showModal();this.syncMotion();void this.api.me(true).then(me=>this.applyMe(me)).catch(error=>{this.personalUnavailable();this.message(error.message);});if(!ended)void this.loadBoard(0);
   }
   private async checkNickname(){if(this.me?.player)return;const name=this.input('nickname').value;if(!name.trim()){this.el('nickname-check').textContent='';return;}const revision=++this.checking;try{const result=await this.api.request<{message:string;available:boolean}>(`/players/availability?${new URLSearchParams({nickname:name,region:this.picker.code})}`);if(revision===this.checking)this.el('nickname-check').textContent=result.message;}catch(error){if(revision===this.checking)this.el('nickname-check').textContent=(error as Error).message;}}

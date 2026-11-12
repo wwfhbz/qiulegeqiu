@@ -118,3 +118,7 @@ npm run test:browser:wechat
 正式微信开发者工具、微信官方登录及iOS/Android真机没有在当前Linux环境完成验收；不会把兼容层截图说成真机。
 
 旧minigame/仅保留重导出与构建兼容入口，没有第二份规则。新增工程与验证详情见[实现报告](../docs/WECHAT_GAME_CLIENT.md)。
+
+## V1.4视觉更新
+
+使用shared/VisualTheme及同一Renderer的深海蓝六色风格，移除旧排行榜插画加载和打包。游戏、道具、身份、API和规则版本均不变。独立构建和导入目录保持原方式。[截图与真机待办](../docs/DEEP_OCEAN_UI.md)。
