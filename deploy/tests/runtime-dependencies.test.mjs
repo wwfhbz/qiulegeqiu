@@ -90,7 +90,7 @@ test('安装新unit后失败：只移除本次新增unit，不disable原本不�
  }finally{rmSync(f.dir,{recursive:true,force:true});}
 });
 
-for(const freshReset of [false,true])test(freshReset?'完整重置publish：旧十关基线仅凭有效配套快照放行；缺包失败后能恢复旧库':'完整publish缺包回归：假成功安装不能切换版本；旧库在线备份且原数据不变',()=>{
+for(const profile of ['normal','reset','api-only']){const freshReset=profile==='reset',apiOnly=profile==='api-only';test(apiOnly?'兼容API桥接缺依赖失败：网页与数据库不变，不能发布新客户端':freshReset?'完整重置publish：旧十关基线仅凭有效配套快照放行；缺包失败后能恢复旧库':'完整publish缺包回归：假成功安装不能切换版本；旧库在线备份且原数据不变',()=>{
  const f=fixture();try{
   const base=join(f.dir,'api'),site=join(f.dir,'site'),data=join(f.dir,'data'),backups=join(f.dir,'backups'),etc=join(f.dir,'etc'),bin=join(f.dir,'bin'),source=join(f.dir,'source'),log=join(f.dir,'commands');
   for(const d of [base,site,data,backups,etc,bin,source])mkdirSync(d);
@@ -112,8 +112,9 @@ for(const freshReset of [false,true])test(freshReset?'完整重置publish：旧�
   let resetStore,resetRecord;
   if(freshReset){
    resetRecord=join(f.dir,'reset-record');mkdirSync(resetRecord);resetStore=new ResetStore({database:dbpath,ledgerRoot:join(f.dir,'reset-ledgers'),id:'approved-fresh-01',commit:'a'.repeat(40),sha256:'b'.repeat(64),quiescent:()=>{}});resetStore.prepare(resetRecord);
-   writeFileSync(join(previous,'RULES_VERSION'),'old-ten-rules');writeFileSync(join(source,'RULES_VERSION'),'1.2.0-arcade-5l-12lv-v1');writeFileSync(join(source,'SOURCE_COMMIT'),'a'.repeat(40));
+   writeFileSync(join(previous,'RULES_VERSION'),'old-ten-rules');writeFileSync(join(source,'RULES_VERSION'),'1.3.0-arcade-5l-12lv-drops-v2');writeFileSync(join(source,'SOURCE_COMMIT'),'a'.repeat(40));
   }
+  if(apiOnly){writeFileSync(join(previous,'RULES_VERSION'),'1.2.0-arcade-5l-12lv-v1');writeFileSync(join(source,'RULES_VERSION'),'1.3.0-arcade-5l-12lv-drops-v2');}
   const beforePublish=readFileSync(dbpath),beforeInode=statSync(dbpath).ino;
   // Fault injection: mimic npm exit 0/"added packages" but provide no runtime packages.
   writeFileSync(join(source,'deploy/install-production-deps.sh'),'#!/bin/bash\necho "added 51 packages (fault fixture: missing dependency tree)"\n');
@@ -123,7 +124,7 @@ for(const freshReset of [false,true])test(freshReset?'完整重置publish：旧�
   executable('runuser','shift 3\nexec "$@"\n');
   executable('systemctl','printf "%s\\n" "$*" >> "$COMMAND_LOG"\nexit 0\n');
   writeFileSync(log,'');
-  const launch=()=>spawnSync('bash',freshReset?['-c','exec 9>"$1";flock -n 9;export QIULEGEQIU_LOCK_HELD=1;exec bash "$2" --apply "$3" --reset-record "$4"','sh',join(f.dir,'rollout.lock'),publisher,source,resetRecord]:[publisher,'--apply',source],{encoding:'utf8',env:{...process.env,PATH:bin+':'+process.env.PATH,COMMAND_LOG:log,QIULEGEQIU_LOCK_HELD:''},timeout:30000});
+  const launch=()=>spawnSync('bash',freshReset?['-c','exec 9>"$1";flock -n 9;export QIULEGEQIU_LOCK_HELD=1;exec bash "$2" --apply "$3" --reset-record "$4"','sh',join(f.dir,'rollout.lock'),publisher,source,resetRecord]:[publisher,'--apply',source,...(apiOnly?['--api-only']:[])],{encoding:'utf8',env:{...process.env,PATH:bin+':'+process.env.PATH,COMMAND_LOG:log,QIULEGEQIU_LOCK_HELD:''},timeout:30000});
   const runtimeNode=join(base,'node/bin/node'),savedNode=runtimeNode+'.verified24';renameSync(runtimeNode,savedNode);
   writeFileSync(runtimeNode,'#!/bin/sh\necho v22.23.4\n');chmodSync(runtimeNode,0o755);
   try{const wrong=launch();assert.equal(wrong.error,undefined);assert.equal(wrong.status,1);assert.match(wrong.stderr,/运行时必须为生产Node v24.19.0/);assert.doesNotMatch(wrong.stdout,/added 51 packages/);assert.deepEqual(readFileSync(dbpath),beforePublish);}finally{rmSync(runtimeNode);renameSync(savedNode,runtimeNode);}
@@ -135,6 +136,7 @@ for(const freshReset of [false,true])test(freshReset?'完整重置publish：旧�
  }finally{rmSync(f.dir,{recursive:true,force:true});}
 });
 
+}
 
 test('回退只恢复变更清单中的配置，未修改配置及其他游戏文件保持原样',()=>{
  const f=rollbackFixture();try{

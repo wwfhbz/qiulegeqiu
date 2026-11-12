@@ -87,3 +87,10 @@ it('持续401有明确终止，旧写请求绝不在新身份下自动重放',as
  const api=new WechatApi(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});await expect(api.me()).rejects.toThrow('会话不存在');expect(logins).toBe(2);expect(reads).toBe(2);
  logins=0;await api.login();await expect(api.request('/players',{nickname:'重新登记',regionCode:'ISO:CN'})).rejects.toThrow('会话不存在');expect(logins).toBe(1);expect(posts).toBe(1);
 });
+it.each([[320,568],[390,844]])('微信%s×%s个人历史显示旧版记录，未重赛不冒充当前排名，菜单不新增整行高度',async(w,h)=>{
+ const f=fixture(w,h),app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});
+ vi.spyOn(app.api,'me').mockResolvedValue({rankingAvailable:true,csrfToken:'fixture',player:null,best:null,board:'global',rankingRulesVersion:RULES_VERSION,historicalBests:[{rules_version:'1.2.0-arcade-5l-12lv-v1',score:314115,reached_level:5,bricks_destroyed:10258,duration_ms:632700,rank:1,display_name:'历史玩家'}]});
+ try{app.frame(100);f.events.down(f.touch(1,20,100));f.events.up(f.touch(1,20,100));expect(app.panel.title).toBe('游戏菜单');const action=app.panel.actions.find(a=>a.label==='个人历史记录');expect(action?.half).toBe(true);action!.run();
+ await vi.waitFor(()=>expect(app.panel.title).toBe('个人历史记录'));expect(app.panel.lines).toContain('旧版十二关记录：314115 分 · 第5关');expect(app.panel.lines.join('')).toContain('重新挑战');app.frame(116);expect(app.panel.hits.every(hit=>hit.rect.y+hit.rect.height<h-34)).toBe(true);expect(app.game.state).toBe('ready');expect(app.game.journal.events).toHaveLength(0);
+ }finally{app.dispose();}
+});

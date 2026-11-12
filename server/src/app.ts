@@ -7,9 +7,9 @@ import {validationFailure} from './validation.js';
 import { openDb, transaction, json, type Db } from './db.js';
 import { seedRegions, region, regionView, searchRegions } from './regions.js';
 import { ApiError, moderateNickname } from './moderation.js';
-import { leaderboard, personalBest, refreshBest,globalLeaderboard,globalPersonalBest } from './leaderboard.js';
+import { leaderboard, personalBest, refreshBest,globalLeaderboard,globalPersonalBest,historicalBests } from './leaderboard.js';
 import { verifyTrace } from './verifier.js';
-import { CHALLENGE_PROTOCOL_VERSION,CHALLENGE_FEATURES,RULES_VERSION,LEGACY_RULES_VERSION,SUPPORTED_RULES_VERSIONS,GLOBAL_BOARD, type ChallengeEvent } from '../../shared/Challenge.js';
+import { CHALLENGE_PROTOCOL_VERSION,CHALLENGE_FEATURES,RULES_VERSION,PREVIOUS_RULES_VERSION,LEGACY_RULES_VERSION,SUPPORTED_RULES_VERSIONS,GLOBAL_BOARD, type ChallengeEvent } from '../../shared/Challenge.js';
 const ruleSchema=z.enum(SUPPORTED_RULES_VERSIONS);
 const selection=(req:FastifyRequest)=>{const q=z.object({board:z.literal(GLOBAL_BOARD).optional(),rulesVersion:ruleSchema.optional()}).parse(req.query);if(q.board&&q.rulesVersion&&q.rulesVersion!==RULES_VERSION)throw new ApiError(400,'统一排行榜只接受十二关挑战记录');return {global:q.board===GLOBAL_BOARD,rules:q.board?RULES_VERSION:q.rulesVersion??LEGACY_RULES_VERSION};};
 const selectedRules=(req:FastifyRequest)=>selection(req).rules;
@@ -18,7 +18,7 @@ const hash=(value:string)=>createHash('sha256').update(value).digest('hex');
 const id=z.string().uuid(), integer=z.number().int().nonnegative().max(100000000);
 const base={tick:integer,level:z.number().int().min(1).max(100)};
 export const challengeEvent=z.discriminatedUnion('type',[
- z.object({...base,type:z.literal('launch'),tripleRuleVersion:z.literal(2).optional()}).strict(),
+ z.object({...base,type:z.literal('launch'),tripleRuleVersion:z.literal(2).optional(),brickPowerVersion:z.literal(2).optional()}).strict(),
  z.object({...base,type:z.enum(['ballLost','lost','clear','next','finish'])}).strict(),
  z.object({...base,type:z.literal('hit'),index:integer}).strict(),
  z.object({...base,type:z.literal('power'),kind:z.enum(['halve','triple','wide','life','bomb']),dropId:z.number().int().positive().max(50000).optional()}).strict(),
@@ -30,7 +30,8 @@ export interface AppOptions { db?:Db; dbPath?:string; origin?:string; secure?:bo
 export async function createApp(options:AppOptions={}) {
  const db=options.db||openDb(options.dbPath||process.env.DB_PATH||'../work/leaderboard.sqlite'); seedRegions(db);
  const freshDatabase=!!db.prepare("SELECT 1 FROM sqlite_schema WHERE type='table' AND name='deployment_reset_epoch'").get();
- const activeRules:readonly string[]=freshDatabase?[RULES_VERSION]:SUPPORTED_RULES_VERSIONS;
+ const activeRules:readonly string[]=freshDatabase?[PREVIOUS_RULES_VERSION,RULES_VERSION]:SUPPORTED_RULES_VERSIONS;
+ const historyFields=(playerId:string|null)=>{const records=playerId?historicalBests(db,playerId):[];return {historicalBest:records[0]??null,historicalBests:records};};
  const now=options.now||Date.now, origin=options.origin||process.env.PUBLIC_ORIGIN||'http://127.0.0.1:5173', secure=options.secure??process.env.NODE_ENV==='production';
  if(secure&&!origin.startsWith('https://'))throw new Error('生产PUBLIC_ORIGIN必须使用HTTPS');
  const app=Fastify({bodyLimit:256*1024,trustProxy:['127.0.0.1','::1'],logger:process.env.NODE_ENV==='production'?{level:'info',redact:['req.headers.cookie','req.headers.authorization','req.headers["x-csrf-token"]','res.headers["set-cookie"]'],serializers:{req:(r:{method:string;url:string})=>({method:r.method,path:r.url.split('?')[0]})}}:false}); await app.register(cookie);
@@ -97,7 +98,7 @@ export async function createApp(options:AppOptions={}) {
   let s=session(req,false);
   if(!s){rate(`bootstrap:${req.ip}`,120,3600000);const token=randomBytes(32).toString('base64url');s={id:randomUUID(),player_id:null,csrf_token:randomBytes(24).toString('base64url')};db.prepare('INSERT INTO sessions VALUES(?,?,?,?,?,?)').run(s.id,null,hash(token),s.csrf_token,now(),now()+90*86400000);reply.setCookie(secure?'__Secure-qlgq':'qlgq_dev',token,{path:'/api',httpOnly:true,secure,sameSite:'strict',maxAge:90*86400});}
   const p=s.player_id?db.prepare('SELECT p.id,p.nickname,p.region_code,p.region_level,p.status,r.prefix FROM players p JOIN regions r ON r.code=p.region_code WHERE p.id=?').get(s.player_id):null;
-  return {rulesVersion:rules,...(selection(req).global?boardMetadata:{}),csrfToken:s.csrf_token,player:p?{...p,display_name:`${p.prefix}·${p.nickname}`}:null,best:s.player_id?(selection(req).global?globalPersonalBest(db,s.player_id):personalBest(db,s.player_id,rules)):null,...(selection(req).global?{historicalBest:s.player_id?personalBest(db,s.player_id,LEGACY_RULES_VERSION):null}: {})};
+  return {rulesVersion:rules,...(selection(req).global?boardMetadata:{}),csrfToken:s.csrf_token,player:p?{...p,display_name:`${p.prefix}·${p.nickname}`}:null,best:s.player_id?(selection(req).global?globalPersonalBest(db,s.player_id):personalBest(db,s.player_id,rules)):null,...(selection(req).global?historyFields(s.player_id): {})};
  });
  app.get('/api/regions',async(req)=>{const q=z.object({parent:z.string().max(32).optional(),q:z.string().max(40).default(''),offset:z.coerce.number().int().min(0).max(10000).default(0)}).parse(req.query);return searchRegions(db,q.parent,q.q,q.offset);});
  app.get('/api/regions/:code',async(req)=>{const code=z.string().max(32).parse((req.params as {code:string}).code),r=region(db,code);if(!r)throw new ApiError(404,'地区不存在');return regionView(db,r);});
@@ -117,7 +118,7 @@ export async function createApp(options:AppOptions={}) {
  });
  app.post('/api/challenges',async(req,reply)=>{
   const s=session(req)!;if(s.player_id)active(s);rate(`challenge:${s.id}`,30,3600000);const input=z.object({rulesVersion:z.string().max(100),unranked:z.boolean().default(false),seed:z.number().int().min(0).max(4294967295).default(1)}).strict().parse(req.body);
-  if(freshDatabase&&input.rulesVersion!==RULES_VERSION)throw new ApiError(400,'本排行榜已启用十二关，请刷新客户端后重新开始','CLIENT_UPDATE_REQUIRED');
+  if(freshDatabase&&input.rulesVersion===LEGACY_RULES_VERSION)throw new ApiError(400,'本排行榜已启用十二关，请刷新客户端后重新开始','CLIENT_UPDATE_REQUIRED');
   if(!SUPPORTED_RULES_VERSIONS.includes(input.rulesVersion as typeof SUPPORTED_RULES_VERSIONS[number]))throw new ApiError(400,'服务器不支持当前游戏规则，请更新排行榜后端；本次仍可单机游玩','UNSUPPORTED_RULES');
   const cid=randomUUID();transaction(db,()=>{db.prepare('INSERT INTO challenges(id,session_id,rules_version,created_at,expires_at,unranked,seed) VALUES(?,?,?,?,?,?,?)').run(cid,s.id,input.rulesVersion,now(),now()+6*3600000,input.unranked?1:0,input.seed);});reply.status(201);return {id:cid,expiresAt:now()+6*3600000,rulesVersion:input.rulesVersion,challengeProtocolVersion:CHALLENGE_PROTOCOL_VERSION,challengeFeatures:CHALLENGE_FEATURES};
  });
@@ -140,7 +141,7 @@ export async function createApp(options:AppOptions={}) {
   });
  });
  app.get('/api/leaderboard',async(req)=>{const q=z.object({offset:z.coerce.number().int().min(0).max(99).default(0),limit:z.coerce.number().int().min(1).max(20).default(20)}).parse(req.query);const limit=Math.min(q.limit,100-q.offset),selected=selection(req),read=(offset:number,size:number)=>selected.global?globalLeaderboard(db,offset,size):leaderboard(db,offset,size,selected.rules),items=read(q.offset,limit),next=q.offset+items.length;return {rulesVersion:selected.rules,...(selected.global?boardMetadata:{}),items,nextOffset:next<100&&items.length===limit&&read(next,1).length?next:null};});
- app.get('/api/me/best',async(req)=>{const s=session(req)!,rules=selectedRules(req);return {rulesVersion:rules,...(selection(req).global?boardMetadata:{}),best:s.player_id?(selection(req).global?globalPersonalBest(db,s.player_id):personalBest(db,s.player_id,rules)):null,...(selection(req).global?{historicalBest:s.player_id?personalBest(db,s.player_id,LEGACY_RULES_VERSION):null}: {})};});
+ app.get('/api/me/best',async(req)=>{const s=session(req)!,rules=selectedRules(req);return {rulesVersion:rules,...(selection(req).global?boardMetadata:{}),best:s.player_id?(selection(req).global?globalPersonalBest(db,s.player_id):personalBest(db,s.player_id,rules)):null,...(selection(req).global?historyFields(s.player_id): {})};});
  app.post('/api/appeals',async(req,reply)=>{const s=session(req)!;rate(`appeal:${s.id}`,3,86400000);const {message}=z.object({message:z.string().trim().min(5).max(500)}).strict().parse(req.body);const appealId=randomUUID();db.prepare('INSERT INTO appeals(id,player_id,session_id,message,created_at) VALUES(?,?,?,?,?)').run(appealId,s.player_id,s.id,message,now());reply.status(201);return {id:appealId};});
  app.addHook('onClose',async()=>{if(!options.db)db.close();});return {app,db};
 }

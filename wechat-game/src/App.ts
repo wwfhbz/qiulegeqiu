@@ -1,3 +1,4 @@
+import {scoreHistoryLines} from '../../shared/ScoreHistory';
 import {assertGlobalBoard,type LeaderboardMetadata} from '../../shared/Challenge';
 import {GAME_NAME} from '../../shared/Brand';
 import {Game} from '../../src/Game';
@@ -86,11 +87,16 @@ export class MiniGameApp {
  private async task(work:()=>Promise<void>){if(this.busy)return;this.busy=true;try{await work();}catch(error){this.toast((error as Error).message);}finally{this.busy=false;}}
  private menu(){this.game.pause();this.panel.show('游戏菜单',[this.me?.best?`我的历史最高：${this.me.best.score}，排名 ${this.me.best.rank}`:'可随时单机挑战，联网异常不影响游戏'],[
   {label:'分享小游戏',run:()=>this.wx.shareAppMessage(this.shareData()),half:true},{label:this.game.audio.muted?'开启音效':'静音',run:()=>{this.game.audio.toggle();this.platform.write('qiulegeqiu:wechat-muted:v1',this.game.audio.muted);this.menu();},half:true},
-  {label:'绑定已有网页账号',run:()=>void this.bind()},
+  {label:'个人历史记录',run:()=>void this.history(),half:true},
+  {label:'绑定已有网页账号',run:()=>void this.bind(),half:true},
   {label:'单机重新挑战',run:()=>{this.offlinePreference=true;this.online=false;this.panel.close();this.game.reset();},half:true},{label:'联网重新挑战',run:()=>{this.offlinePreference=false;this.panel.close();this.game.reset();},half:true},
   {label:'隐私保护说明',run:()=>this.wx.showModal({title:'隐私保护说明',content:privacy,showCancel:false}),half:true},{label:'用户协议',run:()=>this.wx.showModal({title:'用户协议',content:agreement,showCancel:false}),half:true},
   {label:'账号及隐私申诉',run:()=>void this.appeal()}, {label:'关闭菜单',run:()=>this.panel.close()}
  ]);}
+ private async history(){return this.task(async()=>{
+  this.me=await this.api.me();const lines=scoreHistoryLines(this.me.historicalBests,this.me.historicalBest);
+  this.panel.show('个人历史记录',lines.length?[...lines,'旧成绩完整保留，全球榜需按新版规则重新挑战。']:['暂无旧版有效记录'],[{label:'返回菜单',run:()=>this.menu()}]);
+ });}
  private result(){const g=this.game;this.panel.show(GAME_NAME+' · '+(g.state==='victory'?'十二关突破成功':'挑战结束'),[`本次总分 ${g.score.total}　到达第${g.levels.current.number}关`,`消除 ${g.journal.bricksDestroyed} 块`,this.online?'成绩仍需服务端记录验证':'本轮为单机挑战，不上传成绩'],[
   ...(this.online&&!this.me?.player?[{label:'登记地区：'+this.region.prefix,run:()=>void this.regions(undefined,()=>this.result())}]:[]),
   {label:'提交本次成绩',run:()=>void this.submit()}, {label:'查看全球排行榜',run:()=>void this.board()},

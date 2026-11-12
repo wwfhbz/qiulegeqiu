@@ -1,4 +1,4 @@
-import { RULES_VERSION,assertChallengeSupport,assertChallengeProtocol,assertTripleRuleSupport, type ChallengeEvent } from '../../shared/Challenge';
+import { RULES_VERSION,assertChallengeSupport,assertChallengeProtocol,assertTripleRuleSupport,assertBrickPowerSupport, type ChallengeEvent } from '../../shared/Challenge';
 import type { Game } from '../Game';
 import type { ApiTransport } from '../../shared/ApiTransport';
 interface Run { generation:number; id:Promise<string>; sequence:number; acknowledged:number; pending?:ChallengeEvent[]; key:string; pumping?:Promise<void>; error?:string;fatal?:boolean;retryAt?:number;blocked?:string }
@@ -17,7 +17,7 @@ export class ChallengeSync {
   observe(){const journal=this.game.journal;if(!journal.events.length)return;
     if(!this.run||this.run.generation!==journal.generation){
       const run:Run={generation:journal.generation,id:Promise.resolve(''),sequence:0,acknowledged:0,key:this.clientId()};
-      run.id=this.request<Parameters<typeof assertChallengeSupport>[0]&Parameters<typeof assertChallengeProtocol>[0]&Parameters<typeof assertTripleRuleSupport>[0]>('/health').then(health=>{assertChallengeSupport(health);assertChallengeProtocol(health);assertTripleRuleSupport(health);return this.request<{id:string;rulesVersion:string;challengeProtocolVersion?:number;challengeFeatures?:unknown}>('/challenges',{rulesVersion:RULES_VERSION,unranked:journal.unranked,seed:journal.seed});}).then(r=>{if(r.rulesVersion!==RULES_VERSION||typeof r.id!=='string'||!r.id)throw Error('挑战接口返回的规则版本或标识无效，本次不能登记成绩');assertChallengeProtocol(r);assertTripleRuleSupport(r);return r.id;}).catch(error=>{run.error=String(error.message);run.fatal=true;return '';});this.run=run;
+      run.id=this.request<Parameters<typeof assertChallengeSupport>[0]&Parameters<typeof assertChallengeProtocol>[0]&Parameters<typeof assertTripleRuleSupport>[0]>('/health').then(health=>{assertChallengeSupport(health);assertChallengeProtocol(health);assertTripleRuleSupport(health);assertBrickPowerSupport(health);return this.request<{id:string;rulesVersion:string;challengeProtocolVersion?:number;challengeFeatures?:unknown}>('/challenges',{rulesVersion:RULES_VERSION,unranked:journal.unranked,seed:journal.seed});}).then(r=>{if(r.rulesVersion!==RULES_VERSION||typeof r.id!=='string'||!r.id)throw Error('挑战接口返回的规则版本或标识无效，本次不能登记成绩');assertChallengeProtocol(r);assertTripleRuleSupport(r);assertBrickPowerSupport(r);return r.id;}).catch(error=>{run.error=String(error.message);run.fatal=true;return '';});this.run=run;
     }
     if(this.run.fatal||this.run.blocked||this.clock()<(this.run.retryAt??0))return;
     if(this.clock()-this.lastPump>1500||journal.events.length-this.run.acknowledged>=128){this.lastPump=this.clock();void this.flush().catch(()=>{});}

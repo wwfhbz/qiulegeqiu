@@ -1,3 +1,4 @@
+import {scoreHistoryLines} from '../../shared/ScoreHistory';
 import "./ranking/ranking.css";
 import "./ranking/reference.css";
 import {REFERENCE,referenceSeconds} from './ranking/ReferenceLayout';
@@ -68,7 +69,8 @@ export class LeaderboardUI {
     this.el('my-best').textContent=mine.card?mine.title:me.rankingAvailable===false?'个人排名暂不可用，排行榜后端需要更新':'我的排名：未上榜 · 完成十二关规则挑战后登记成绩';
     this.el('my-name').textContent=me.best?.display_name??me.player?.display_name??'';
     const myStats=this.el('my-stats');myStats.replaceChildren();if(me.best){for(const [label,value] of [['最高总分',mine.card!.score],['最高关卡',mine.card!.level],['消除砖块',mine.card!.bricks],['最佳时间',referenceSeconds(me.best.duration_ms)]]){const item=document.createElement('span'),caption=document.createElement('small'),number=document.createElement('strong');caption.textContent=label;number.textContent=value;item.append(caption,number);myStats.append(item);}}else myStats.textContent=me.rankingAvailable===false?'个人排名暂不可用，排行榜后端需要更新':'完成挑战并提交有效成绩后上榜';
-    this.el('historical-best').textContent=me.historicalBest?`旧版历史记录：${me.historicalBest.score} 分 · 第${me.historicalBest.reached_level}关（已完整保留，需新版重赛上榜）`:'';
+    const history=scoreHistoryLines(me.historicalBests,me.historicalBest);
+    this.el('historical-best').textContent=history.length?history.join('；')+'（已完整保留，需新版重赛上榜）':'';
   }
   observe(game:Game){this.syncMotion();this.sync.observe();if((game.state==='gameOver'||game.state==='victory')&&this.lastEnd!==game.journal.generation){this.lastEnd=game.journal.generation;this.open(true);}}
   private open(ended:boolean){this.dialog.classList.toggle('submission-view',ended);this.button('return-score').hidden=ended||(this.game.state!=='gameOver'&&this.game.state!=='victory');this.el('challenge-entry').hidden=!ended;this.el('board-content').hidden=ended;this.message('');if(ended){const s=this.game.journal.summary(this.game.score.total,this.game.levels.current.number,this.game.state==='victory');this.el('challenge-stats').textContent=`总分 ${s.score} · 到达第${s.reachedLevel}关 · 消除 ${s.bricksDestroyed} 块 · ${(s.durationMs/1000).toFixed(1)} 秒`;}

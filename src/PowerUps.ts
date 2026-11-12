@@ -4,6 +4,11 @@ export type { PowerKind } from './PowerRules';
 export class PowerUps {
   readonly items = Array.from({length:C.power.maxDrops},()=>({x:0,y:0,alive:false,dropId:0,kind:'triple' as PowerKind}));
   private sequence=0;
+  /** Preallocate enough slots for every assigned brick; never drop a tutorial reward. */
+  setCapacity(count:number){
+    this.reset();while(this.items.length<count)this.items.push({x:0,y:0,alive:false,dropId:0,kind:'triple'});
+    this.items.length=count;
+  }
   reset(){this.sequence=0;for(const item of this.items)item.alive=false;}
   spawn(x:number,y:number,kind:PowerKind){const dropId=++this.sequence;const item=this.items.find(p=>!p.alive);if(item){item.dropId=dropId;item.x=x;item.y=y;item.kind=kind;item.alive=true;}}
   update(dt:number,paddleX:number,width:number,collect:(kind:PowerKind,dropId:number)=>void){

@@ -5,7 +5,8 @@ umask 077
 [[ ${1:-} = --apply && -n ${2:-} ]] || { echo '用法：sudo bash publish.sh --apply 已核验的解压目录'; exit 1; }
 [[ $EUID = 0 ]]
 reset_record=''
-if [[ $# = 4 && $3 = --reset-record ]];then reset_record=$(realpath -e "$4");elif [[ $# != 2 ]];then echo '用法：publish.sh --apply 目录 [--reset-record 受管事务目录]';exit 1;fi
+api_only=0
+if [[ $# = 3 && $3 = --api-only ]];then api_only=1;elif [[ $# = 4 && $3 = --reset-record ]];then reset_record=$(realpath -e "$4");elif [[ $# != 2 ]];then echo '用法：publish.sh --apply 目录 [--api-only | --reset-record 受管事务目录]';exit 1;fi
 source_dir=$(realpath "$2")
 site=/var/www/qiulegeqiu
 base=/opt/qiulegeqiu-api
@@ -39,13 +40,13 @@ if [[ -e "$base/current" ]];then [[ -L "$base/current" ]];previous=$(readlink -f
 if [[ -n "$reset_record" ]];then
  [[ ${QIULEGEQIU_LOCK_HELD:-} = 1 && $(readlink /proc/self/fd/9) = /run/lock/qiulegeqiu-rollout.lock ]] || { echo '重置必须由已持锁的一键安装事务调用';exit 1; }
  "$runtime/node" --input-type=module - "$source_dir/deploy/reset-database.mjs" "$reset_record" "$source_dir/SOURCE_COMMIT" "$source_dir/RULES_VERSION" <<'JS'
-import {readFileSync} from 'node:fs';import {pathToFileURL} from 'node:url';const {ResetStore}=await import(pathToFileURL(process.argv[2]));const r=JSON.parse(readFileSync(process.argv[3]+'/database-reset-intent.json'));if(r.commit!==readFileSync(process.argv[4],'utf8').trim()||readFileSync(process.argv[5],'utf8').trim()!=='1.2.0-arcade-5l-12lv-v1')throw Error('重置事务与十二关发布包不同');new ResetStore({id:r.id,commit:r.commit,sha256:r.sha256}).verifyPrepared(process.argv[3]);
+import {readFileSync} from 'node:fs';import {pathToFileURL} from 'node:url';const {ResetStore}=await import(pathToFileURL(process.argv[2]));const r=JSON.parse(readFileSync(process.argv[3]+'/database-reset-intent.json'));if(r.commit!==readFileSync(process.argv[4],'utf8').trim()||readFileSync(process.argv[5],'utf8').trim()!=='1.3.0-arcade-5l-12lv-drops-v2')throw Error('重置事务与十二关发布包不同');new ResetStore({id:r.id,commit:r.commit,sha256:r.sha256}).verifyPrepared(process.argv[3]);
 JS
 else
  "$runtime/node" "$source_dir/deploy/reset-preflight.mjs" --check-pending
  if [[ -n "$previous" && -f "$db" ]];then
- "$runtime/node" --input-type=module - "$source_dir/deploy/leaderboard-contract.mjs" "$source_dir/RULES_VERSION" "$previous/RULES_VERSION" <<'JS'
-import {readFileSync,existsSync} from 'node:fs';import {pathToFileURL} from 'node:url';const {verifyRollbackCompatibility}=await import(pathToFileURL(process.argv[2]));verifyRollbackCompatibility(readFileSync(process.argv[3],'utf8'),existsSync(process.argv[4])?readFileSync(process.argv[4],'utf8'):undefined);
+ "$runtime/node" --input-type=module - "$source_dir/deploy/leaderboard-contract.mjs" "$source_dir/RULES_VERSION" "$previous/RULES_VERSION" "$api_only" <<'JS'
+import {readFileSync,existsSync} from 'node:fs';import {pathToFileURL} from 'node:url';const {verifyRollbackCompatibility}=await import(pathToFileURL(process.argv[2]));verifyRollbackCompatibility(readFileSync(process.argv[3],'utf8'),existsSync(process.argv[4])?readFileSync(process.argv[4],'utf8'):undefined,{apiOnly:process.argv[5]==='1'});
 JS
  fi
 fi
@@ -72,10 +73,12 @@ bash "$release/deploy/install-production-deps.sh" "$runtime/node" "$release/serv
 runuser -u qiulegeqiu -- env -i PATH="$runtime:/usr/bin:/bin" /bin/sh -c \
  'cd "$1" && exec "$2" "$3" "$1" --start' sh \
  "$release/server" "$runtime/node" "$release/deploy/verify-runtime.mjs"
+if [[ "$api_only" = 0 ]];then
 install -d -m 755 "$site/assets"
 cp -r "$source_dir/dist/assets/." "$site/assets/"
 find "$site/assets" -type d -exec chmod 755 {} +
 find "$site/assets" -type f -exec chmod 644 {} +
+fi
 switched=0
 html_switched=0
 on_failure(){
@@ -96,15 +99,18 @@ mv -Tf "$base/current.new-$$" "$base/current"
 switched=1
 systemctl restart qiulegeqiu-api
 curl --fail --max-time 3 --retry 5 --retry-connrefused --retry-delay 1 http://127.0.0.1:8091/api/health > "$release/health.json"
-"$runtime/node" --input-type=module - "$release/health.json" "$release/RULES_VERSION" "$release/deploy/leaderboard-contract.mjs" <<'JS'
-import {readFileSync} from 'node:fs';import {pathToFileURL} from 'node:url';const {verifyLeaderboardHealth}=await import(pathToFileURL(process.argv[4]));verifyLeaderboardHealth(JSON.parse(readFileSync(process.argv[2],'utf8')),readFileSync(process.argv[3],'utf8').trim());
+"$runtime/node" --input-type=module - "$release/health.json" "$release/RULES_VERSION" "$release/deploy/leaderboard-contract.mjs" "$api_only" <<'JS'
+import {readFileSync} from 'node:fs';import {pathToFileURL} from 'node:url';const {verifyLeaderboardHealth,verifyCompatibilityBridgeHealth}=await import(pathToFileURL(process.argv[4]));(process.argv[5]==='1'?verifyCompatibilityBridgeHealth:verifyLeaderboardHealth)(JSON.parse(readFileSync(process.argv[2],'utf8')),readFileSync(process.argv[3],'utf8').trim());
 JS
 main_pid=$(systemctl show qiulegeqiu-api -p MainPID --value)
 listeners=$(ss -H -lntp '( sport = :8091 )')
 [[ "$main_pid" -gt 0 && "$listeners" = *"127.0.0.1:8091"* && "$listeners" = *"pid=$main_pid,"* ]]
 [[ "$listeners" != *"0.0.0.0:8091"* && "$listeners" != *"[::]:8091"* && "$listeners" != *"*:8091"* ]]
+if [[ "$api_only" = 0 ]];then
 install -m 644 "$source_dir/dist/index.html" "$site/.index.html.new-$$"
 mv -f "$site/.index.html.new-$$" "$site/index.html"
 html_switched=1
+fi
 trap - ERR
+if [[ "$api_only" = 1 ]];then printf '兼容后端已安装，网页文件未改动。使用同一已审核发布包执行普通发布，启用新版客户端。\n';fi
 printf '发布完成：%s；数据库保留；尚需执行已审核的Nginx配置与上线验收。\n' "$release"
