@@ -1,4 +1,4 @@
-export interface Touch {identifier:number;clientX:number;clientY:number}
+export interface Touch {identifier:number;clientX?:number;clientY?:number;x?:number;y?:number;pageX?:number;pageY?:number}
 export interface TouchEvent {touches:Touch[];changedTouches:Touch[]}
 export interface Canvas {
  width:number;height:number;getContext(kind:'2d'):CanvasRenderingContext2D;
