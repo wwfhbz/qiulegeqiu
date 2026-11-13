@@ -42,3 +42,15 @@ it('振动策略（网页/微信共用）：只在炸弹、清台、÷2、最后
  fx.emit('bomb',0,0);expect(h.next(fx,false,4000)).toBe('heavy');
  fx.emit('clear',0,0);fx.emit('power',0,0,0,'halve');expect(h.next(fx,false,5000)).toBe('heavy');
 });
+it('100颗火焰/穿透球连续渲染不抛错、不改动游戏状态，特效池大小固定',()=>{
+ const game=new Game();game.setMode('endless');game.start();const p=game.physics;
+ const canvas=wxFixture().wx.createCanvas(),cached=wxFixture().wx.createCanvas();context(canvas);context(cached);
+ const r=new Renderer(canvas,{cache:cached,viewport:()=>({width:390,height:546}),pixelRatio:()=>2});
+ while(p.balls.length<100)p.balls.push(p.newBall());p.fireRemaining=5;p.pierceRemaining=5;
+ for(let i=0;i<40;i++)p.effects.emit(i%3===0?'burn':i%3===1?'slash':'poof',300+i,300,16,undefined,1,-1);
+ const snapshot=JSON.stringify([p.balls,p.fireRemaining,p.pierceRemaining,game.score.total]);
+ for(let f=0;f<90;f++){for(const b of p.balls)b.x+=1;r.draw(p,false,f*16);}
+ for(const b of p.balls)b.x-=90;expect(JSON.stringify([p.balls,p.fireRemaining,p.pierceRemaining,game.score.total])).toBe(snapshot);
+ const fx=(r as unknown as {powerFx:{blobs:unknown[];sparks:unknown[];trails:Map<unknown,unknown>}}).powerFx;expect(fx.blobs).toHaveLength(40);expect(fx.sparks).toHaveLength(220);expect(fx.trails.size).toBeLessThanOrEqual(40);
+ r.dispose();game.dispose();
+});

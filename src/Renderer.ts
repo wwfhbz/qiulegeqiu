@@ -6,6 +6,7 @@ import { C } from './GameConfig';
 import { Physics } from './Physics';
 import type { FxEvent } from './Effects';
 import { FRAME } from './WorldGeometry';
+import { PowerFx } from './PowerFx';
 import type {CanvasSurface,RendererHost} from './platform/Contracts';
 export type {RendererHost} from './platform/Contracts';
 
@@ -53,6 +54,7 @@ export class Renderer {
   private bubbles=Array.from({length:BUBBLES},(_,i)=>({x:FRAME.left+((i*137)%(FRAME.right-FRAME.left)),y:(i*263)%C.height,r:1+(i%4)*.8,speed:8+(i%5)*5,phase:i}));
   private lastBricks:number[]=[];private lastBricksRevision=-1;
   private lastTime=0;private roundOver=false;
+  private powerFx=new PowerFx();private glowFor=(color:string)=>this.glow(color);
   private zaps=Array.from({length:24},()=>({x1:0,y1:0,x2:0,y2:0,start:-1e9,seed:0}));private zapCursor=0;private zapSound=-1e9;
   constructor(private canvas:CanvasSurface, private host:RendererHost) {
     this.cache=host.cache;this.badges=host.createSurface?.();
@@ -192,6 +194,7 @@ export class Renderer {
         if(e.value%100===0)this.shake(6,now);break;}
       case 'clear':this.flash('#FFFFFF',.35,now,420);this.shake(10,now);this.ring(e.x,e.y,now,700,10,420,OCEAN.colors.positive,6);this.ring(a.x,a.y,now,900,a.radius*.2,a.radius*1.2,OCEAN.colors.accent,4);this.popup('clear','清台！','',a.x,a.y-170,now,OCEAN.colors.positive,58,1300);break;
       case 'zap':{const z=this.zaps[this.zapCursor++%this.zaps.length];z.x1=e.sx??e.x;z.y1=e.sy??e.y;z.x2=e.x;z.y2=e.y;z.start=now;z.seed=e.seq;if(this.zapSound<now-60){this.zapSound=now;this.flash(OCEAN.powers.lightning.color,.10,now,160);}break;}
+      case 'burn':case 'slash':case 'poof':this.powerFx.react(e,now);break;
       case 'hit':case 'descend':break;
     }
   }
@@ -280,6 +283,9 @@ export class Renderer {
     // Ready: dotted launch guide from the waiting ball.
     if(ready){const ball=p.balls[0];if(ball){const tx=a.x-ball.x,ty=a.y+a.radius-12-ball.y,len=Math.hypot(tx,ty)||1,ux=tx/len,uy=ty/len,off=(now/40)%14;c.fillStyle=rgba(OCEAN.colors.accent,.7);for(let d=14+off;d<130;d+=14){c.globalAlpha=.75*(1-d/130);c.beginPath();c.arc(ball.x+ux*d,ball.y+uy*d,2,0,Math.PI*2);c.fill();}c.globalAlpha=1;}}
 
+    // Endless powers: burning patches and comet / flame trails under the balls.
+    const piercing=p.pierceRemaining>0,burning=p.fireRemaining>0;
+    this.powerFx.track(p.balls,piercing,burning,now,low);this.powerFx.drawUnder(c,this.glowFor,piercing,burning,now);
     // Balls: comet trail, additive glow (budgeted), solid core.
     if(budget.trailLength){c.lineCap='round';for(const ball of p.balls)if(ball.alive){const speed=Math.hypot(ball.vx,ball.vy)||1,ux=ball.vx/speed,uy=ball.vy/speed;for(let k=0;k<3;k++){const s0=k*budget.trailLength/3,s1=(k+1)*budget.trailLength/3;c.globalAlpha=budget.trailAlpha*(1.6-k*.5);c.lineWidth=ball.radius*(1.5-k*.4);c.strokeStyle=p.fireRemaining>0?OCEAN.powers.fire.color:p.pierceRemaining>0?OCEAN.powers.pierce.color:OCEAN.ball.trail;c.beginPath();c.moveTo(ball.x-ux*s0,ball.y-uy*s0);c.lineTo(ball.x-ux*s1,ball.y-uy*s1);c.stroke();}}c.lineCap='butt';c.globalAlpha=1;}
     // Burning balls glow orange, piercing balls cyan; colours make the active power readable at a glance.
@@ -288,6 +294,7 @@ export class Renderer {
     if(bg){c.globalAlpha=.55;for(const ball of p.balls)if(ball.alive){const r=ball.radius*4.2;c.drawImage(bg as CanvasImageSource,ball.x-r,ball.y-r,r*2,r*2);}c.globalAlpha=1;}
     for(const ball of p.balls)if(ball.alive){c.fillStyle=OCEAN.ball.body;c.beginPath();c.arc(ball.x,ball.y,ball.radius+.4,0,Math.PI*2);c.fill();if(budget.highlights){c.strokeStyle=OCEAN.ball.edge;c.lineWidth=.8;c.beginPath();c.arc(ball.x,ball.y,ball.radius,0,Math.PI*2);c.stroke();}}
 
+    this.powerFx.drawHeads(c,this.glowFor,p.balls,piercing,burning,now);
     // Brick break: bright flash plus coloured shards that inherit the brick's band colour.
     const field=p.endless,shardColor=(tag:number)=>tag<0?OCEAN.colors.warning:field?endlessBrickColor(field.worldRow(tag)):brickColor(tag,b.step,p.level.number);
     for(const f of p.effects.flashes)if(f.life>0){const k=f.life/OCEAN.motion.flashSeconds;c.globalAlpha=Math.min(.8,k*.8);c.fillStyle='#FFFFFF';const s=b.size*(1+.6*(1-k));c.fillRect(f.x-s/2,f.y-s/2,s,s);}
@@ -321,6 +328,7 @@ export class Renderer {
       for(let k=1;k<6;k++){const f=k/6,nx=-(z.y2-z.y1),ny=z.x2-z.x1,len=Math.hypot(nx,ny)||1,j=rand()*26;c.lineTo(z.x1+(z.x2-z.x1)*f+nx/len*j,z.y1+(z.y2-z.y1)*f+ny/len*j);}
       c.lineTo(z.x2,z.y2);c.stroke();c.lineWidth=1;c.strokeStyle='#FFFFFF';c.stroke();}
     c.globalAlpha=1;c.lineCap='butt';
+    this.powerFx.drawOver(c,a,now);
     // Rings and popups.
     for(const r of this.rings){const t=(now-r.start)/r.duration;if(t<0||t>=1)continue;const e=1-(1-t)*(1-t);c.globalAlpha=(1-t)*.9;c.strokeStyle=r.color;c.lineWidth=r.width*(1-t*.6);c.beginPath();c.arc(r.x,r.y,r.from+(r.to-r.from)*e,0,Math.PI*2);c.stroke();}
     c.globalAlpha=1;c.textAlign='center';c.textBaseline='middle';
