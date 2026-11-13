@@ -3,7 +3,7 @@ import {randomUUID} from 'node:crypto';
 import {Game} from '../../src/Game';
 import {C} from '../../src/GameConfig';
 import {ENDLESS_V4,ENDLESS_V5,type EndlessVariant} from '../../src/endless/EndlessRules';
-import {ENDLESS_RULES_VERSION,ENDLESS_V4_RULES_VERSION,RULES_VERSION,type ChallengeEvent} from '../../shared/Challenge';
+import {ENDLESS_V5_RULES_VERSION as ENDLESS_RULES_VERSION,ENDLESS_V4_RULES_VERSION,RULES_VERSION,type ChallengeEvent} from '../../shared/Challenge';
 import {verifyTrace} from '../src/verifier';
 import {createApp} from '../src/app';
 
@@ -20,11 +20,11 @@ it('未知版本、重复砖、伪造拾取ID、反序tick仍拒绝；超额击�
  const g=trace(7,ENDLESS_V5),e=g.journal.events;expect(()=>verifyTrace(e,1e9,7,'endless-unknown')).toThrow('不支持');
  const i=e.findIndex(e=>e.type==='power');expect(i).toBeGreaterThan(0);expect(()=>verifyTrace(e.map((x,n)=>n===i?{...x,dropId:49999}:x) as ChallengeEvent[],1e9,7,g.rulesVersion)).toThrow('无对应');
  const h=e.findIndex(e=>e.type==='hit');expect(()=>verifyTrace([...e.slice(0,h+1),e[h],...e.slice(h+1)],1e9,7,g.rulesVersion)).toThrow('方块不存在');expect(()=>verifyTrace(e.map((x,n)=>n===h?{...x,tick:-1}:x),1e9,7,g.rulesVersion)).toThrow('顺序');
- const probe=new Game();probe.setMode('endless');probe.journal.seed=7;probe.physics.setSeed(7);probe.physics.reset();const f=probe.physics.endless!,hits=Array.from(f.alive.keys()).filter(i=>f.alive[i]).slice(0,13).map(i=>({type:'hit' as const,tick:1,level:1,index:f.worldId(i)}));
+ const probe=new Game();probe.setMode('endless');probe.physics.endless!.variant=ENDLESS_V5;probe.journal.seed=7;probe.physics.setSeed(7);probe.physics.reset();const f=probe.physics.endless!,hits=Array.from(f.alive.keys()).filter(i=>f.alive[i]).slice(0,13).map(i=>({type:'hit' as const,tick:1,level:1,index:f.worldId(i)}));
  const burst:ChallengeEvent[]=[{type:'launch',tick:0,level:1},...hits];for(let n=0;n<3;n++){const tick=360+n;burst.push({type:'ballLost',tick,level:1},{type:'lost',tick,level:1});if(n<2)burst.push({type:'launch',tick,level:1});else burst.push({type:'finish',tick,level:1});}expect(verifyTrace(burst,1e9,7,ENDLESS_RULES_VERSION).suspicious).toContain('单步击碎数量异常');
 });
 it('V1.4压线1200tick扣命、重新发射清5行/补偿奖励，与客户端回放一致；暂停不计时间',()=>{
- const g=new Game();g.setMode('endless');g.journal.seed=31;g.physics.setSeed(31);g.physics.reset();g.start();const p=g.physics,f=p.endless!,park=()=>{for(const b of p.balls)Object.assign(b,{x:400,y:900,vx:0,vy:-1,outsideArena:true});};let guard=0;
+ const g=new Game();g.setMode('endless');g.physics.endless!.variant=ENDLESS_V5;g.journal.seed=31;g.physics.setSeed(31);g.physics.reset();g.start();const p=g.physics,f=p.endless!,park=()=>{for(const b of p.balls)Object.assign(b,{x:400,y:900,vx:0,vy:-1,outsideArena:true});};let guard=0;
  while(!f.blocked&&guard++<100000){park();g.update(C.step);}expect(f.blocked).toBe(true);const since=f.sinceDescent;g.pause();g.update(1000);expect(f.sinceDescent).toBe(since);expect(f.pressure).toBe(0);g.start();
  for(let n=0;n<1199;n++){park();g.update(C.step);}expect(g.lives).toBe(3);park();g.update(C.step);expect(g.lives).toBe(2);expect(g.pendingRelief).toBe(true);const before=f.destroyedTotal;g.start();expect(f.blocked).toBe(false);expect(g.journal.events.some(e=>e.type==='bonus')).toBe(true);expect(f.destroyedTotal-before).toBeLessThanOrEqual(15);
  for(let n=0;n<10&&g.state!=='gameOver';n++){for(const b of p.balls)Object.assign(b,{x:400,y:1080,vx:0,vy:760,outsideArena:true});g.update(C.step);if(g.state==='ready')g.start();}
@@ -65,7 +65,7 @@ it('统一完整排名：TOP100分页截断但个人第105名可读，并列顺�
  }finally{await s.app.close();}
 });
 it('真实物理接触：拾取火焰/穿透后产生的范围击碎、闪电连击和新掉落仍能回放',()=>{
- const seed=7,g=new Game();g.setMode('endless');g.journal.seed=seed;g.physics.setSeed(seed);g.physics.reset();g.start();const p=g.physics,f=p.endless!;let burned=false,slashed=false;
+ const seed=7,g=new Game();g.setMode('endless');g.physics.endless!.variant=ENDLESS_V5;g.journal.seed=seed;g.physics.setSeed(seed);g.physics.reset();g.start();const p=g.physics,f=p.endless!;let burned=false,slashed=false;
  for(let t=1;t<=6000;t++){
   if(g.state==='ready')g.start();expect(g.state).toBe('running');
   const drop=p.powers.items.filter(d=>d.alive).sort((a,b)=>b.y-a.y)[0];p.setTarget(drop?.x??400);p.paddleX=p.targetX;

@@ -174,8 +174,8 @@ export class Physics {
     if (kind === 'wide') { this.wideRemaining = this.wideDuration; this.clampPaddle(); }
     else if(kind==='triple')this.triple();
     else if(kind==='plus3')this.addBalls(ENDLESS.plusBalls);
-    else if(kind==='pierce')this.pierceRemaining=ENDLESS.pierceSeconds;
-    else if(kind==='fire')this.fireRemaining=ENDLESS.fireSeconds;
+    else if(kind==='pierce')this.pierceRemaining=this.endless?endlessSettings(this.endless.variant).pierceSeconds:ENDLESS.pierceSeconds;
+    else if(kind==='fire')this.fireRemaining=this.endless?endlessSettings(this.endless.variant).fireSeconds:ENDLESS.fireSeconds;
     // Lightning strikes after the pickup is journaled, so its brick hits follow the power event.
     else if(kind==='halve')this.halve();
     else if(kind==='bomb'){const target=this.obstacles.destroyNearest(C.arena.x,C.arena.y);this.effects.explode(target?.x??C.arena.x,target?.y??C.arena.y);bombTarget=target?.config.id??null;}
@@ -204,8 +204,8 @@ export class Physics {
   applyBonus(kind:BonusKind){
     if(!this.balls.some(ball=>ball.alive))return;
     if(kind==='plus3')this.addBalls(ENDLESS.plusBalls);
-    else if(kind==='pierce')this.pierceRemaining=ENDLESS.pierceSeconds;
-    else if(kind==='fire')this.fireRemaining=ENDLESS.fireSeconds;
+    else if(kind==='pierce')this.pierceRemaining=this.endless?endlessSettings(this.endless.variant).pierceSeconds:ENDLESS.pierceSeconds;
+    else if(kind==='fire')this.fireRemaining=this.endless?endlessSettings(this.endless.variant).fireSeconds:ENDLESS.fireSeconds;
     this.effects.power(kind);this.effects.emit('power',this.paddleX,C.paddle.y,0,kind);this.onSound?.('power');
     if(kind==='lightning')this.lightning();
   }
