@@ -9,7 +9,7 @@ import { seedRegions, region, regionView, searchRegions } from './regions.js';
 import { ApiError, moderateNickname } from './moderation.js';
 import { leaderboard, personalBest, refreshBest,globalLeaderboard,globalPersonalBest,historicalBests } from './leaderboard.js';
 import { verifyTrace } from './verifier.js';
-import { CHALLENGE_PROTOCOL_VERSION,CHALLENGE_FEATURES,RULES_VERSION,V13_RULES_VERSION,PREVIOUS_RULES_VERSION,LEGACY_RULES_VERSION,SUPPORTED_RULES_VERSIONS,GLOBAL_BOARD, type ChallengeEvent } from '../../shared/Challenge.js';
+import { CHALLENGE_PROTOCOL_VERSION,CHALLENGE_FEATURES,RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,PREVIOUS_RULES_VERSION,LEGACY_RULES_VERSION,SUPPORTED_RULES_VERSIONS,GLOBAL_BOARD, type ChallengeEvent } from '../../shared/Challenge.js';
 const ruleSchema=z.enum(SUPPORTED_RULES_VERSIONS);
 const selection=(req:FastifyRequest)=>{const q=z.object({board:z.literal(GLOBAL_BOARD).optional(),rulesVersion:ruleSchema.optional()}).parse(req.query);if(q.board&&q.rulesVersion&&q.rulesVersion!==RULES_VERSION)throw new ApiError(400,'统一排行榜只接受十二关挑战记录');return {global:q.board===GLOBAL_BOARD,rules:q.board?RULES_VERSION:q.rulesVersion??LEGACY_RULES_VERSION};};
 const selectedRules=(req:FastifyRequest)=>selection(req).rules;
@@ -30,7 +30,7 @@ export interface AppOptions { db?:Db; dbPath?:string; origin?:string; secure?:bo
 export async function createApp(options:AppOptions={}) {
  const db=options.db||openDb(options.dbPath||process.env.DB_PATH||'../work/leaderboard.sqlite'); seedRegions(db);
  const freshDatabase=!!db.prepare("SELECT 1 FROM sqlite_schema WHERE type='table' AND name='deployment_reset_epoch'").get();
- const activeRules:readonly string[]=freshDatabase?[PREVIOUS_RULES_VERSION,V13_RULES_VERSION,RULES_VERSION]:SUPPORTED_RULES_VERSIONS;
+ const activeRules:readonly string[]=freshDatabase?[PREVIOUS_RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,RULES_VERSION]:SUPPORTED_RULES_VERSIONS;
  const historyFields=(playerId:string|null)=>{const records=playerId?historicalBests(db,playerId):[];return {historicalBest:records[0]??null,historicalBests:records};};
  const now=options.now||Date.now, origin=options.origin||process.env.PUBLIC_ORIGIN||'http://127.0.0.1:5173', secure=options.secure??process.env.NODE_ENV==='production';
  if(secure&&!origin.startsWith('https://'))throw new Error('生产PUBLIC_ORIGIN必须使用HTTPS');

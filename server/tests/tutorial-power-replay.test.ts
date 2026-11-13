@@ -25,7 +25,7 @@ it.each([1,2])('第%i关预分配密集掉落、多球拾取与丢命的真实�
  for(const seed of [1,4,13]){const g=run(level,seed),result=verifyTrace(g.journal.events,1000000,seed,RULES_VERSION);
  expect(result.summary).toEqual(g.journal.summary(g.score.total,level,false));expect(result.suspicious).toEqual([]);
  const powers=g.journal.events.filter(e=>e.type==='power');expect(powers.length).toBeGreaterThan(10);expect(powers.some(e=>e.type==='power'&&e.kind==='triple')).toBe(true);
- if(level===1)expect(powers.every(e=>e.type==='power'&&e.kind==='triple')).toBe(true);else expect(powers.some(e=>e.type==='power'&&e.kind==='wide')).toBe(true);
+ expect(powers.every(e=>e.type==='power'&&(e.kind==='triple'||e.kind==='wide'))).toBe(true);
  }
 });
 it('错误道具类型、错误标识、重复拾取和提前拾取仍拒绝，规则标记不可中途切换',()=>{

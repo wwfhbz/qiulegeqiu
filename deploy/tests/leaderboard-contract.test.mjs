@@ -32,3 +32,13 @@ test('API桥接不发布HTML或assets，普通发布保留原回滚路径，绝�
  assert.match(script,/if \[\[ "\$api_only" = 0 \]\];then\ninstall -m 644 "\$source_dir\/dist\/index.html"/);
  assert.match(script,/verifyCompatibilityBridgeHealth/);assert.doesNotMatch(script,/8080|game\.gmgnclaw/);
 });
+
+test('V1.5→V1.6及尚未上线V1.5时的V1.3→V1.6均经--api-only双验证桥接；V1.2不能直接跳到V1.6',()=>{
+ const previous='1.5.0-arcade-5l-12lv-short-v3',current='1.6.0-arcade-5l-12lv-full-v4';
+ assert.throws(()=>verifyRollbackCompatibility(current,previous),/--api-only/);
+ assert.doesNotThrow(()=>verifyRollbackCompatibility(current,previous,{apiOnly:true}));
+ assert.doesNotThrow(()=>verifyRollbackCompatibility(current,'1.3.0-arcade-5l-12lv-drops-v2',{apiOnly:true}));assert.throws(()=>verifyRollbackCompatibility(current,'1.3.0-arcade-5l-12lv-drops-v2'),/--api-only/);
+ assert.throws(()=>verifyRollbackCompatibility(current,'1.2.0-arcade-5l-12lv-v1',{apiOnly:true}));
+ const health={ok:true,database:'ready',rulesVersion:current,supportedRulesVersions:['1.2.0-arcade-5l-12lv-v1','1.3.0-arcade-5l-12lv-drops-v2',previous,current],challengeProtocolVersion:2,challengeFeatures:['triple-threshold20-v1','tutorial-brick-powers-v1'],leaderboard:{board:'global',rankingRulesVersion:current}};
+ assert.doesNotThrow(()=>verifyCompatibilityBridgeHealth(health,current));assert.throws(()=>verifyCompatibilityBridgeHealth({...health,supportedRulesVersions:['1.3.0-arcade-5l-12lv-drops-v2',current]},current),/上一赛季/);
+});

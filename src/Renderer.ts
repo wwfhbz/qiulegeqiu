@@ -1,4 +1,4 @@
-import {OCEAN,brickColorIndex,visualBudget} from '../shared/VisualTheme';
+import {OCEAN,brickColorIndex,brickColor,levelBandColors,visualBudget} from '../shared/VisualTheme';
 import {StartHint,START_HINT} from './PlayfieldStart';
 import { POWER_LABELS,type PowerKind } from './PowerRules';
 import { ARCADE } from './ArcadeRules';
@@ -95,11 +95,11 @@ export class Renderer {
   }
 
   /** Bevelled brick tiles, built once per size/colour and then stamped into the static cache. */
-  private brickSprites(size:number){
-    const key=size+':'+this.ratio;if(key===this.brickKey)return this.bricks;
+  private brickSprites(size:number,colors:readonly string[]){
+    const key=size+':'+this.ratio+':'+colors.join();if(key===this.brickKey)return this.bricks;
     const previous=this.bricks;this.bricks=[];this.brickKey=key;
     const px=Math.max(1,Math.ceil(size*this.ratio));
-    for(const [i,color] of OCEAN.bricks.entries()){
+    for(const [i,color] of colors.entries()){
       // Reuse surfaces across levels/resizes; WeChat offscreen canvases are a limited resource.
       const s=previous[i]??this.host.createSurface?.();if(!s){this.bricks=[];return this.bricks;}
       s.width=s.height=px;const c=s.getContext('2d');if(!c){this.bricks=[];return this.bricks;}
@@ -188,10 +188,10 @@ export class Renderer {
       c.setTransform(this.ratio, 0, 0, this.ratio, 0, 0);
       if (this.cachedRevision === -1 || this.generation !== b.generation) {
         c.clearRect(0, 0, C.width, C.height);
-        const sprites=this.brickSprites(b.size);
+        const palette=levelBandColors(p.level.number),sprites=this.brickSprites(b.size,palette);
         for (let row = 0; row < b.rows; row++) for (let col = 0; col < b.cols; col++) if(b.alive[row*b.cols+col]){
-          const x=b.left+col*b.step,y=b.top+row*b.step,color=brickColorIndex(row,col);
-          if(sprites.length)c.drawImage(sprites[color] as CanvasImageSource,x,y,b.size,b.size);else this.paintBrick(c,x,y,b.size,OCEAN.bricks[color],false);
+          const x=b.left+col*b.step,y=b.top+row*b.step,color=brickColorIndex(row,b.step);
+          if(sprites.length)c.drawImage(sprites[color] as CanvasImageSource,x,y,b.size,b.size);else this.paintBrick(c,x,y,b.size,palette[color],false);
         }
         this.generation = b.generation; this.cleared = b.destroyed.length;
       } else {
@@ -259,7 +259,7 @@ export class Renderer {
     for(const ball of p.balls)if(ball.alive){c.fillStyle=OCEAN.ball.body;c.beginPath();c.arc(ball.x,ball.y,ball.radius+.4,0,Math.PI*2);c.fill();if(budget.highlights){c.strokeStyle=OCEAN.ball.edge;c.lineWidth=.8;c.beginPath();c.arc(ball.x,ball.y,ball.radius,0,Math.PI*2);c.stroke();}}
 
     // Brick break: bright flash plus coloured shards that inherit the brick's band colour.
-    const shardColor=(tag:number)=>tag<0?OCEAN.colors.warning:OCEAN.bricks[brickColorIndex(tag)];
+    const shardColor=(tag:number)=>tag<0?OCEAN.colors.warning:brickColor(tag,b.step,p.level.number);
     for(const f of p.effects.flashes)if(f.life>0){const k=f.life/OCEAN.motion.flashSeconds;c.globalAlpha=Math.min(.8,k*.8);c.fillStyle='#FFFFFF';const s=b.size*(1+.6*(1-k));c.fillRect(f.x-s/2,f.y-s/2,s,s);}
     let rendered=0;
     for(const q of p.effects.particles){if(q.life>0&&rendered++<budget.particles){const k=q.life/OCEAN.motion.sourceParticleSeconds,s=1.2+2.2*k;c.globalAlpha=Math.min(1,k*1.3);c.fillStyle=shardColor(q.tag);c.fillRect(q.x-s/2,q.y-s/2,s,s);}}
