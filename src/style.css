@@ -50,3 +50,17 @@ h1{font-size:18px;font-weight:900;letter-spacing:4px;background:linear-gradient(
 .mode-picker button:active{transform:scale(.98)}
 .mode-picker p{margin:6px 0 0;font-size:11px;color:var(--o-muted)}
 .canvas-wrap[data-state=gameOver] .mode-picker,.canvas-wrap[data-state=victory] .mode-picker{top:72%}
+
+/* V2.1 顶栏：左侧模式切换，右侧 静音/暂停/重开 */
+.mode-switch button:disabled{opacity:.4;cursor:not-allowed}
+.top-actions{right:46px;gap:3px}
+@media(max-width:600px){.top-actions button{width:32px;height:32px;font-size:14px}.top-actions{right:42px;top:6px}h1{font-size:14px;letter-spacing:1px}.brand-mark{display:none}}
+/* 球场与底部滑动区连成一块：同一边框，上圆角给球场、下圆角给滑动区 */
+.canvas-wrap{border-radius:16px 16px 0 0;box-shadow:0 0 0 1px rgba(79,227,255,.18);margin-top:6px}
+.touch-pad{position:relative;height:84px;margin-top:0;border:0;border-radius:0 0 16px 16px;box-shadow:0 0 0 1px rgba(79,227,255,.18),0 12px 40px rgba(0,0,0,.45);
+ background:linear-gradient(180deg,#1A2236 0%,#0F1A2C 55%,#0A1424 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px}
+.touch-pad .power-info{position:absolute;left:12px;right:12px;top:6px;height:auto;justify-content:center;gap:10px;pointer-events:none}
+.pad-track{position:relative;width:calc(100% - 48px);height:4px;border-radius:2px;background:rgba(127,239,255,.14)}
+.pad-track i{position:absolute;top:50%;width:46px;height:10px;border-radius:5px;transform:translate(-50%,-50%);background:linear-gradient(180deg,#BFF4FF,#4FE3FF);box-shadow:0 0 12px rgba(79,227,255,.75)}
+.pad-hint{font-size:11px;color:var(--o-muted);letter-spacing:2px;pointer-events:none}
+@media(pointer:fine) and (min-width:700px){.touch-pad{height:56px}.pad-hint{display:none}}

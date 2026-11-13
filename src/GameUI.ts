@@ -18,7 +18,7 @@ export function mountGame(root: HTMLElement) {
   document.querySelector('meta[name=theme-color]')?.setAttribute('content',OCEAN.colors.background);
   root.innerHTML = `
   <main class="shell">
-    <header><h1><span class="brand-mark" aria-hidden="true">◉</span>${GAME_NAME}</h1><div class="top-actions"><button id="pause" type="button" aria-label="暂停">⏸</button><button id="reset" type="button" aria-label="重新开始">↻</button></div></header>
+    <header><div class="mode-switch" role="group" aria-label="游戏模式"><button type="button" data-mode="campaign" aria-pressed="true">闯关</button><button type="button" data-mode="endless" aria-pressed="false">无尽</button></div><h1><span class="brand-mark" aria-hidden="true">◉</span>${GAME_NAME}</h1><div class="top-actions"><button id="mute" type="button" aria-label="静音" aria-pressed="false">🔊</button><button id="pause" type="button" aria-label="暂停">⏸</button><button id="reset" type="button" aria-label="重新开始">↻</button></div></header>
     <div class="stage-room"><section class="game-panel" aria-label="游戏区域">
       <div class="hud" aria-label="游戏状态">
         <div class="hud-item"><span class="label" id="level-label">关卡</span><strong id="level"></strong></div>
@@ -42,8 +42,7 @@ export function mountGame(root: HTMLElement) {
         </section>
         <div id="central-layer" class="central-layer" hidden><button id="start" class="central-start" type="button" aria-controls="arena-canvas">▶ 开始游戏</button></div>
       </div>
-      <div class="power-info"><span id="wide"></span><span id="combo"></span><button id="mute" aria-pressed="false">静音</button></div>
-      <div class="touch-pad" id="touch-pad" role="presentation"><span>⟵ 在此左右滑动控制挡板 ⟶</span></div>
+      <div class="touch-pad" id="touch-pad" role="presentation"><div class="power-info"><span id="wide"></span><span id="combo"></span></div><div class="pad-track"><i id="pad-knob"></i></div><span class="pad-hint">左右滑动控制挡板</span></div>
     </section></div>
     <button id="stress" class="debug" hidden>百球压力测试</button>
   </main>`;
@@ -69,6 +68,11 @@ export function mountGame(root: HTMLElement) {
     el('progress-label').textContent = field ? (pressed !== undefined ? `压线 ${pressed.toFixed(1)}秒` : field.blocked ? '压到底线' : '下沉') : '进度';
     const percent=field?Math.round(field.descentProgress*100):Math.round(blocks.removed/Math.max(1,blocks.total)*100);el('progress-value').textContent=field?`已下沉${field.descents}行`:percent+'%';el('progress-meter').setAttribute('aria-valuenow',String(percent));el('progress-meter').style.setProperty('--fill',percent+'%');
     wrap.dataset.state=g.state;
+    // The strip's knob follows the paddle so the strip reads as part of the arena.
+    el('pad-knob').style.left=`${g.physics.paddleX/C.width*100}%`;
+    // Header switch: usable before a run starts and after it ends; locked while a run is in progress.
+    const locked = g.journal.events.length > 0 && g.state !== 'gameOver' && g.state !== 'victory';
+    for(const b of Array.from(root.querySelectorAll<HTMLButtonElement>('[data-mode]'))){b.setAttribute('aria-pressed',String(b.dataset.mode===g.mode));b.disabled=locked&&b.dataset.mode!==g.mode;b.title=locked?'本局结束后可切换模式':'';}
     // The mode picker owns the screen before the first run and after every finished run.
     const ended = g.state === 'gameOver' || g.state === 'victory';
     el('mode-picker').hidden = !(picking || ended);
@@ -110,7 +114,7 @@ export function mountGame(root: HTMLElement) {
   button('reset').onclick = () => game.reset();
   button('mute').onclick = () => {
     game.audio.unlock(); const muted = game.audio.toggle();
-    button('mute').textContent = muted ? '开启音效' : '静音'; button('mute').setAttribute('aria-pressed', String(muted));
+    button('mute').textContent = muted ? '🔇' : '🔊'; button('mute').setAttribute('aria-pressed', String(muted)); button('mute').setAttribute('aria-label', muted ? '开启音效' : '静音');
   };
   button('stress').hidden = new URLSearchParams(location.search).get('debug') !== '1';
   button('stress').onclick = () => game.stress();
@@ -121,6 +125,11 @@ export function mountGame(root: HTMLElement) {
     if(mode===game.mode)game.reset();else game.setMode(mode);
     try{localStorage.setItem(MODE_KEY,mode);}catch{/* Preference only. */}
     update(game);
+  };
+  // The header switch picks a mode exactly like the picker (only allowed while no run is in progress).
+  for(const b of Array.from(root.querySelectorAll<HTMLButtonElement>('[data-mode]')))b.onclick=()=>{
+    const mode=b.dataset.mode as GameMode,locked=game.journal.events.length>0&&game.state!=='gameOver'&&game.state!=='victory';
+    if(locked)return;root.querySelector<HTMLButtonElement>(`[data-pick=${mode}]`)?.click();
   };
   // Pre-select the last mode played so it is highlighted in the picker.
   try{if(localStorage.getItem(MODE_KEY)==='endless')game.setMode('endless');}catch{/* Preference only. */}
