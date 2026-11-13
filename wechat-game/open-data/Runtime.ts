@@ -12,7 +12,7 @@ export interface OpenWx {
  setUserCloudStorage(options:{KVDataList:KV[];success:()=>void;fail:()=>void}):void;
  createImage?():Image;
 }
-/** No network, main-domain callback or friend identity export exists here. */
+/** No application HTTP requests, main-domain callback or friend identity export exists here. */
 export function createOpenDataRuntime(wx:OpenWx){
  const canvas=wx.getSharedCanvas(),c=context(canvas);let mode:SocialMode='campaign',width=320,height=400,ratio=1,scroll=0,visible=false,revision=0,state='loading',rows:ReturnType<typeof friendRows>=[],own:CloudScore|undefined;
  let syncFailed=false;
