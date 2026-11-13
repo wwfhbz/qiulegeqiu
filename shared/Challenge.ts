@@ -2,8 +2,13 @@ export type ChallengeEvent = {type:'launch';tick:number;level:number;tripleRuleV
 export interface ChallengeSummary { score: number; reachedLevel: number; bricksDestroyed: number; durationMs: number; completedAllLevels: boolean }
 export const LEGACY_RULES_VERSION = '0.8.0-arcade-5l-10lv-v1';
 export const PREVIOUS_RULES_VERSION = '1.2.0-arcade-5l-12lv-v1';
-export const RULES_VERSION = '1.3.0-arcade-5l-12lv-drops-v2';
-export const SUPPORTED_RULES_VERSIONS=[LEGACY_RULES_VERSION,PREVIOUS_RULES_VERSION,RULES_VERSION] as const;
+/** Frozen V1.3 season: tutorial quotas 80%/50%, ~4100-brick later levels. Kept for verification and history. */
+export const V13_RULES_VERSION = '1.3.0-arcade-5l-12lv-drops-v2';
+/** V1.5 season: level-1 X3 share 35%, levels 3–12 ramp 1500→2500 bricks. Only this season ranks globally. */
+export const RULES_VERSION = '1.5.0-arcade-5l-12lv-short-v3';
+export const SUPPORTED_RULES_VERSIONS=[LEGACY_RULES_VERSION,PREVIOUS_RULES_VERSION,V13_RULES_VERSION,RULES_VERSION] as const;
+/** Seasons whose first launch must declare preassigned tutorial powers and the X3 threshold rule. */
+export function usesBrickPowers(rules:string){return rules===RULES_VERSION||rules===V13_RULES_VERSION;}
 
 /** Old API servers may silently ignore unknown query parameters: never label that old board as new. */
 export function assertRulesVersion(actual:unknown,requested:string){if(actual===requested||(requested===LEGACY_RULES_VERSION&&actual===undefined))return;throw Error('排行榜服务尚未支持此赛季，请等待后端升级或查看旧版历史榜');}

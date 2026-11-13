@@ -1,5 +1,9 @@
-export type SoundKind = 'break'|'combo'|'paddle'|'power'|'win'|'bomb'|'halve'|'life';
-/** Quiet sine tones; voices and event frequency are bounded for hundred-ball play. */
+export type SoundKind = 'break'|'combo'|'paddle'|'power'|'win'|'bomb'|'halve'|'life'|'lost';
+type Note={f:number;to?:number;at:number;len:number;type:OscillatorType;gain:number};
+/** Major pentatonic steps: consecutive combo hits climb a pleasant scale instead of repeating one tone. */
+const PENTATONIC=[0,2,4,7,9];
+function scale(step:number,base=392){const octave=Math.floor(step/5),degree=PENTATONIC[step%5];return base*2**(octave+degree/12);}
+/** Short synthesized cues; voices and event frequency stay bounded for hundred-ball play. */
 export class AudioSystem {
   constructor(private createContext:()=>AudioContext=()=>{throw Error('未提供音频适配器');}){}
   suspend(){try{if(this.context)void Promise.resolve(this.context.suspend()).catch(()=>{});}catch{/* Sound failure never blocks gameplay. */}}
@@ -16,17 +20,31 @@ export class AudioSystem {
     } catch { /* Audio unavailable: gameplay remains usable. */ }
   }
   toggle(){this.muted=!this.muted;if(this.master&&this.context){this.master.gain.cancelScheduledValues(this.context.currentTime);this.master.gain.value=this.muted?0:.14;}return this.muted;}
+  /** The note sequence for each cue; exported shape kept internal so callers only name the event. */
+  private notes(kind:SoundKind,combo:number):Note[]{
+    const step=Math.min(Math.max(combo,1)-1,14);
+    switch(kind){
+      case 'break':return [{f:scale(0,330),to:scale(0,330)*.8,at:0,len:.07,type:'triangle',gain:.18}];
+      case 'combo':return [{f:scale(step),to:scale(step)*1.02,at:0,len:.09,type:'triangle',gain:.2}];
+      case 'paddle':return [{f:220,to:150,at:0,len:.09,type:'sine',gain:.28}];
+      case 'power':return [523,659,784].map((f,i)=>({f,at:i*.06,len:.1,type:'triangle' as const,gain:.2}));
+      case 'life':return [523,659,784,1047].map((f,i)=>({f,at:i*.07,len:.12,type:'sine' as const,gain:.22}));
+      case 'halve':return [{f:392,to:330,at:0,len:.12,type:'square',gain:.08},{f:262,to:196,at:.1,len:.18,type:'square',gain:.08}];
+      case 'bomb':return [{f:140,to:38,at:0,len:.35,type:'sine',gain:.4},{f:90,to:30,at:.02,len:.3,type:'triangle',gain:.25}];
+      case 'lost':return [{f:330,to:250,at:0,len:.14,type:'triangle',gain:.2},{f:220,to:120,at:.12,len:.26,type:'triangle',gain:.2}];
+      case 'win':return [523,659,784,1047].map((f,i)=>({f,at:i*.09,len:i===3?.35:.12,type:'triangle' as const,gain:.22}));
+    }
+  }
   play = (kind:SoundKind,combo=1) => {
     const ctx=this.context;if(!ctx||!this.master||this.muted||ctx.state!=='running'||this.voices>=12)return;
     const now=ctx.currentTime;if(now-(this.last[kind]??-1)<.045)return;this.last[kind]=now;
-    const frequencies={break:300,combo:330+Math.min(combo,12)*22,paddle:190,power:540,win:660,bomb:100,halve:160,life:600};
-    const count=kind==='win'?3:kind==='power'?2:1;
-    for(let i=0;i<count && this.voices<12;i++){
-      const osc=ctx.createOscillator(),gain=ctx.createGain(),t=now+i*.085;
-      osc.type='sine';osc.frequency.setValueAtTime(frequencies[kind]*(1+i*.25),t);osc.frequency.exponentialRampToValueAtTime(frequencies[kind]*.75,t+.12);
-      gain.gain.setValueAtTime(0,t);gain.gain.linearRampToValueAtTime(.24,t+.006);gain.gain.exponentialRampToValueAtTime(.001,t+.16);
+    for(const n of this.notes(kind,combo)){
+      if(this.voices>=12)break;
+      const osc=ctx.createOscillator(),gain=ctx.createGain(),t=now+n.at;
+      osc.type=n.type;osc.frequency.setValueAtTime(n.f,t);if(n.to)osc.frequency.exponentialRampToValueAtTime(n.to,t+n.len);
+      gain.gain.setValueAtTime(0,t);gain.gain.linearRampToValueAtTime(n.gain,t+.006);gain.gain.exponentialRampToValueAtTime(.001,t+n.len);
       osc.connect(gain);gain.connect(this.master);this.voices++;
-      osc.onended=()=>{osc.disconnect();gain.disconnect();this.voices--;};osc.start(t);osc.stop(t+.18);
+      osc.onended=()=>{osc.disconnect();gain.disconnect();this.voices--;};osc.start(t);osc.stop(t+n.len+.02);
     }
   };
 }
