@@ -81,7 +81,7 @@ it('Web与微信共享V1.4；固定输入产生相同轨迹、分数、日志；
  const f=wxFixture(),app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});try{const web=game(31),wx=app.game;wx.setMode('endless');wx.journal.seed=31;wx.physics.setSeed(31);wx.physics.reset();wx.start();
   expect(wx.rulesVersion).toBe(web.rulesVersion);for(let n=0;n<900;n++){web.update(C.step);wx.update(C.step);}expect(wx.physics.balls).toEqual(web.physics.balls);expect(wx.score.total).toBe(web.score.total);expect(wx.journal.events).toEqual(web.journal.events);expect(wx.physics.endless!.descents).toBe(web.physics.endless!.descents);
   wx.physics.collect('wide');const time=wx.physics.wideRemaining,since=wx.physics.endless!.sinceDescent;f.events.hide();wx.update(1000);f.events.show();expect(wx.physics.wideRemaining).toBe(time);expect(wx.physics.endless!.sinceDescent).toBe(since);
-  expect(cloudKey('endless')).toContain(ENDLESS_RULES_VERSION);expect(cloudKey('endless')).not.toContain(ENDLESS_V4_RULES_VERSION);
+  expect(cloudKey('endless')).toBe('qqcj_endless_'+ENDLESS_V4_RULES_VERSION);
  }finally{app.dispose();}
 });
 it('穿透4秒、火焰6秒按固定tick到期；暂停和重复拾取不消耗/叠加技能时长',()=>{

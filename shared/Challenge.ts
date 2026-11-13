@@ -21,11 +21,15 @@ export const ENDLESS_V2_RULES_VERSION = 'endless-1.1.0-3l-sink-v2';
 export const ENDLESS_V3_RULES_VERSION = 'endless-1.2.0-3l-sink-v3';
 /** Frozen endless 1.3: 10s on the death line costs a life (then 5-row relief plus an effect ball); +100 per power caught. */
 export const ENDLESS_V4_RULES_VERSION = 'endless-1.3.0-3l-sink-v4';
-/** V1.4 is intentionally a separate board: denser drops, larger skills and faster descent. */
+/** V1.4 changes verification rules only; every endless version shares one permanent board. */
 export const ENDLESS_RULES_VERSION = 'endless-1.4.0-3l-sink-v5';
-/** Frozen pre-V1.4 board. Old clients without rulesVersion keep querying exactly this board. */
-export const ENDLESS_BOARD_RULES_VERSIONS=[ENDLESS_V1_RULES_VERSION,ENDLESS_V2_RULES_VERSION,ENDLESS_V3_RULES_VERSION,ENDLESS_V4_RULES_VERSION] as const;
+/** Verification compatibility list only. Ranking must never use this version list. */
+export const ENDLESS_BOARD_RULES_VERSIONS=[ENDLESS_V1_RULES_VERSION,ENDLESS_V2_RULES_VERSION,ENDLESS_V3_RULES_VERSION,ENDLESS_V4_RULES_VERSION,ENDLESS_RULES_VERSION] as const;
 export const ENDLESS_BOARD='endless';
+export const ENDLESS_RANKING_SCOPE='all-endless-versions';
+/** Classification for supported challenge versions, not a leaderboard season filter. */
+export function isEndlessRules(rules:string){return rules.startsWith('endless-');}
+export function assertEndlessBoard(data:LeaderboardMetadata){if(data.board!==ENDLESS_BOARD||data.rankingScope!==ENDLESS_RANKING_SCOPE)throw Error('排行榜后端需更新为永久统一无尽榜；历史成绩仍保留');}
 export const SUPPORTED_RULES_VERSIONS=[LEGACY_RULES_VERSION,PREVIOUS_RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,V17_RULES_VERSION,RULES_VERSION,ENDLESS_V1_RULES_VERSION,ENDLESS_V2_RULES_VERSION,ENDLESS_V3_RULES_VERSION,ENDLESS_V4_RULES_VERSION,ENDLESS_RULES_VERSION] as const;
 /**
  * Seasons whose verified scores share the global board: every twelve-level ruleset. A rules update must
@@ -40,7 +44,7 @@ export function assertRulesVersion(actual:unknown,requested:string){if(actual===
 
 export const GLOBAL_BOARD='global';
 export const GLOBAL_BOARD_PATH='/leaderboard?board=global';
-export interface LeaderboardMetadata {board?:string;rankingRulesVersion?:string;rulesVersion?:string}
+export interface LeaderboardMetadata {rankingScope?:string;board?:string;rankingRulesVersion?:string;rulesVersion?:string}
 export function assertGlobalBoard(data:LeaderboardMetadata){
  if(data.board!==GLOBAL_BOARD||data.rankingRulesVersion!==RULES_VERSION)throw Error('排行榜后端需要更新，暂时无法读取统一榜单；历史成绩仍保留，单机游戏不受影响');
 }
