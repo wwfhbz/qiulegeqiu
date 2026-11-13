@@ -1,0 +1,49 @@
+{
+  "host": "Chromium mock main + iframe open-data; not official WeChat or device test",
+  "reports": [
+    {
+      "width": 320,
+      "height": 568,
+      "friends": true,
+      "scroll": true,
+      "backgroundStopped": true,
+      "mainNetworkOnly": true,
+      "noFriendIdentityMessages": true,
+      "share": true,
+      "errors": []
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "friends": true,
+      "scroll": true,
+      "backgroundStopped": true,
+      "mainNetworkOnly": true,
+      "noFriendIdentityMessages": true,
+      "share": true,
+      "errors": []
+    },
+    {
+      "width": 430,
+      "height": 932,
+      "friends": true,
+      "scroll": true,
+      "backgroundStopped": true,
+      "mainNetworkOnly": true,
+      "noFriendIdentityMessages": true,
+      "share": true,
+      "errors": []
+    },
+    {
+      "width": 768,
+      "height": 1024,
+      "friends": true,
+      "scroll": true,
+      "backgroundStopped": true,
+      "mainNetworkOnly": true,
+      "noFriendIdentityMessages": true,
+      "share": true,
+      "errors": []
+    }
+  ]
+}

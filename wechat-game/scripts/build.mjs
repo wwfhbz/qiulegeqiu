@@ -27,12 +27,16 @@ export async function buildWechatGame({configRoot=CLIENT_ROOT,development=false,
   const bundle=fs.readFileSync(join(stage,'game.js'),'utf8');
   if(/\b(?:document|localStorage|sessionStorage)\s*[.\[]|\bwindow\s*\.|\bfetch\s*\(|WECHAT_APP_SECRET|jscode2session|node:sqlite/.test(bundle))throw Error('小游戏包包含浏览器依赖或服务端代码');
 
+  const open=await build({absWorkingDir:REPO_ROOT,entryPoints:[join(CLIENT_ROOT,'open-data/game.ts')],outfile:join(stage,'open-data/game.js'),bundle:true,platform:'neutral',format:'cjs',target:'es2020',minify:!development,metafile:true});
+  const openBundle=fs.readFileSync(join(stage,'open-data/game.js'),'utf8');
+  if(/\b(?:document|localStorage|fetch)\s*[.(]|\brequest\s*\(|WECHAT_APP_SECRET|jscode2session|server\//.test(openBundle))throw Error('开放数据域包含网络或服务端依赖');
+  if(Object.keys(open.metafile.inputs).some(p=>p.includes('server/')||p.includes('src/Game.ts')||p.includes('src/Api.ts')))throw Error('开放数据域不应包含主域游戏或身份模块');
   fs.mkdirSync(join(stage,'assets'),{recursive:true});
   fs.copyFileSync(join(REPO_ROOT,'public/ranking-art/reference-scene.png'),join(stage,'assets/ranking-scene.png'));
   fs.copyFileSync(join(CLIENT_ROOT,'game.json'),join(stage,'game.json'));
-  const project=JSON.parse(fs.readFileSync(join(CLIENT_ROOT,'project.config.json'),'utf8'));Object.assign(project,{appid:config.appid,miniprogramRoot:'./',projectname:GAME_NAME,description:`${GAME_NAME} 微信小游戏 V${MINIGAME_VERSION}`});
+  const project=JSON.parse(fs.readFileSync(join(CLIENT_ROOT,'project.config.json'),'utf8'));Object.assign(project,{appid:config.appid,miniprogramRoot:'./',projectname:GAME_NAME,description:`${GAME_NAME} 微信小游戏 V${MINIGAME_VERSION} · 社交功能V2.1`});
   fs.writeFileSync(join(stage,'project.config.json'),JSON.stringify(project,null,2)+'\n');
-  fs.writeFileSync(join(stage,'build-info.json'),JSON.stringify({clientVersion:MINIGAME_VERSION,rulesVersion:RULES_VERSION,apiBase:config.runtime.apiBase,development,inputs},null,2)+'\n');
+  fs.writeFileSync(join(stage,'build-info.json'),JSON.stringify({socialFeatureVersion:'2.1.0-social',clientVersion:MINIGAME_VERSION,rulesVersion:RULES_VERSION,apiBase:config.runtime.apiBase,development,inputs},null,2)+'\n');
   fs.rmSync(out,{recursive:true,force:true});fs.renameSync(stage,out);
   console.log(`微信小游戏产物：${out}。开发者工具导入此目录；游客AppID不代表真实登录或审核资格。`);
   return out;

@@ -5,6 +5,13 @@ export interface Canvas {
  toTempFilePath?(options:{success:(r:{tempFilePath:string})=>void;fail?:()=>void}):void;
 }
 export interface Wx {
+ authorize?(options:{scope:'scope.WxFriendInteraction';success:()=>void;fail:()=>void}):void;
+ openSetting?(options:{success:()=>void;fail:()=>void}):void;
+ getOpenDataContext?():OpenContext;
+ canIUse?(name:string):boolean;
+ createUserInfoButton?(options:{type:'text';text:string;withCredentials:false;style:{left:number;top:number;width:number;height:number;lineHeight:number;backgroundColor:string;color:string;textAlign:'center';fontSize:number;borderRadius:number}}):NativeUserButton;
+ chooseMedia?(options:{count:1;mediaType:['image'];sourceType:['album'];success:(r:{tempFiles:{tempFilePath:string}[]})=>void;fail:()=>void}):void;
+ getFileSystemManager?():{saveFile(options:{tempFilePath:string;success:(r:{savedFilePath:string})=>void;fail:()=>void}):void};
  createCanvas():Canvas;
  createImage?():{src:string;onload?:()=>void;onerror?:()=>void};
  getDeviceInfo?():{benchmarkLevel?:number};
@@ -27,3 +34,6 @@ export interface Wx {
 }
 export interface Config {apiBase:string;development:boolean}
 export const storageKey='qiulegeqiu:wechat-session:v1';
+
+export interface OpenContext {canvas:Canvas;postMessage(message:Record<string,unknown>):void}
+export interface NativeUserButton {onTap(fn:(r:{userInfo?:{nickName?:string;avatarUrl?:string};errMsg?:string})=>void):void;destroy():void;hide?():void}
