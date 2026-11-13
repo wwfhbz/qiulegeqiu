@@ -40,7 +40,7 @@
 wechat-game/
   game.json                       # openDataContext: open-data
   open-data/
-    game.ts                       # 开放数据域独立入口
+    index.ts                      # 开放数据域独立入口
     Runtime.ts                    # 微信好友读取/云纪录比较写入/滚动绘制
   src/social/
     Protocol.ts                   # 两模式键、规则与云值校验（纯类型/纯函数）
@@ -51,7 +51,7 @@ wechat-game/
   dist/
     game.js
     game.json
-    open-data/game.js             # 真正独立的bundle
+    open-data/index.js             # 真正独立的bundle
 ```
 
 构建检查开放数据域不得引入主域Game/Api/服务器代码或业务HTTP请求。开放数据域不向主域发送好友信息；唯一关系链网络调用由微信原生API完成。头像图像缓存在开放数据域内最多64项，只绘制视口内行；没有独立动画循环，后台消息冻结绘制。主域暂停/恢复原游戏规则不变。
@@ -150,7 +150,7 @@ tests/wechat-social.test.ts
 wechat-game/README.md
 wechat-game/game.json
 wechat-game/open-data/Runtime.ts
-wechat-game/open-data/game.ts
+wechat-game/open-data/index.ts
 wechat-game/scripts/build-test-suite.mjs
 wechat-game/scripts/build.mjs
 wechat-game/src/App.ts
