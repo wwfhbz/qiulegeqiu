@@ -98,8 +98,8 @@ export class MiniGameApp {
   const bs=40,tool=(x:number)=>({x,y:v.top,width:bs,height:v.barHeight});
   iconButton(tool(6),'menu',()=>this.menu());
   iconButton(tool(52),g.audio.muted?'soundOff':'soundOn',()=>{g.audio.toggle();this.platform.write('qiulegeqiu:wechat-muted:v1',g.audio.muted);});
-  iconButton(tool(v.barRight-bs),'trophy',()=>void this.board(),'gold');
-  c.font=`900 23px ${OCEAN.fonts.body}`;c.textAlign='left';c.textBaseline='middle';const titleGold=c.createLinearGradient(0,v.titleY,0,v.titleY+36);titleGold?.addColorStop(0,'#FFFFFF');titleGold?.addColorStop(.6,'#FFE27A');titleGold?.addColorStop(1,'#FFB31F');c.fillStyle=titleGold||'#FFE27A';c.fillText(GAME_NAME,128,v.titleY+20,Math.max(40,v.width-234));
+  iconButton({x:v.width-146,y:v.titleY,width:40,height:36},'trophy',()=>void this.board(),'gold');
+  c.font=`900 23px ${OCEAN.fonts.body}`;c.textAlign='left';c.textBaseline='middle';const titleGold=c.createLinearGradient(0,v.top,0,v.top+32);titleGold?.addColorStop(0,'#FFFFFF');titleGold?.addColorStop(.6,'#FFE27A');titleGold?.addColorStop(1,'#FFB31F');c.fillStyle=titleGold||'#FFE27A';c.fillText(GAME_NAME,108,v.top+v.barHeight/2,Math.max(60,v.barRight-116));
   neonButton(c,{x:4,y:v.titleY+4,width:118,height:40},'dim',20);
   for(const tab of v.modeTabs){const selected=tab.mode===g.mode,visual={x:tab.x,y:v.titleY+6,width:tab.width,height:36};if(selected)candyButton(c,visual,'gold',18);c.font=`800 14px ${OCEAN.fonts.body}`;c.textAlign='center';c.textBaseline='middle';c.fillStyle=selected?'#5A2C00':OCEAN.colors.secondary;c.fillText(tab.mode==='campaign'?'闯关':'无尽',tab.x+tab.width/2,v.titleY+24,tab.width-8);this.actions.push({rect:tab,run:()=>void this.requestMode(tab.mode)});}
   iconButton({x:v.width-98,y:v.titleY,width:40,height:36},g.state==='paused'?'play':'pause',()=>{if(g.state==='paused')g.start();else g.pause();});
