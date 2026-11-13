@@ -9,7 +9,7 @@ import { ENDLESS } from './endless/EndlessRules';
 import { C } from './GameConfig';
 import { VIEW, ARENA_IN_VIEW, viewFraction } from './Viewport';
 import { activateCentralAction, centralActionFor } from './CentralAction';
-import { START_HINT } from './PlayfieldStart';
+import { START_HINT, startFromPlayfield } from './PlayfieldStart';
 import { STATE_LABELS } from './GameState';
 import { ARCADE } from './ArcadeRules';
 import { fitGamePanel } from './ViewportLayout';
@@ -42,7 +42,7 @@ export function mountGame(root: HTMLElement) {
         </section>
         <div id="central-layer" class="central-layer" hidden><button id="start" class="central-start" type="button" aria-controls="arena-canvas">开始游戏</button></div>
       </div>
-      <div class="touch-pad" id="touch-pad" role="presentation" data-fill><div class="power-info"><span id="wide"></span><span id="combo"></span></div><div class="pad-track"><i id="pad-knob"></i></div><span class="pad-hint">左右滑动控制挡板</span></div>
+      <div class="touch-pad" id="touch-pad" role="presentation" data-fill><div class="power-info"><span id="wide"></span><span id="combo"></span><span id="limit-warn"></span></div><div class="pad-track"><i id="pad-knob"></i></div><span class="pad-hint">左右滑动控制挡板</span></div>
     </section></div>
     <button id="stress" class="debug" hidden>百球压力测试</button>
     <section id="title-screen" class="title-screen" aria-label="选择游戏模式">
@@ -69,10 +69,22 @@ export function mountGame(root: HTMLElement) {
       </div>
     </section>
   </main>`;
-  const el = (id: string) => root.querySelector<HTMLElement>(`#${id}`)!;
+  // Lookups and text writes are cached: update() runs every frame, so only real changes touch the DOM.
+  const found = new Map<string, HTMLElement>();
+  const el = (id: string) => { let node = found.get(id); if (!node) { node = root.querySelector<HTMLElement>(`#${id}`)!; found.set(id, node); } return node; };
+  const shown = new Map<string, string>();
+  const text = (id: string, value: string) => { if (shown.get(id) !== value) { shown.set(id, value); el(id).textContent = value; } };
   const button = (id: string) => el(id) as HTMLButtonElement;
   let online: LeaderboardUI | undefined;
   let picking = true;
+  // Desktop keyboard: ←/→ or A/D steer while held; Space/Enter launches, pauses or resumes; Esc/P pauses.
+  const held = new Set<string>(); let keyFrame = 0;
+  const steerWithKeys = (g: Game) => {
+    const now = performance.now(), dt = keyFrame ? Math.min(.05, (now - keyFrame) / 1000) : 0; keyFrame = now;
+    const dir = (held.has('ArrowRight') || held.has('KeyD') ? 1 : 0) - (held.has('ArrowLeft') || held.has('KeyA') ? 1 : 0);
+    if (dir && !picking) g.physics.setTarget(g.physics.targetX + dir * C.paddle.speed * dt);
+  };
+  const modeButtons = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-mode]')), pickButtons = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-pick]'));
   // Fill the result page once per finished run (update runs every frame).
   let resultKey='';
   const showResult=(g:Game)=>{
@@ -89,25 +101,25 @@ export function mountGame(root: HTMLElement) {
     online?.observe(g);
     const blocks = g.physics.blocks, level = g.levels.current;
     const field = g.physics.endless;
-    el('level-label').textContent = field ? '无尽阶段' : '关卡';
-    el('level').textContent = field ? `第${g.reachedLevel}阶段` : `${String(level.number).padStart(2, '0')}/${String(g.levels.count).padStart(2, '0')}`;
-    if (el('hearts').children.length !== g.maxLives) el('hearts').innerHTML = Array.from({ length: g.maxLives }, () => '<span aria-hidden="true">♥</span>').join('');
+    text('level-label', field ? '无尽阶段' : '关卡');
+    text('level', field ? `第${g.reachedLevel}阶段` : `${String(level.number).padStart(2, '0')}/${String(g.levels.count).padStart(2, '0')}`);
+    if (el('hearts').children.length !== g.maxLives) { shown.delete('hearts:lives'); el('hearts').innerHTML = Array.from({ length: g.maxLives }, () => '<span aria-hidden="true">♥</span>').join(''); }
     el('hearts').setAttribute('aria-label', `剩余${g.lives}条生命`);
-    el('hearts').querySelectorAll('span').forEach((heart, i) => {const lost=i>=g.lives;heart.classList.toggle('lost',lost);heart.textContent=lost?'♡':'♥';});
-    el('remaining').textContent = String(blocks.remaining);
-    el('lives').textContent = String(g.lives); el('score').textContent = String(g.score.total);
-    el('removed').textContent = String(blocks.removed); el('total').textContent = String(blocks.total);
-    el('balls').textContent = String(g.physics.balls.length);
+    if (shown.get('hearts:lives') !== `${g.lives}/${g.maxLives}`) { shown.set('hearts:lives', `${g.lives}/${g.maxLives}`); el('hearts').querySelectorAll('span').forEach((heart, i) => {const lost=i>=g.lives;heart.classList.toggle('lost',lost);heart.textContent=lost?'♡':'♥';}); }
+    text('remaining', String(blocks.remaining));
+    text('lives', String(g.lives)); text('score', String(g.score.total));
+    text('removed', String(blocks.removed)); text('total', String(blocks.total));
+    text('balls', String(g.physics.balls.length));
     // Endless shows the countdown to the next descent instead of a clear percentage.
     const pressed = field && field.variant.crush && field.pressure > 0 ? Math.max(0, (ENDLESS.crushTicks - field.pressure) * C.step) : undefined;
-    el('progress-label').textContent = field ? (pressed !== undefined ? `压线 ${pressed.toFixed(1)}秒` : field.blocked ? '压到底线' : '下沉') : '进度';
-    const percent=field?Math.round(field.descentProgress*100):Math.round(blocks.removed/Math.max(1,blocks.total)*100);el('progress-value').textContent=field?`已下沉${field.descents}行`:percent+'%';el('progress-meter').setAttribute('aria-valuenow',String(percent));el('progress-meter').style.setProperty('--fill',percent+'%');
+    text('progress-label', field ? (pressed !== undefined ? `压线 ${pressed.toFixed(1)}秒` : field.blocked ? '压到底线' : '下沉') : '进度');
+    const percent=field?Math.round(field.descentProgress*100):Math.round(blocks.removed/Math.max(1,blocks.total)*100);text('progress-value', field?`已下沉${field.descents}行`:percent+'%');el('progress-meter').setAttribute('aria-valuenow',String(percent));el('progress-meter').style.setProperty('--fill',percent+'%');
     wrap.dataset.state=g.state;
     // The strip's knob follows the paddle so the strip reads as part of the arena.
     el('pad-knob').style.left=`${viewFraction(g.physics.paddleX,0).x*100}%`;
     // Header switch: usable before a run starts and after it ends; locked while a run is in progress.
     const locked = g.journal.events.length > 0 && g.state !== 'gameOver' && g.state !== 'victory';
-    for(const b of Array.from(root.querySelectorAll<HTMLButtonElement>('[data-mode]'))){b.setAttribute('aria-pressed',String(b.dataset.mode===g.mode));b.disabled=locked&&b.dataset.mode!==g.mode;b.title=locked?'本局结束后可切换模式':'';}
+    for(const b of modeButtons){b.setAttribute('aria-pressed',String(b.dataset.mode===g.mode));b.disabled=locked&&b.dataset.mode!==g.mode;b.title=locked?'本局结束后可切换模式':'';}
     // The mode picker owns the screen before the first run and after every finished run.
     const ended = g.state === 'gameOver' || g.state === 'victory';
     // The same full-screen page doubles as the result page after every finished run.
@@ -115,29 +127,32 @@ export function mountGame(root: HTMLElement) {
     el('title-screen').classList.toggle('result', ended && !picking);
     if (ended && !picking) showResult(g);
     const muted=g.audio.muted;if(el('ts-sound').getAttribute('aria-pressed')!==String(muted)){el('ts-sound').setAttribute('aria-pressed',String(muted));el('ts-sound').innerHTML=`${iconSvg(muted?'soundOff':'soundOn')}<span>${muted?'音效关':'音效开'}</span>`;}
-    for(const b of Array.from(root.querySelectorAll<HTMLElement>('[data-pick]')))b.classList.toggle('last',b.dataset.pick===g.mode);
-    el('status').textContent = STATE_LABELS[g.state];
+    for(const b of pickButtons)b.classList.toggle('last',b.dataset.pick===g.mode);
+    text('status', STATE_LABELS[g.state]);
     const timers=[[g.physics.wideRemaining,'加宽'],[g.physics.pierceRemaining,'穿透'],[g.physics.fireRemaining,'火焰']] as const;
-    el('wide').textContent = timers.filter(([t])=>t>0).map(([t,name])=>`${name} ${t.toFixed(1)}秒`).join(' · ');
-    el('combo').textContent = g.score.combo > 1 ? `${g.score.combo} 连击 ×${g.score.multiplier}` : '';
+    text('wide', timers.filter(([t])=>t>0).map(([t,name])=>`${name} ${t.toFixed(1)}秒`).join(' · '));
+    text('combo', g.score.combo > 1 ? `${g.score.combo} 连击 ×${g.score.multiplier}` : '');
+    // Long endless runs: warn before the record limit makes the run impossible to submit.
+    text('limit-warn', g.journal.truncated ? '记录已满，本局无法上榜' : g.journal.nearLimit ? '记录即将满额，请尽快结束本局' : '');
+    steerWithKeys(g);
     const action = centralActionFor(g);
     const showAction = action !== null && !picking && !ended;
     el('central-layer').hidden = !showAction;
     button('start').classList.toggle('sr-only',g.state==='ready');
     button('start').hidden = !showAction;
     button('start').disabled = action === null;
-    if (action) button('start').textContent = g.state==='ready'?START_HINT:action.label;
+    if (action) text('start', g.state==='ready'?START_HINT:action.label);
     button('pause').disabled = g.state !== 'running' && g.state !== 'paused';
     const pauseIcon = g.state === 'paused' ? 'play' : 'pause';
     if (button('pause').dataset.icon !== pauseIcon) { button('pause').dataset.icon = pauseIcon; button('pause').innerHTML = iconSvg(pauseIcon); button('pause').setAttribute('aria-label', g.state === 'paused' ? '继续' : '暂停'); }
     const completed = g.state === 'levelComplete' || g.state === 'victory';
     el('settlement').hidden = !completed && g.state !== 'gameOver';
     if (completed || g.state === 'gameOver') {
-      el('result-title').textContent = GAME_NAME+' · '+(g.state === 'gameOver' ? '游戏结束' : g.state === 'victory' ? '全部关卡突破！' : `第${level.number}关突破成功`);
-      el('result-tip').textContent = g.state === 'gameOver' ? (field ? `坚持到第${g.reachedLevel}阶段，砖墙共下沉${field.descents}行。` : '生命已耗尽。在下方选择模式，开始新一局。') : g.state === 'victory' ? '最终核心已击碎，你完成了这次挑战。可在下方选择模式再来一局。' : `保留 ${g.lives} 条生命和累计分数，迎接下一关。`;
-      el('result-label').textContent = g.state === 'levelComplete' ? '本关得分' : '最终分数';
-      el('result-score').textContent = String(g.state === 'levelComplete' ? g.result!.levelTotal : g.score.total);
-      el('score-details').textContent = completed ? `本关得分 ${g.result!.blockScore} + 通关 ${g.result!.clearBonus} + 生命 ${g.result!.lifeBonus}　累计 ${g.score.total}` : (field ? `无尽模式 · 第${g.reachedLevel}阶段 · 消除 ${g.journal.bricksDestroyed} 块` : `本次到达第${level.number}关 · 累计 ${g.score.total} 分`);
+      text('result-title', GAME_NAME+' · '+(g.state === 'gameOver' ? '游戏结束' : g.state === 'victory' ? '全部关卡突破！' : `第${level.number}关突破成功`));
+      text('result-tip', g.state === 'gameOver' ? (field ? `坚持到第${g.reachedLevel}阶段，砖墙共下沉${field.descents}行。` : '生命已耗尽。在下方选择模式，开始新一局。') : g.state === 'victory' ? '最终核心已击碎，你完成了这次挑战。可在下方选择模式再来一局。' : `保留 ${g.lives} 条生命和累计分数，迎接下一关。`);
+      text('result-label', g.state === 'levelComplete' ? '本关得分' : '最终分数');
+      text('result-score', String(g.state === 'levelComplete' ? g.result!.levelTotal : g.score.total));
+      text('score-details', completed ? `本关得分 ${g.result!.blockScore} + 通关 ${g.result!.clearBonus} + 生命 ${g.result!.lifeBonus}　累计 ${g.score.total}` : (field ? `无尽模式 · 第${g.reachedLevel}阶段 · 消除 ${g.journal.bricksDestroyed} 块` : `本次到达第${level.number}关 · 累计 ${g.score.total} 分`));
     }
   };
   el('central-layer').style.setProperty('--arena-x', `${ARENA_IN_VIEW.x * 100}%`);
@@ -152,11 +167,20 @@ export function mountGame(root: HTMLElement) {
   const game = new Game(createWebHost(root.querySelector('canvas')!,()=>!picking&&!document.hidden&&!online?.submitting&&!root.querySelector('dialog[open]'),[el('touch-pad')]),update,undefined,new AudioSystem(createWebAudio));
   button('start').onclick = () => activateCentralAction(game);
   button('pause').onclick = () => game.state === 'paused' ? game.start() : game.pause();
-  button('reset').onclick = () => game.reset();
-  button('mute').onclick = () => {
-    game.audio.unlock(); const muted = game.audio.toggle();
-    button('mute').innerHTML = iconSvg(muted ? 'soundOff' : 'soundOn'); button('mute').setAttribute('aria-pressed', String(muted)); button('mute').setAttribute('aria-label', muted ? '开启音效' : '静音');
+  const inProgress = () => game.journal.events.length > 0 && game.state !== 'gameOver' && game.state !== 'victory';
+  // Restart sits next to pause: confirm before throwing away a run in progress.
+  button('reset').onclick = () => {
+    if (inProgress()) { const wasRunning = game.state === 'running'; game.pause(); if (!window.confirm('确定放弃本局，重新开始吗？当前分数不会保留。')) { if (wasRunning) game.start(); return; } }
+    game.reset();
   };
+  const MUTE_KEY='qiulegeqiu:muted';
+  const showMute = (muted: boolean) => { button('mute').innerHTML = iconSvg(muted ? 'soundOff' : 'soundOn'); button('mute').setAttribute('aria-pressed', String(muted)); button('mute').setAttribute('aria-label', muted ? '开启音效' : '静音'); };
+  button('mute').onclick = () => {
+    game.audio.unlock(); const muted = game.audio.toggle(); showMute(muted);
+    try{localStorage.setItem(MUTE_KEY,muted?'1':'0');}catch{/* Preference only. */}
+  };
+  // The sound setting survives a reload, like the WeChat build.
+  try{if(localStorage.getItem(MUTE_KEY)==='1'){game.audio.toggle();showMute(true);}}catch{/* Preference only. */}
   button('stress').hidden = new URLSearchParams(location.search).get('debug') !== '1';
   button('stress').onclick = () => game.stress();
   // Mode is chosen once when the game opens, and again only after a run ends (game over or victory).
@@ -179,6 +203,20 @@ export function mountGame(root: HTMLElement) {
   const editable=(t:EventTarget|null)=>t instanceof HTMLElement&&!!t.closest('input,textarea,select,[contenteditable]');
   for(const type of ['selectstart','contextmenu','gesturestart','dragstart'])document.addEventListener(type,e=>{if(!editable(e.target))e.preventDefault();});
   online = new LeaderboardUI(root,game);
+  const playable = () => !picking && !document.hidden && !online?.submitting && !root.querySelector('dialog[open]');
+  document.addEventListener('keydown', e => {
+    if (editable(e.target) || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (['ArrowLeft','ArrowRight','KeyA','KeyD'].includes(e.code)) { if (playable()) { held.add(e.code); e.preventDefault(); } return; }
+    // Space/Enter on a focused button keeps its normal click.
+    if ((e.code === 'Space' || e.code === 'Enter') && !(e.target instanceof HTMLButtonElement) && playable()) {
+      e.preventDefault(); if (e.repeat) return; game.audio.unlock();
+      if (game.state === 'running') game.pause(); else if (game.state === 'paused') game.start(); else if (game.state === 'ready') startFromPlayfield(game); else activateCentralAction(game);
+      return;
+    }
+    if ((e.code === 'Escape' || e.code === 'KeyP') && game.state === 'running') game.pause();
+  });
+  document.addEventListener('keyup', e => held.delete(e.code));
+  window.addEventListener('blur', () => held.clear());
   // Title-screen shortcuts reuse the real controls (leaderboard trophy and mute).
   button('tr-submit').onclick=()=>online?.showResult();
   button('ts-board').onclick=()=>root.querySelector<HTMLButtonElement>('header .trophy')?.click();

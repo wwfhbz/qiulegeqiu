@@ -70,6 +70,8 @@ export class Game {
     // Endless relief after a pressure death: clear the rows nearest the line, then a random effect ball.
     const field=this.physics.endless;
     if(this.pendingRelief&&field&&this.state==='ready'){
+      // The run is live from here: bricks broken by a lightning bonus are journaled and scored like any other hit.
+      this.state='running';
       this.pendingRelief=false;const cleared=field.relief(ENDLESS.reliefRows);
       this.physics.effects.emit('relief',C.arena.x,field.top+(field.floorRow+.5)*field.step,cleared);
       const kind=this.physics.drawBonus();this.journal.record({type:'bonus',level:this.levels.current.number,kind});this.physics.applyBonus(kind);
@@ -125,6 +127,8 @@ export class Game {
         this.remainingLives = Math.max(0, this.remainingLives - 1);
         this.audio.play('lost');
         this.score.resetCombo(); this.physics.resetRound(this.lives > 0);
+        // 1.5+: the next launch starts a fresh 10s pressure countdown instead of inheriting this one.
+        const field=this.physics.endless;if(field?.variant.pressureReset)field.pressure=0;
         this.state = this.lives > 0 ? 'ready' : 'gameOver';
         this.readyReason = 'lifeLost';
         this.physics.paused = this.lives === 0;

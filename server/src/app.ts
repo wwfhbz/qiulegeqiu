@@ -9,7 +9,7 @@ import { seedRegions, region, regionView, searchRegions } from './regions.js';
 import { ApiError, moderateNickname } from './moderation.js';
 import { leaderboard, personalBest, refreshBest,globalLeaderboard,globalPersonalBest,historicalBests,endlessLeaderboard,endlessPersonalBest } from './leaderboard.js';
 import { verifyTrace } from './verifier.js';
-import { isEndlessRules,ENDLESS_RANKING_SCOPE,CHALLENGE_PROTOCOL_VERSION,CHALLENGE_FEATURES,RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,V17_RULES_VERSION,PREVIOUS_RULES_VERSION,LEGACY_RULES_VERSION,SUPPORTED_RULES_VERSIONS,GLOBAL_BOARD,ENDLESS_BOARD,ENDLESS_RULES_VERSION,ENDLESS_V4_RULES_VERSION,ENDLESS_V1_RULES_VERSION,ENDLESS_V2_RULES_VERSION,ENDLESS_V3_RULES_VERSION, type ChallengeEvent } from '../../shared/Challenge.js';
+import { isEndlessRules,ENDLESS_RANKING_SCOPE,CHALLENGE_PROTOCOL_VERSION,CHALLENGE_FEATURES,RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,V17_RULES_VERSION,PREVIOUS_RULES_VERSION,LEGACY_RULES_VERSION,SUPPORTED_RULES_VERSIONS,GLOBAL_BOARD,ENDLESS_BOARD,ENDLESS_RULES_VERSION,ENDLESS_V4_RULES_VERSION,ENDLESS_V1_RULES_VERSION,ENDLESS_V2_RULES_VERSION,ENDLESS_V3_RULES_VERSION,ENDLESS_V5_RULES_VERSION,MAX_CHALLENGE_EVENTS, type ChallengeEvent } from '../../shared/Challenge.js';
 const ruleSchema=z.enum(SUPPORTED_RULES_VERSIONS);
 const selection=(req:FastifyRequest)=>{const q=z.object({board:z.enum([GLOBAL_BOARD,ENDLESS_BOARD]).optional(),rulesVersion:ruleSchema.optional()}).parse(req.query);
  const boardRules=q.board===ENDLESS_BOARD?(q.rulesVersion??ENDLESS_V4_RULES_VERSION):RULES_VERSION;
@@ -26,7 +26,7 @@ export const challengeEvent=z.discriminatedUnion('type',[
  z.object({...base,type:z.literal('launch'),tripleRuleVersion:z.literal(2).optional(),brickPowerVersion:z.literal(2).optional(),trajectoryVersion:z.literal(1).optional()}).strict(),
  z.object({...base,type:z.enum(['ballLost','lost','clear','next','finish'])}).strict(),
  z.object({...base,type:z.literal('hit'),index:integer}).strict(),
- z.object({...base,type:z.literal('power'),kind:z.enum(['halve','triple','wide','life','bomb','plus3','pierce','fire','lightning']),dropId:z.number().int().positive().max(50000).optional()}).strict(),
+ z.object({...base,type:z.literal('power'),kind:z.enum(['halve','triple','wide','life','bomb','plus3','pierce','fire','lightning']),dropId:z.number().int().positive().max(MAX_CHALLENGE_EVENTS).optional()}).strict(),
  z.object({...base,type:z.literal('bomb'),target:z.string().max(50).nullable()}).strict(),
  z.object({...base,type:z.literal('crushed')}).strict(),
  z.object({...base,type:z.literal('bonus'),kind:z.enum(['plus3','pierce','fire','lightning'])}).strict()
@@ -37,7 +37,7 @@ export interface AppOptions { db?:Db; dbPath?:string; origin?:string; secure?:bo
 export async function createApp(options:AppOptions={}) {
  const db=options.db||openDb(options.dbPath||process.env.DB_PATH||'../work/leaderboard.sqlite'); seedRegions(db);
  const freshDatabase=!!db.prepare("SELECT 1 FROM sqlite_schema WHERE type='table' AND name='deployment_reset_epoch'").get();
- const activeRules:readonly string[]=freshDatabase?[PREVIOUS_RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,V17_RULES_VERSION,RULES_VERSION,ENDLESS_V1_RULES_VERSION,ENDLESS_V2_RULES_VERSION,ENDLESS_V3_RULES_VERSION,ENDLESS_V4_RULES_VERSION,ENDLESS_RULES_VERSION]:SUPPORTED_RULES_VERSIONS;
+ const activeRules:readonly string[]=freshDatabase?[PREVIOUS_RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,V17_RULES_VERSION,RULES_VERSION,ENDLESS_V1_RULES_VERSION,ENDLESS_V2_RULES_VERSION,ENDLESS_V3_RULES_VERSION,ENDLESS_V4_RULES_VERSION,ENDLESS_V5_RULES_VERSION,ENDLESS_RULES_VERSION]:SUPPORTED_RULES_VERSIONS;
  const bestFor=(selected:ReturnType<typeof selection>,playerId:string)=>selected.global?globalPersonalBest(db,playerId):selected.endless?endlessPersonalBest(db,playerId):personalBest(db,playerId,selected.rules);
  const historyFields=(playerId:string|null)=>{const records=playerId?historicalBests(db,playerId):[];return {historicalBest:records[0]??null,historicalBests:records};};
  const now=options.now||Date.now, origin=options.origin||process.env.PUBLIC_ORIGIN||'http://127.0.0.1:5173', secure=options.secure??process.env.NODE_ENV==='production';
@@ -126,14 +126,14 @@ export async function createApp(options:AppOptions={}) {
   catch(error){if(String(error).includes('UNIQUE constraint failed'))throw new ApiError(409,'该地区的昵称已被使用，请更换地区或昵称。');throw error;}
  });
  app.post('/api/challenges',async(req,reply)=>{
-  const s=session(req)!;if(s.player_id)active(s);rate(`challenge:${s.id}`,30,3600000);const input=z.object({rulesVersion:z.string().max(100),unranked:z.boolean().default(false),seed:z.number().int().min(0).max(4294967295).default(1)}).strict().parse(req.body);
+  const s=session(req)!;if(s.player_id)active(s);rate(`challenge:${s.id}`,120,3600000);const input=z.object({rulesVersion:z.string().max(100),unranked:z.boolean().default(false),seed:z.number().int().min(0).max(4294967295).default(1)}).strict().parse(req.body);
   if(freshDatabase&&input.rulesVersion===LEGACY_RULES_VERSION)throw new ApiError(400,'本排行榜已启用十二关，请刷新客户端后重新开始','CLIENT_UPDATE_REQUIRED');
   if(!SUPPORTED_RULES_VERSIONS.includes(input.rulesVersion as typeof SUPPORTED_RULES_VERSIONS[number]))throw new ApiError(400,'服务器不支持当前游戏规则，请更新排行榜后端；本次仍可单机游玩','UNSUPPORTED_RULES');
   const cid=randomUUID();transaction(db,()=>{db.prepare('INSERT INTO challenges(id,session_id,rules_version,created_at,expires_at,unranked,seed,mode) VALUES(?,?,?,?,?,?,?,?)').run(cid,s.id,input.rulesVersion,now(),now()+6*3600000,input.unranked?1:0,input.seed,isEndlessRules(input.rulesVersion)?'endless':'campaign');});reply.status(201);return {id:cid,expiresAt:now()+6*3600000,rulesVersion:input.rulesVersion,challengeProtocolVersion:CHALLENGE_PROTOCOL_VERSION,challengeFeatures:CHALLENGE_FEATURES};
  });
  app.post('/api/challenges/:id/events',async(req)=>{
   const {c}=challenge(req);const batch=z.object({sequence:integer,events:z.array(challengeEvent).min(1).max(256)}).strict().parse(req.body);const payload=JSON.stringify(batch.events),digest=hash(payload);
-  return transaction(db,()=>{const previous=db.prepare('SELECT payload_hash FROM challenge_batches WHERE challenge_id=? AND sequence=?').get(c.id,batch.sequence);if(previous){if(previous.payload_hash!==digest)throw new ApiError(409,'重复批次内容不一致');return {nextSequence:batch.sequence+1};}if(c.state!=='open'||c.finished_at)throw new ApiError(409,'挑战已结束');if(batch.sequence!==c.next_sequence)throw new ApiError(409,'事件批次顺序错误');if(c.event_count+batch.events.length>50000)throw new ApiError(413,'事件数量超限，本次成绩无法联网登记');
+  return transaction(db,()=>{const previous=db.prepare('SELECT payload_hash FROM challenge_batches WHERE challenge_id=? AND sequence=?').get(c.id,batch.sequence);if(previous){if(previous.payload_hash!==digest)throw new ApiError(409,'重复批次内容不一致');return {nextSequence:batch.sequence+1};}if(c.state!=='open'||c.finished_at)throw new ApiError(409,'挑战已结束');if(batch.sequence!==c.next_sequence)throw new ApiError(409,'事件批次顺序错误');if(c.event_count+batch.events.length>MAX_CHALLENGE_EVENTS)throw new ApiError(413,'事件数量超限，本次成绩无法联网登记');
    db.prepare('INSERT INTO challenge_batches VALUES(?,?,?,?,?)').run(c.id,batch.sequence,payload,digest,now());const finished=batch.events.some(e=>e.type==='finish');db.prepare('UPDATE challenges SET next_sequence=next_sequence+1,event_count=event_count+?,finished_at=? WHERE id=?').run(batch.events.length,finished?now():null,c.id);return {nextSequence:batch.sequence+1};});
  });
  app.post('/api/challenges/:id/submit',async(req)=>{

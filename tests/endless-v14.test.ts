@@ -4,9 +4,9 @@ import {readFileSync} from 'node:fs';
 import {Game} from '../src/Game';
 import {C} from '../src/GameConfig';
 import {EndlessField} from '../src/endless/EndlessField';
-import {ENDLESS,ENDLESS_V4,ENDLESS_V5,ENDLESS_CURRENT,ENDLESS_POWER_WEIGHTS,ENDLESS_V14_POWER_WEIGHTS,FIRE_OFFSETS_V14,FIRE_OFFSETS_LEGACY,descentInterval,dropEvery,endlessPower,endlessSettings,endlessVersion,ENDLESS_VARIANTS,type EndlessVariant} from '../src/endless/EndlessRules';
+import {ENDLESS,ENDLESS_V4,ENDLESS_V5,ENDLESS_V6,ENDLESS_CURRENT,ENDLESS_POWER_WEIGHTS,ENDLESS_V14_POWER_WEIGHTS,FIRE_OFFSETS_V14,FIRE_OFFSETS_LEGACY,descentInterval,dropEvery,endlessPower,endlessSettings,endlessVersion,ENDLESS_VARIANTS,type EndlessVariant} from '../src/endless/EndlessRules';
 import {seededRandom} from '../src/Random';
-import {ENDLESS_RULES_VERSION,ENDLESS_V4_RULES_VERSION,RULES_VERSION} from '../shared/Challenge';
+import {ENDLESS_RULES_VERSION,ENDLESS_V4_RULES_VERSION,ENDLESS_V5_RULES_VERSION,RULES_VERSION} from '../shared/Challenge';
 import {MiniGameApp} from '../wechat-game/src/App';
 import {wxFixture} from './helpers/WxFixture';
 import {cloudKey} from '../wechat-game/src/social/Protocol';
@@ -38,8 +38,8 @@ it('旧main黄金样本：V1.3的三组随机道具和10000tick砖墙逐字节�
   expect([0,1,10,1000].map(n=>descentInterval(n,ENDLESS_V4))).toEqual(sample.intervals);expect([0,125,199,200,1000,6000].map(n=>dropEvery(n,ENDLESS_V4))).toEqual(sample.drops);
  }
 });
-it('规则注册表同时保留V1.0–V1.4；未知配置不能冒充当前规则',()=>{
- expect(Object.keys(ENDLESS_VARIANTS)).toHaveLength(5);expect(endlessVersion(ENDLESS_V4)).toBe(ENDLESS_V4_RULES_VERSION);expect(endlessVersion(ENDLESS_V5)).toBe(ENDLESS_RULES_VERSION);expect(()=>endlessVersion({...ENDLESS_V5})).toThrow('未知');
+it('规则注册表同时保留V1.0–V1.5；未知配置不能冒充当前规则',()=>{
+ expect(Object.keys(ENDLESS_VARIANTS)).toHaveLength(6);expect(endlessVersion(ENDLESS_V4)).toBe(ENDLESS_V4_RULES_VERSION);expect(endlessVersion(ENDLESS_V5)).toBe(ENDLESS_V5_RULES_VERSION);expect(endlessVersion(ENDLESS_V6)).toBe(ENDLESS_RULES_VERSION);expect(()=>endlessVersion({...ENDLESS_V6})).toThrow('未知');
  const g=game(7,ENDLESS_V4);expect(g.rulesVersion).toBe(ENDLESS_V4_RULES_VERSION);g.setMode('campaign');expect(g.rulesVersion).toBe(RULES_VERSION);
 });
 it('新加宽2倍8秒、刷新不叠加、边缘合法；闯关和旧版仍1.8倍5秒',()=>{

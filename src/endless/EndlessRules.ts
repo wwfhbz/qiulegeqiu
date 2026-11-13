@@ -1,4 +1,4 @@
-import {ENDLESS_RULES_VERSION,ENDLESS_V1_RULES_VERSION,ENDLESS_V2_RULES_VERSION,ENDLESS_V3_RULES_VERSION,ENDLESS_V4_RULES_VERSION} from '../../shared/Challenge';
+import {ENDLESS_RULES_VERSION,ENDLESS_V1_RULES_VERSION,ENDLESS_V2_RULES_VERSION,ENDLESS_V3_RULES_VERSION,ENDLESS_V4_RULES_VERSION,ENDLESS_V5_RULES_VERSION} from '../../shared/Challenge';
 import type {LevelConfig} from '../Levels';
 import type {PowerKind} from '../PowerRules';
 /**
@@ -57,6 +57,8 @@ export interface EndlessVariant {
  readonly crush?:boolean;
  /** 1.3+: +100 points for every power-up caught. */
  readonly powerPoints?:boolean;
+ /** 1.5+: losing a life (all balls gone) restarts the pressure timer, so a relaunch never inherits a nearly full countdown. */
+ readonly pressureReset?:boolean;
 }
 /** endless-1.0.0: drops every 8 → 30 bricks; the wall stopped 80% down the bowl. */
 export const ENDLESS_V1:EndlessVariant={drops:{start:8,growEvery:250,max:30},floor:'legacy'};
@@ -82,7 +84,9 @@ export interface EndlessSettings {
 export const ENDLESS_LEGACY_SETTINGS:EndlessSettings={weights:ENDLESS_POWER_WEIGHTS,descent:ENDLESS.descent,wideScale:1.8,wideSeconds:5,lightningBricks:12,fireOffsets:FIRE_OFFSETS_LEGACY};
 export const ENDLESS_V14_SETTINGS:EndlessSettings={weights:ENDLESS_V14_POWER_WEIGHTS,descent:{startTicks:540,decay:.98,minTicks:180},wideScale:2,wideSeconds:8,lightningBricks:15,fireOffsets:FIRE_OFFSETS_V14};
 export const ENDLESS_V5:EndlessVariant={drops:{start:10,growEvery:200,max:40},floor:'raised',crush:true,powerPoints:true,settings:ENDLESS_V14_SETTINGS};
-export const ENDLESS_CURRENT=ENDLESS_V5;
+/** endless-1.5.0: V1.4 settings; a lost life restarts the pressure timer. */
+export const ENDLESS_V6:EndlessVariant={drops:{start:10,growEvery:200,max:40},floor:'raised',crush:true,powerPoints:true,pressureReset:true,settings:ENDLESS_V14_SETTINGS};
+export const ENDLESS_CURRENT=ENDLESS_V6;
 export function endlessSettings(variant:EndlessVariant=ENDLESS_CURRENT):EndlessSettings{return variant.settings??ENDLESS_LEGACY_SETTINGS;}
 /** Relief reward: one of the four ball effects, equally likely, from its own seeded stream. */
 export const BONUS_KINDS=['plus3','pierce','fire','lightning'] as const;
@@ -98,6 +102,6 @@ export const ENDLESS_LEVEL:LevelConfig={number:1,name:'无尽模式',speedScale:
 
 /** One reviewed version registry shared by Game and API replay dispatch. Unknown versions never fall back. */
 export const ENDLESS_VARIANTS:Readonly<Record<string,EndlessVariant>>={
- [ENDLESS_V1_RULES_VERSION]:ENDLESS_V1,[ENDLESS_V2_RULES_VERSION]:ENDLESS_V2,[ENDLESS_V3_RULES_VERSION]:ENDLESS_V3,[ENDLESS_V4_RULES_VERSION]:ENDLESS_V4,[ENDLESS_RULES_VERSION]:ENDLESS_V5,
+ [ENDLESS_V1_RULES_VERSION]:ENDLESS_V1,[ENDLESS_V2_RULES_VERSION]:ENDLESS_V2,[ENDLESS_V3_RULES_VERSION]:ENDLESS_V3,[ENDLESS_V4_RULES_VERSION]:ENDLESS_V4,[ENDLESS_V5_RULES_VERSION]:ENDLESS_V5,[ENDLESS_RULES_VERSION]:ENDLESS_V6,
 };
 export function endlessVersion(variant:EndlessVariant){const version=Object.keys(ENDLESS_VARIANTS).find(key=>ENDLESS_VARIANTS[key]===variant);if(!version)throw Error('未知无尽规则配置');return version;}
