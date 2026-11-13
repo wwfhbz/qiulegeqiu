@@ -1,10 +1,10 @@
-import { C } from './GameConfig';
+import { VIEW } from './Viewport';
 
 /** Fit the unchanged logical canvas into the room left by the compact controls. */
 export function fitCanvas(width: number, height: number, chrome: number) {
   if (![width, height, chrome].every(Number.isFinite) || width <= 0 || height <= chrome || chrome < 0) return null;
-  const w = Math.min(width, (height - chrome) * C.width / C.height);
-  return { width: w, height: w * C.height / C.width };
+  const w = Math.min(width, (height - chrome) * VIEW.width / VIEW.height);
+  return { width: w, height: w * VIEW.height / VIEW.width };
 }
 
 export function fitGamePanel(room: HTMLElement, panel: HTMLElement, wrap: HTMLElement) {
