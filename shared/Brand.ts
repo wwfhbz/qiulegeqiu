@@ -1,3 +1,3 @@
 /** Display brand only; repository, API paths, storage keys and scoring rules stay stable. */
 export const GAME_NAME = '球球出击';
-export const MINIGAME_VERSION = '1.8.2';
+export const MINIGAME_VERSION = '1.8.3';

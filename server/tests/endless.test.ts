@@ -3,8 +3,8 @@ import {randomUUID} from 'node:crypto';
 import {Game} from '../../src/Game';
 import {C} from '../../src/GameConfig';
 import {descentInterval} from '../../src/endless/EndlessRules';
-import {ENDLESS_RULES_VERSION,ENDLESS_V1_RULES_VERSION,RULES_VERSION,type ChallengeEvent} from '../../shared/Challenge';
-import {ENDLESS_V1} from '../../src/endless/EndlessRules';
+import {ENDLESS_RULES_VERSION,ENDLESS_V1_RULES_VERSION,ENDLESS_V2_RULES_VERSION,RULES_VERSION,type ChallengeEvent} from '../../shared/Challenge';
+import {ENDLESS_V1,ENDLESS_V2,type EndlessVariant} from '../../src/endless/EndlessRules';
 import {EndlessField} from '../../src/endless/EndlessField';
 import {verifyTrace} from '../src/verifier';
 import {createApp} from '../src/app';
@@ -15,8 +15,8 @@ afterEach(async()=>{for(const s of apps.splice(0))await s.app.close();});
  * Real endless callbacks (field descent, hits, seeded drops, pickups, lightning) with scripted contacts:
  * each tick follows Physics.update's order — journal tick, wall descent, then contacts and pickups.
  */
-function run(seed:number,ticks=9000,spacing=6,legacy=false){
- const g=new Game();g.setMode('endless');if(legacy){const f=new EndlessField();f.variant=ENDLESS_V1;g.physics.useField(f);}g.journal.seed=seed;g.physics.setSeed(seed);g.physics.reset();g.start();
+function run(seed:number,ticks=9000,spacing=6,legacy:boolean|EndlessVariant=false){
+ const g=new Game();g.setMode('endless');if(legacy){const f=new EndlessField();f.variant=legacy===true?ENDLESS_V1:legacy;g.physics.useField(f);}g.journal.seed=seed;g.physics.setSeed(seed);g.physics.reset();g.start();
  const p=g.physics,field=p.endless!;
  for(let t=1;t<=ticks;t++){
   p.onStep?.(C.step);field.tick();
@@ -66,4 +66,11 @@ it('冻结的无尽1.0：旧规则日志仍按旧底线与旧掉落频率通过�
  expect(result.summary).toEqual(g.journal.summary(g.score.total,g.reachedLevel,false));
  expect(()=>verifyTrace(g.journal.events,1e9,9,ENDLESS_RULES_VERSION)).toThrow();
  const now=run(9),drops=(x:Game)=>x.journal.events.filter(e=>e.type==='power').length;expect(drops(now)).toBeLessThan(drops(g));
+});
+
+it('冻结的无尽1.1（底线在圆底）仍按旧规则通过校验；1.2当前规则同样通过，且1.2底线高于1.1',()=>{
+ const old=run(13,26000,6,ENDLESS_V2),result=verifyTrace(old.journal.events,1e9,13,ENDLESS_V2_RULES_VERSION);
+ expect(result.summary).toEqual(old.journal.summary(old.score.total,old.reachedLevel,false));
+ const now=run(13,26000,6);expect(verifyTrace(now.journal.events,1e9,13,ENDLESS_RULES_VERSION).summary.score).toBe(now.score.total);
+ expect(old.physics.endless!.floorRow).toBeGreaterThan(now.physics.endless!.floorRow);
 });

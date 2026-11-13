@@ -13,12 +13,14 @@ export const RULES_VERSION = '1.7.0-arcade-5l-12lv-scarce-v5';
 /** Endless mode ("压迫下沉"): its own ruleset and its own board; never mixed into the campaign board. */
 /** Frozen endless 1.0: drops every 8 → 30 bricks, wall stopped 80% down the bowl. */
 export const ENDLESS_V1_RULES_VERSION = 'endless-1.0.0-3l-sink-v1';
-/** Current endless: half the drops, the wall can sink to the bottom of the circle. */
-export const ENDLESS_RULES_VERSION = 'endless-1.1.0-3l-sink-v2';
+/** Frozen endless 1.1: half the drops; the wall could sink right to the bowl bottom and seal the exit. */
+export const ENDLESS_V2_RULES_VERSION = 'endless-1.1.0-3l-sink-v2';
+/** Current endless 1.2: floor raised 64px above the bowl bottom so balls can always fall out. */
+export const ENDLESS_RULES_VERSION = 'endless-1.2.0-3l-sink-v3';
 /** Every endless version shares the endless board, so an update never empties it. */
-export const ENDLESS_BOARD_RULES_VERSIONS=[ENDLESS_V1_RULES_VERSION,ENDLESS_RULES_VERSION] as const;
+export const ENDLESS_BOARD_RULES_VERSIONS=[ENDLESS_V1_RULES_VERSION,ENDLESS_V2_RULES_VERSION,ENDLESS_RULES_VERSION] as const;
 export const ENDLESS_BOARD='endless';
-export const SUPPORTED_RULES_VERSIONS=[LEGACY_RULES_VERSION,PREVIOUS_RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,RULES_VERSION,ENDLESS_V1_RULES_VERSION,ENDLESS_RULES_VERSION] as const;
+export const SUPPORTED_RULES_VERSIONS=[LEGACY_RULES_VERSION,PREVIOUS_RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,RULES_VERSION,ENDLESS_V1_RULES_VERSION,ENDLESS_V2_RULES_VERSION,ENDLESS_RULES_VERSION] as const;
 /**
  * Seasons whose verified scores share the global board: every twelve-level ruleset. A rules update must
  * never empty the board, so each player's best across these seasons ranks. Ten-level scores stay history only.

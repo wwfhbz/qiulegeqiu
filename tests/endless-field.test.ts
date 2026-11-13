@@ -1,6 +1,6 @@
 import {expect,it} from 'vitest';
 import {EndlessField} from '../src/endless/EndlessField';
-import {ENDLESS,ENDLESS_V1,ENDLESS_V2,descentInterval,dropEvery,endlessSpeed,endlessStage,endlessPower,ENDLESS_POWER_WEIGHTS} from '../src/endless/EndlessRules';
+import {ENDLESS,ENDLESS_V1,ENDLESS_V2,ENDLESS_V3,ENDLESS_CURRENT,descentInterval,dropEvery,endlessSpeed,endlessStage,endlessPower,ENDLESS_POWER_WEIGHTS} from '../src/endless/EndlessRules';
 import {C} from '../src/GameConfig';
 import {seededRandom} from '../src/Random';
 
@@ -55,4 +55,13 @@ it('1.1版底线在圆形最底部：可下沉行数远多于1.0版；底线仍�
  expect(now.floorRow).toBeGreaterThanOrEqual(old.floorRow+8);
  const floorBottom=now.top+(now.floorRow+1)*now.step;expect(floorBottom).toBeGreaterThan(C.arena.y+C.arena.radius-now.step*2);expect(floorBottom).toBeLessThanOrEqual(C.arena.y+C.arena.radius+now.step);
  let guard=0;while(!now.blocked&&guard++<400000)now.tick();expect(now.blocked).toBe(true);expect(now.descents).toBeGreaterThan(old.floorRow-ENDLESS.initialRows+8);
+});
+
+it('1.2版底线抬高：砖墙压到底时与圆底出口之间始终留出空隙，球能从出口掉出',()=>{
+ expect(ENDLESS_CURRENT).toBe(ENDLESS_V3);
+ const f=new EndlessField();f.start(7,ENDLESS_V3);let guard=0;while(!f.blocked&&guard++<400000)f.tick();expect(f.blocked).toBe(true);
+ let lowest=0;for(let i=0;i<f.cols*f.rows;i++)if(f.alive[i])lowest=Math.max(lowest,f.top+Math.floor(i/f.cols)*f.step+f.size);
+ // Exit endpoints sit ~843px; the wall must stop well above them.
+ expect(lowest).toBeLessThanOrEqual(C.arena.y+C.arena.radius-ENDLESS.floorGap);expect(C.arena.y+C.arena.radius-lowest).toBeGreaterThanOrEqual(60);
+ const v2=new EndlessField();v2.start(7,ENDLESS_V2);expect(f.floorRow).toBeLessThan(v2.floorRow);expect(f.floorRow).toBeGreaterThan(new EndlessField().floorRow-1);
 });

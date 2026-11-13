@@ -20,6 +20,8 @@ export const ENDLESS={
  pierceSeconds:4,fireSeconds:6,lightningBricks:12,plusBalls:3,
  /** Stage shown to players and stored as the score's reached level: +1 every 10 descended rows. */
  rowsPerStage:10,
+ /** 'raised' floor: clear band kept above the bowl bottom; the exit endpoints sit ~9px above the bottom. */
+ floorGap:64,
 } as const;
 
 /** Endless drop table (weights sum to 1000): +1 life stays rare at 0.3%; no ×3 and no bomb. */
@@ -40,14 +42,19 @@ export function endlessSpeed(descents:number){const s=ENDLESS.speed;return Math.
 export interface EndlessVariant {
  /** One random drop every N destroyed bricks; N starts at `start`, +1 every `growEvery` bricks, up to `max`. */
  readonly drops:{readonly start:number;readonly growEvery:number;readonly max:number};
- /** Lowest brick edge: 'legacy' = the campaign brick floor (80% down the bowl); 'bowl' = the bottom of the circle. */
- readonly floor:'legacy'|'bowl';
+ /**
+  * Lowest brick edge: 'legacy' = the campaign brick floor (80% down the bowl); 'bowl' = the bottom of the
+  * circle (1.1 — bricks could seal the exit so balls never fell out); 'raised' = `ENDLESS.floorGap` above it.
+  */
+ readonly floor:'legacy'|'bowl'|'raised';
 }
 /** endless-1.0.0: drops every 8 → 30 bricks; the wall stopped 80% down the bowl. */
 export const ENDLESS_V1:EndlessVariant={drops:{start:8,growEvery:250,max:30},floor:'legacy'};
 /** endless-1.1.0: half the drops (every 16 → 60 bricks); the wall can sink to the bottom of the circle. */
 export const ENDLESS_V2:EndlessVariant={drops:{start:16,growEvery:125,max:60},floor:'bowl'};
-export const ENDLESS_CURRENT=ENDLESS_V2;
+/** endless-1.2.0: same drops; the floor sits 64px above the bowl bottom so the exit always stays open. */
+export const ENDLESS_V3:EndlessVariant={drops:{start:16,growEvery:125,max:60},floor:'raised'};
+export const ENDLESS_CURRENT=ENDLESS_V3;
 export function dropEvery(destroyed:number,variant:EndlessVariant=ENDLESS_CURRENT){const d=variant.drops;return Math.min(d.max,d.start+Math.floor(destroyed/d.growEvery));}
 export function endlessStage(descents:number){return Math.min(100,1+Math.floor(descents/ENDLESS.rowsPerStage));}
 
