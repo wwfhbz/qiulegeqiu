@@ -22,6 +22,16 @@
 
 ## 发布顺序
 
+推荐在服务器上以 ubuntu 用户直接运行一键更新脚本，它会自动完成下面三步：
+
+```bash
+cd /home/ubuntu/qiulegeqiu && git pull --ff-only && bash deploy/update.sh
+```
+
+脚本第7步读取发布包内 `deploy/leaderboard-contract.mjs` 的 `REVIEWED_TRANSITIONS`：规则相同直接发布；登记过的切换先 `--api-only` 安装兼容后端并校验同时支持新旧规则，再正式发布；其他变化一律停止。从不重置数据库。
+
+手动步骤：
+
 1. 先用 `--api-only` 发布后端（双验证桥接：同时接受 1.3.0 与 1.5.0），`deploy/leaderboard-contract.mjs` 中已登记 1.3.0→1.5.0 为经审核的过渡。
 2. 确认 `/api/health` 的 `supportedRulesVersions` 含 1.3.0 与 1.5.0。
 3. 再发布网页与微信小游戏 1.5.0 客户端。旧客户端在更新前仍能提交 1.3.0 成绩（进入历史记录，不进当前全球榜）。
