@@ -8,7 +8,7 @@ it('微信：打开即显示模式选择（必须选择才能开始），选无�
  const f=wxFixture(),app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false}),x=app as unknown as Internals;
  try{
   x.frame(16);expect(x.picking).toBe(true);expect(x.panel.open).toBe(true);expect(x.panel.title).toBe('选择游戏模式');
-  expect(x.panel.actions.map(a=>a.label.replace('▶ ',''))).toEqual(['闯关模式','无尽模式']);
+  expect(x.panel.actions.map(a=>a.label.replace('▶ ',''))).toEqual(['闯关模式','无尽模式','排行榜','音效']);
   x.panel.actions[1].run();expect(x.picking).toBe(false);expect(app.game.mode).toBe('endless');expect(app.game.lives).toBe(3);expect(x.rankingBoard).toBe('endless');
   expect(f.wx.getStorageSync('qiulegeqiu:wechat-mode:v1')).toBe('endless');
   x.draw(0);expect(f.texts).toContain('第1阶段');expect(f.texts).toContain('已下沉0行');

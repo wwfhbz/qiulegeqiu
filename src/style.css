@@ -135,3 +135,65 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 html,body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-text-size-adjust:100%;overscroll-behavior:none;touch-action:manipulation}
 body{position:fixed;inset:0;overflow:hidden}
 input,textarea,select,[contenteditable]{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default}
+
+/* Title screen: a full page of its own that covers the game until a mode is chosen. */
+.title-screen{position:fixed;inset:0;z-index:40;display:flex;justify-content:center;overflow:hidden auto;overscroll-behavior:contain;
+ padding:max(16px,env(safe-area-inset-top)) 18px max(14px,env(safe-area-inset-bottom));
+ background:
+  radial-gradient(1.5px 1.5px at 12% 18%,#fff 60%,transparent),radial-gradient(1px 1px at 78% 12%,#cfe9ff 60%,transparent),
+  radial-gradient(1.5px 1.5px at 64% 34%,#fff 60%,transparent),radial-gradient(1px 1px at 28% 46%,#b9dcff 60%,transparent),
+  radial-gradient(1px 1px at 88% 52%,#fff 60%,transparent),radial-gradient(1.5px 1.5px at 8% 72%,#e6f3ff 60%,transparent),
+  radial-gradient(1px 1px at 46% 84%,#fff 60%,transparent),radial-gradient(1px 1px at 92% 88%,#cfe9ff 60%,transparent),
+  radial-gradient(60% 34% at 20% 10%,rgba(255,111,177,.20),transparent 70%),
+  radial-gradient(60% 36% at 90% 30%,rgba(79,227,255,.18),transparent 70%),
+  radial-gradient(80% 40% at 50% 105%,rgba(122,92,255,.30),transparent 70%),
+  linear-gradient(180deg,#0B1030 0%,#070A1E 55%,#04060F 100%)}
+.ts-inner{width:100%;max-width:420px;min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:space-evenly;gap:10px}
+.ts-hero{width:min(54vw,200px,26vh);aspect-ratio:1;flex:none}
+.ts-ring{position:relative;width:100%;height:100%;border-radius:50%;border:2px solid rgba(120,220,255,.75);
+ box-shadow:0 0 22px rgba(79,227,255,.45),inset 0 0 26px rgba(79,227,255,.18);background:radial-gradient(circle at 50% 40%,rgba(30,50,110,.55),rgba(6,10,28,.9) 70%)}
+.ts-bricks{position:absolute;left:50%;top:15%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:3%;width:66%}
+.ts-bricks span{display:flex;gap:3%;width:100%;justify-content:center}
+.ts-bricks i{width:11%;aspect-ratio:1;border-radius:2px;box-shadow:inset 0 1px 0 rgba(255,255,255,.45),inset 0 -1px 0 rgba(0,0,0,.2)}
+.ts-paddle{position:absolute;left:50%;bottom:16%;width:30%;height:4%;transform:translateX(-50%);border-radius:99px;background:linear-gradient(180deg,#E8FBFF,#6FD8FF);box-shadow:0 0 12px rgba(79,227,255,.8);animation:ts-paddle 2.4s ease-in-out infinite}
+.ts-ball{position:absolute;left:50%;bottom:21%;width:6%;aspect-ratio:1;border-radius:50%;background:#fff;box-shadow:0 0 10px #fff,0 0 18px rgba(79,227,255,.9);animation:ts-ball 2.4s ease-in-out infinite}
+.ts-orbit{position:absolute;inset:-7%;border-radius:50%;border:1px dashed rgba(255,210,77,.35);animation:ts-spin 9s linear infinite}
+.ts-orbit b{position:absolute;left:50%;top:-4px;width:8px;height:8px;margin-left:-4px;border-radius:50%;background:#FFD24D;box-shadow:0 0 10px #FFD24D}
+@keyframes ts-spin{to{transform:rotate(360deg)}}
+@keyframes ts-paddle{0%,100%{transform:translateX(-80%)}50%{transform:translateX(-20%)}}
+@keyframes ts-ball{0%,100%{transform:translate(-120%,0)}25%{transform:translate(-40%,-260%)}50%{transform:translate(40%,0)}75%{transform:translate(-40%,-260%)}}
+.ts-logo{margin:0;font-size:clamp(38px,12vw,54px);font-weight:900;letter-spacing:6px;line-height:1.1;text-align:center;
+ background:linear-gradient(180deg,#FFFFFF 8%,#FFE27A 55%,#FFB31F);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 3px 0 rgba(140,60,0,.65)) drop-shadow(0 0 18px rgba(255,190,60,.35))}
+.ts-tag{margin:-6px 0 0;font-size:13px;letter-spacing:4px;color:#A9C1DE}
+.ts-cards{width:100%;display:flex;flex-direction:column;gap:14px}
+.ts-card{position:relative;display:flex;align-items:center;gap:14px;width:100%;min-height:96px;padding:14px 16px;border:0;border-radius:22px;text-align:left;color:#fff;
+ transition:transform .12s ease,box-shadow .12s ease}
+.ts-campaign{background:linear-gradient(135deg,#4FD8FF 0%,#3A8CFF 55%,#4B5BFF 100%);box-shadow:0 6px 0 #2443B8,0 14px 26px rgba(20,40,140,.45),inset 0 1px 0 rgba(255,255,255,.55)}
+.ts-endless{background:linear-gradient(135deg,#FF8CC6 0%,#C25CFF 55%,#7A4BFF 100%);box-shadow:0 6px 0 #5A2AB8,0 14px 26px rgba(90,30,150,.45),inset 0 1px 0 rgba(255,255,255,.55)}
+.ts-card:active{transform:translateY(5px)}
+.ts-campaign:active{box-shadow:0 1px 0 #2443B8,inset 0 1px 0 rgba(255,255,255,.55)}
+.ts-endless:active{box-shadow:0 1px 0 #5A2AB8,inset 0 1px 0 rgba(255,255,255,.55)}
+.ts-card::after{content:'';position:absolute;inset:0;border-radius:inherit;background:linear-gradient(180deg,rgba(255,255,255,.22),transparent 45%);pointer-events:none}
+.ts-icon{flex:none;display:grid;place-items:center;width:56px;height:56px;border-radius:18px;background:rgba(255,255,255,.22);box-shadow:inset 0 1px 0 rgba(255,255,255,.5)}
+.ts-icon svg{width:32px;height:32px;filter:drop-shadow(0 2px 0 rgba(0,0,0,.18))}
+.ts-text{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.ts-text strong{font-size:22px;font-weight:900;letter-spacing:3px;text-shadow:0 2px 0 rgba(0,0,0,.18)}
+.ts-desc{font-size:12px;opacity:.92}
+.ts-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:3px}
+.ts-chips em{font-style:normal;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;background:rgba(0,0,0,.18)}
+.ts-go{flex:none;display:grid;place-items:center;width:38px;height:38px;border-radius:50%;background:#fff;box-shadow:0 3px 0 rgba(0,0,0,.18)}
+.ts-campaign .ts-go{color:#2D6BFF}.ts-endless .ts-go{color:#A040FF}
+.ts-go svg{width:18px;height:18px;margin-left:2px}
+.ts-last{display:none;position:absolute;right:14px;top:-9px;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:800;color:#5A2C00;background:linear-gradient(180deg,#FFE27A,#FFB31F);box-shadow:0 2px 0 #C9770A}
+.ts-card.last .ts-last{display:block}
+.ts-tools{display:flex;gap:12px}
+.ts-tool{display:flex;align-items:center;gap:6px;height:38px;padding:0 16px;border-radius:99px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.08);color:#EAF6FF;font-size:13px;font-weight:700}
+.ts-tool svg{width:18px;height:18px}
+#ts-board svg{color:#FFD24D}
+.ts-tool:active{background:rgba(255,255,255,.16)}
+.ts-foot{margin:0;font-size:11px;color:#6F86A8;letter-spacing:1px}
+@media (max-height:640px){.ts-card{min-height:84px;padding:10px 14px}.ts-icon{width:48px;height:48px}.ts-text strong{font-size:20px}.ts-cards{gap:12px}}
+@media (prefers-reduced-motion:reduce){.ts-orbit,.ts-paddle,.ts-ball{animation:none}}
+@media (max-width:360px){.title-screen{padding-left:12px;padding-right:12px}.ts-card{gap:10px;padding:10px 12px;min-height:80px}.ts-icon{width:44px;height:44px;border-radius:14px}.ts-icon svg{width:26px;height:26px}
+ .ts-text strong{font-size:19px;letter-spacing:2px}.ts-desc{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ts-chips{flex-wrap:nowrap}.ts-chips em{padding:1px 6px;font-size:10px}.ts-go{width:32px;height:32px}.ts-cards{gap:12px}.ts-logo{letter-spacing:4px}}
+@media (max-height:600px){.ts-hero{width:min(40vw,22vh)}.ts-tag{display:none}}
