@@ -18,7 +18,7 @@ export const OCEAN={
  ball:{body:'#FFFFFF',edge:'#BFE9FF',highlight:'#FFFFFF',trail:'#7FE8FF',glow:'#4FE3FF'},
  paddle:{body:'#EAF7FF',edge:'#2F7FB8',accent:'#4FE3FF',shadow:'#06101D',wide:'#2EC4B6'},
  /** `label`: glyph on the orb (or a drawn icon); `name`: the readable name printed under it. */
- powers:{triple:{color:'#FFB547',label:'×3',name:'×3球',good:true},wide:{color:'#2EC4B6',label:'↔',name:'加宽',good:true},halve:{color:'#FF4D6A',label:'÷2',name:'减半',good:false},life:{color:'#4CD9A0',label:'♥',name:'+1命',good:true},bomb:{color:'#9B8CFF',label:'✸',name:'炸弹',good:true},plus3:{color:'#FFB547',label:'+3',name:'+3球',good:true},pierce:{color:'#3FC8F0',label:'icon',name:'穿透',good:true},fire:{color:'#FF6A3D',label:'icon',name:'火焰',good:true},lightning:{color:'#F0B800',label:'icon',name:'闪电',good:true}},
+ powers:{triple:{color:'#FFB547',label:'×3',name:'×3球',good:true},wide:{color:'#2EC4B6',label:'↔',name:'加宽',good:true},halve:{color:'#FF4D6A',label:'÷2',name:'减半',good:false},life:{color:'#2EE88A',label:'♥',name:'+1命',good:true},bomb:{color:'#9B8CFF',label:'✸',name:'炸弹',good:true},plus3:{color:'#FFB547',label:'+3',name:'+3球',good:true},pierce:{color:'#3FC8F0',label:'icon',name:'穿透',good:true},fire:{color:'#FF6A3D',label:'icon',name:'火焰',good:true},lightning:{color:'#F0B800',label:'icon',name:'闪电',good:true}},
  /** Orb radius 21 with the name pill below; `orbY` is the orb centre inside each atlas cell. */
  powerBadge:{radius:21,orbY:25,cellWidth:92,cellHeight:78,pixelRatio:2},
  rank:{gold:'#C6AB74',silver:'#A6BECE',bronze:'#C49C84',fourth:'#81A9C7',fifth:'#7497B4',normal:'#8499AF',mine:'#294D62'},

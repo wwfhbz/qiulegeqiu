@@ -65,3 +65,25 @@ it('修复：砖墙压到底线后，球仍能从出口掉出并扣命（1.1版�
  for(let n=0;n<360&&g.state==='running';n++){g.physics.setTarget(120);g.update(C.step);}
  expect(g.lives).toBe(2);expect(g.state).toBe('ready');
 });
+it('1.3压线死亡：砖墙压线满10秒扣1条命；下次发射清掉底线附近5行（不计分）并立即奖励一个效果球',()=>{
+ const g=endless(21);g.start();const f=g.physics.endless!;let guard=0;while(!f.blocked&&guard++<400000)f.tick();expect(f.blocked).toBe(true);
+ const keep=()=>{for(const b of g.physics.balls)Object.assign(b,{x:C.arena.x,y:C.arena.y+C.arena.radius+40,vx:0,vy:-1,outsideArena:true});};
+ // 9.9 running seconds on the line: no penalty yet.
+ for(let n=0;n<1188;n++){keep();g.update(C.step);}expect(g.lives).toBe(3);expect(g.state).toBe('running');
+ for(let n=0;n<20&&g.state==='running';n++){keep();g.update(C.step);}
+ expect(g.lives).toBe(2);expect(g.state).toBe('ready');expect(g.pendingRelief).toBe(true);expect(g.journal.events.at(-1)?.type).toBe('crushed');
+ const score=g.score.total,before=f.remaining,bottom=Array.from({length:ENDLESS.reliefRows},(_,k)=>f.floorRow-k);
+ g.start();expect(g.pendingRelief).toBe(false);expect(f.blocked).toBe(false);expect(f.pressure).toBe(0);
+ for(const row of bottom)for(let c=0;c<f.cols;c++)expect(f.alive[row*f.cols+c]).toBe(0);
+ const events=g.journal.events,launch=events.map(e=>e.type).lastIndexOf('launch'),tail=events.slice(launch);expect(tail[1]?.type).toBe('bonus');
+ const bonus=tail[1] as {kind:string};expect(['plus3','pierce','fire','lightning']).toContain(bonus.kind);
+ // Relief itself scores nothing; only a lightning bonus may add real hits.
+ if(bonus.kind!=='lightning')expect(g.score.total).toBe(score);expect(f.remaining).toBeLessThan(before);
+});
+it('压线计时只在游戏进行中累计，清掉底线砖块后归零；普通漏球扣命不触发补偿',()=>{
+ const g=endless(22);g.start();const f=g.physics.endless!;let guard=0;while(!f.blocked&&guard++<400000)f.tick();
+ for(let n=0;n<600;n++){for(const b of g.physics.balls)Object.assign(b,{x:400,y:900,vx:0,vy:-1,outsideArena:true});g.update(C.step);}expect(f.pressure).toBeGreaterThan(500);
+ g.pause();for(let n=0;n<2000;n++)g.update(C.step);expect(f.pressure).toBeLessThan(700);g.start();
+ for(let i=f.floorRow*f.cols;i<(f.floorRow+1)*f.cols;i++)f.hit(i);g.update(C.step);expect(f.pressure).toBe(0);
+ loseRound(g);expect(g.lives).toBe(2);expect(g.pendingRelief).toBe(false);
+});

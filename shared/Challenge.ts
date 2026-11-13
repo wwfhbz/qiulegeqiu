@@ -1,4 +1,4 @@
-export type ChallengeEvent = {type:'launch';tick:number;level:number;tripleRuleVersion?:2;brickPowerVersion?:2} | { type: 'ballLost' | 'lost' | 'clear' | 'next' | 'finish'; tick: number; level: number } | { type: 'hit'; tick: number; level: number; index: number } | { type: 'power'; tick: number; level: number; kind: 'halve'|'triple'|'wide'|'life'|'bomb'|'plus3'|'pierce'|'fire'|'lightning'; dropId?:number } | { type:'bomb'; tick:number; level:number; target:string|null };
+export type ChallengeEvent = {type:'launch';tick:number;level:number;tripleRuleVersion?:2;brickPowerVersion?:2} | { type: 'ballLost' | 'lost' | 'clear' | 'next' | 'finish'; tick: number; level: number } | { type: 'hit'; tick: number; level: number; index: number } | { type: 'power'; tick: number; level: number; kind: 'halve'|'triple'|'wide'|'life'|'bomb'|'plus3'|'pierce'|'fire'|'lightning'; dropId?:number } | { type:'bomb'; tick:number; level:number; target:string|null } | { type:'crushed'; tick:number; level:number } | { type:'bonus'; tick:number; level:number; kind:'plus3'|'pierce'|'fire'|'lightning' };
 export interface ChallengeSummary { score: number; reachedLevel: number; bricksDestroyed: number; durationMs: number; completedAllLevels: boolean }
 export const LEGACY_RULES_VERSION = '0.8.0-arcade-5l-10lv-v1';
 export const PREVIOUS_RULES_VERSION = '1.2.0-arcade-5l-12lv-v1';
@@ -15,12 +15,14 @@ export const RULES_VERSION = '1.7.0-arcade-5l-12lv-scarce-v5';
 export const ENDLESS_V1_RULES_VERSION = 'endless-1.0.0-3l-sink-v1';
 /** Frozen endless 1.1: half the drops; the wall could sink right to the bowl bottom and seal the exit. */
 export const ENDLESS_V2_RULES_VERSION = 'endless-1.1.0-3l-sink-v2';
-/** Current endless 1.2: floor raised 64px above the bowl bottom so balls can always fall out. */
-export const ENDLESS_RULES_VERSION = 'endless-1.2.0-3l-sink-v3';
+/** Frozen endless 1.2: floor raised 64px above the bowl bottom; the wall only paused on the line. */
+export const ENDLESS_V3_RULES_VERSION = 'endless-1.2.0-3l-sink-v3';
+/** Current endless 1.3: 10s on the death line costs a life; the next launch clears 5 rows and grants an effect ball. */
+export const ENDLESS_RULES_VERSION = 'endless-1.3.0-3l-sink-v4';
 /** Every endless version shares the endless board, so an update never empties it. */
-export const ENDLESS_BOARD_RULES_VERSIONS=[ENDLESS_V1_RULES_VERSION,ENDLESS_V2_RULES_VERSION,ENDLESS_RULES_VERSION] as const;
+export const ENDLESS_BOARD_RULES_VERSIONS=[ENDLESS_V1_RULES_VERSION,ENDLESS_V2_RULES_VERSION,ENDLESS_V3_RULES_VERSION,ENDLESS_RULES_VERSION] as const;
 export const ENDLESS_BOARD='endless';
-export const SUPPORTED_RULES_VERSIONS=[LEGACY_RULES_VERSION,PREVIOUS_RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,RULES_VERSION,ENDLESS_V1_RULES_VERSION,ENDLESS_V2_RULES_VERSION,ENDLESS_RULES_VERSION] as const;
+export const SUPPORTED_RULES_VERSIONS=[LEGACY_RULES_VERSION,PREVIOUS_RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,RULES_VERSION,ENDLESS_V1_RULES_VERSION,ENDLESS_V2_RULES_VERSION,ENDLESS_V3_RULES_VERSION,ENDLESS_RULES_VERSION] as const;
 /**
  * Seasons whose verified scores share the global board: every twelve-level ruleset. A rules update must
  * never empty the board, so each player's best across these seasons ranks. Ten-level scores stay history only.

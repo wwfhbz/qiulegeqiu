@@ -61,7 +61,7 @@ export class MiniGameApp {
  }
  private draw(now:number){const c=this.ctx,v=this.view;c.setTransform(this.dpr,0,0,this.dpr,0,0);
   if(!this.backgroundFill){const gradient=c.createLinearGradient(0,0,0,v.height);gradient?.addColorStop(0,OCEAN.colors.background);gradient?.addColorStop(1,OCEAN.colors.gradientEnd);this.backgroundFill=gradient||OCEAN.colors.background;}
-  c.fillStyle=this.backgroundFill;c.fillRect(0,0,v.width,v.height);canvasText(c,GAME_NAME,v.width/2,v.top+24,v.width-120,15,OCEAN.colors.text,'center');
+  c.fillStyle=this.backgroundFill;c.fillRect(0,0,v.width,v.height);canvasText(c,GAME_NAME,v.width/2,v.top+24,v.width-216,15,OCEAN.colors.text,'center');
   const g=this.game,b=g.physics.blocks,hud={x:8,y:v.hudY-4,width:v.width-16,height:56};panel(c,hud,OCEAN.colors.arena,OCEAN.colors.line,10);
   const field=g.physics.endless,progress=field?Math.round(field.descentProgress*100):Math.round(b.removed/Math.max(1,b.total)*100);
   const cells=[field?['无尽阶段',`第${g.reachedLevel}阶段`]:['关卡',`${String(g.levels.current.number).padStart(2,'0')}/${g.levels.count}`],['生命',`♥×${g.lives}`],['得分',String(g.score.total)],['弹球',`球×${g.physics.balls.length}`],['剩余砖块',String(b.remaining)],field?[field.blocked?'压到底线':'下沉',`已下沉${field.descents}行`]:['进度',`${progress}%`]];
@@ -74,13 +74,17 @@ export class MiniGameApp {
   if(g.state==='levelComplete'&&g.result){c.fillStyle=OCEAN.colors.text;c.font='14px sans-serif';c.fillText(`第${g.levels.current.number}关突破！本关 ${g.result.levelTotal} 分`,v.width/2,v.arena.y+C.arena.y*v.scale-38);}
   if(g.state==='paused'){c.fillStyle=OCEAN.alpha.veil;c.fillRect(v.arena.x,v.arena.y,v.arena.width,v.arena.height);}
   if(action&&g.state!=='ready'&&!this.busy){const centerY=v.arena.y+C.arena.y*v.scale;button({x:v.width/2-78,y:centerY-22,width:156,height:44},action.label,()=>void this.activate());}
-  button({x:v.width/2-116,y:v.buttonsY,width:108,height:44},g.state==='paused'?'继续':'暂停',()=>{if(g.state==='paused')g.start();else g.pause();});
-  button({x:v.width/2+8,y:v.buttonsY,width:108,height:44},'重新开始',()=>{this.panel.close();g.reset();});
+  // Touch strip under the arena: a quiet hint; dragging here steers the paddle (see down/move).
+  if(!this.panel.open&&v.pad.height>=36){c.save();c.globalAlpha=.9;panel(c,v.pad,'rgba(16,40,66,.35)','rgba(79,227,255,.18)',14);c.restore();
+   canvasText(c,'⟵  在此左右滑动控制挡板  ⟶',v.width/2,v.pad.y+v.pad.height/2-6,v.width-40,12,OCEAN.colors.muted,'center');}
   // Compact native-style utility controls stay below the capsule safe area.
   button({x:8,y:v.top,width:44,height:44},'菜单',()=>this.menu());button({x:v.width-52,y:v.top,width:44,height:44},'排行',()=>void this.board());
+  // Pause and restart sit in the top bar, away from the thumb that steers the paddle.
+  button({x:56,y:v.top,width:44,height:44},g.state==='paused'?'继续':'暂停',()=>{if(g.state==='paused')g.start();else g.pause();});
+  button({x:v.width-100,y:v.top,width:44,height:44},'重开',()=>{this.panel.close();g.reset();});
   this.panel.draw(c,v.width,v.top,v.bottom,now,g.state!=='paused',this.lowDevice||v.width<360,this.rankingArt,this.dpr);
  }
- private down(e:TouchEvent){if(this.touch)return;const t=e.changedTouches[0];if(!t)return;this.game.audio.unlock();this.touch={id:t.identifier,x:t.clientX,y:t.clientY,moved:false,lastY:t.clientY,drag:!this.panel.open&&inside(this.view.arena,t.clientX,t.clientY)&&!this.actions.some(a=>inside(a.rect,t.clientX,t.clientY))};if(this.touch.drag){this.target(t.clientX);if(!this.busy&&!this.boardLoading)startFromPlayfield(this.game,()=>void this.activate());}}
+ private down(e:TouchEvent){if(this.touch)return;const t=e.changedTouches[0];if(!t)return;this.game.audio.unlock();this.touch={id:t.identifier,x:t.clientX,y:t.clientY,moved:false,lastY:t.clientY,drag:!this.panel.open&&(inside(this.view.arena,t.clientX,t.clientY)||inside(this.view.pad,t.clientX,t.clientY))&&!this.actions.some(a=>inside(a.rect,t.clientX,t.clientY))};if(this.touch.drag){this.target(t.clientX);if(!this.busy&&!this.boardLoading)startFromPlayfield(this.game,()=>void this.activate());}}
  private move(e:TouchEvent){const active=this.touch;if(!active)return;const t=e.touches.find(t=>t.identifier===active.id);if(!t)return;if(Math.hypot(t.clientX-active.x,t.clientY-active.y)>8)active.moved=true;if(this.panel.open)this.panel.scroll(t.clientY-active.lastY,active.x,active.y);else if(active.drag)this.target(t.clientX);active.lastY=t.clientY;}
  private up(e:TouchEvent){const active=this.touch;if(!active||!e.changedTouches.some(t=>t.identifier===active.id))return;this.touch=undefined;if(active.moved||active.drag)return;if(this.panel.open){this.panel.tap(active.x,active.y);return;}this.actions.find(a=>inside(a.rect,active.x,active.y))?.run();}
  private hapticTracker=new HapticTracker();

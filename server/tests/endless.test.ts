@@ -3,7 +3,7 @@ import {randomUUID} from 'node:crypto';
 import {Game} from '../../src/Game';
 import {C} from '../../src/GameConfig';
 import {descentInterval} from '../../src/endless/EndlessRules';
-import {ENDLESS_RULES_VERSION,ENDLESS_V1_RULES_VERSION,ENDLESS_V2_RULES_VERSION,RULES_VERSION,type ChallengeEvent} from '../../shared/Challenge';
+import {ENDLESS_RULES_VERSION,ENDLESS_V1_RULES_VERSION,ENDLESS_V2_RULES_VERSION,ENDLESS_V3_RULES_VERSION,RULES_VERSION,type ChallengeEvent} from '../../shared/Challenge';
 import {ENDLESS_V1,ENDLESS_V2,type EndlessVariant} from '../../src/endless/EndlessRules';
 import {EndlessField} from '../../src/endless/EndlessField';
 import {verifyTrace} from '../src/verifier';
@@ -73,4 +73,28 @@ it('冻结的无尽1.1（底线在圆底）仍按旧规则通过校验；1.2当�
  expect(result.summary).toEqual(old.journal.summary(old.score.total,old.reachedLevel,false));
  const now=run(13,26000,6);expect(verifyTrace(now.journal.events,1e9,13,ENDLESS_RULES_VERSION).summary.score).toBe(now.score.total);
  expect(old.physics.endless!.floorRow).toBeGreaterThan(now.physics.endless!.floorRow);
+});
+
+/** Drive a real endless game until the wall presses the line, wait out the pressure death, relaunch with relief. */
+function crushRun(seed:number){
+ const g=new Game();g.setMode('endless');g.journal.seed=seed;g.physics.setSeed(seed);g.physics.reset();g.start();
+ const p=g.physics,f=p.endless!;const park=()=>{for(const b of p.balls)Object.assign(b,{x:C.arena.x,y:C.arena.y+C.arena.radius+40,vx:0,vy:-1,outsideArena:true});};
+ let guard=0;while(!f.blocked&&guard++<400000){park();g.update(C.step);}
+ while(g.state==='running'&&guard++<800000){park();g.update(C.step);}
+ expect(g.journal.events.at(-1)?.type).toBe('crushed');g.start();
+ for(let t=0;t<600;t++){park();g.update(C.step);}
+ for(let life=0;life<5&&g.state!=='gameOver';life++){for(const b of p.balls)Object.assign(b,{x:400,y:1080,vx:0,vy:760,outsideArena:true});g.update(C.step);if(g.state==='ready')g.start();}
+ expect(g.state).toBe('gameOver');return g;
+}
+it('1.3压线死亡回放：压线扣命、清行与补偿奖励按同一种子通过校验；伪造奖励、漏报压线、旧版冒充均被拒绝',()=>{
+ const g=crushRun(31),events=g.journal.events,ok=verifyTrace(events,1e9,31,ENDLESS_RULES_VERSION);
+ expect(ok.summary).toEqual(g.journal.summary(g.score.total,g.reachedLevel,false));
+ const bonus=events.findIndex(e=>e.type==='bonus');expect(bonus).toBeGreaterThan(0);expect(events[bonus-1].type).toBe('launch');
+ const other=(['plus3','pierce','fire','lightning'] as const).find(k=>k!==(events[bonus] as {kind:string}).kind)!;
+ expect(()=>verifyTrace(events.map((e,i)=>i===bonus?{...e,kind:other}:e) as ChallengeEvent[],1e9,31,ENDLESS_RULES_VERSION)).toThrow('补偿');
+ expect(()=>verifyTrace(events.filter((_,i)=>i!==bonus),1e9,31,ENDLESS_RULES_VERSION)).toThrow();
+ // Hiding the pressure death and playing on must fail.
+ const crushed=events.findIndex(e=>e.type==='crushed');expect(()=>verifyTrace(events.filter((_,i)=>i!==crushed),1e9,31,ENDLESS_RULES_VERSION)).toThrow();
+ // A crush is not a valid event under endless 1.2.
+ expect(()=>verifyTrace(events,1e9,31,ENDLESS_V3_RULES_VERSION)).toThrow();
 });

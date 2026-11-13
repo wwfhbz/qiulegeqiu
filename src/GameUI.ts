@@ -4,6 +4,7 @@ import {AudioSystem} from './Audio';
 import { LeaderboardUI } from './online/LeaderboardUI';
 import { GAME_NAME } from '../shared/Brand';
 import { Game, type GameMode } from './Game';
+import { ENDLESS } from './endless/EndlessRules';
 import { C } from './GameConfig';
 import { activateCentralAction, centralActionFor } from './CentralAction';
 import { START_HINT } from './PlayfieldStart';
@@ -17,7 +18,7 @@ export function mountGame(root: HTMLElement) {
   document.querySelector('meta[name=theme-color]')?.setAttribute('content',OCEAN.colors.background);
   root.innerHTML = `
   <main class="shell">
-    <header><div class="mode-switch" role="group" aria-label="游戏模式"><button type="button" data-mode="campaign" aria-pressed="true">闯关</button><button type="button" data-mode="endless" aria-pressed="false">无尽</button></div><h1><span class="brand-mark" aria-hidden="true">◉</span>${GAME_NAME}</h1></header>
+    <header><div class="mode-switch" role="group" aria-label="游戏模式"><button type="button" data-mode="campaign" aria-pressed="true">闯关</button><button type="button" data-mode="endless" aria-pressed="false">无尽</button></div><h1><span class="brand-mark" aria-hidden="true">◉</span>${GAME_NAME}</h1><div class="top-actions"><button id="pause" type="button" aria-label="暂停">⏸</button><button id="reset" type="button" aria-label="重新开始">↻</button></div></header>
     <div class="stage-room"><section class="game-panel" aria-label="游戏区域">
       <div class="hud" aria-label="游戏状态">
         <div class="hud-item"><span class="label" id="level-label">关卡</span><strong id="level"></strong></div>
@@ -36,7 +37,7 @@ export function mountGame(root: HTMLElement) {
         <div id="central-layer" class="central-layer" hidden><button id="start" class="central-start" type="button" aria-controls="arena-canvas">▶ 开始游戏</button></div>
       </div>
       <div class="power-info"><span id="wide"></span><span id="combo"></span><button id="mute" aria-pressed="false">静音</button></div>
-      <div class="bottom-controls" aria-label="游戏操作"><button id="pause">暂停</button><button id="reset">重新开始</button></div>
+      <div class="touch-pad" id="touch-pad" role="presentation"><span>⟵ 在此左右滑动控制挡板 ⟶</span></div>
     </section></div>
     <button id="stress" class="debug" hidden>百球压力测试</button>
   </main>`;
@@ -57,7 +58,8 @@ export function mountGame(root: HTMLElement) {
     el('removed').textContent = String(blocks.removed); el('total').textContent = String(blocks.total);
     el('balls').textContent = String(g.physics.balls.length);
     // Endless shows the countdown to the next descent instead of a clear percentage.
-    el('progress-label').textContent = field ? (field.blocked ? '压到底线' : '下沉') : '进度';
+    const pressed = field && field.variant.crush && field.pressure > 0 ? Math.max(0, (ENDLESS.crushTicks - field.pressure) * C.step) : undefined;
+    el('progress-label').textContent = field ? (pressed !== undefined ? `压线 ${pressed.toFixed(1)}秒` : field.blocked ? '压到底线' : '下沉') : '进度';
     const percent=field?Math.round(field.descentProgress*100):Math.round(blocks.removed/Math.max(1,blocks.total)*100);el('progress-value').textContent=field?`已下沉${field.descents}行`:percent+'%';el('progress-meter').setAttribute('aria-valuenow',String(percent));el('progress-meter').style.setProperty('--fill',percent+'%');
     wrap.dataset.state=g.state;
     el('status').textContent = STATE_LABELS[g.state];
@@ -71,7 +73,7 @@ export function mountGame(root: HTMLElement) {
     button('start').disabled = action === null;
     if (action) button('start').textContent = g.state==='ready'?START_HINT:action.label;
     button('pause').disabled = g.state !== 'running' && g.state !== 'paused';
-    button('pause').textContent = g.state === 'paused' ? '继续' : '暂停';
+    button('pause').textContent = g.state === 'paused' ? '▶' : '⏸'; button('pause').setAttribute('aria-label', g.state === 'paused' ? '继续' : '暂停');
     const completed = g.state === 'levelComplete' || g.state === 'victory';
     el('settlement').hidden = !completed && g.state !== 'gameOver';
     if (completed || g.state === 'gameOver') {
@@ -89,7 +91,8 @@ export function mountGame(root: HTMLElement) {
   wrap.style.setProperty('--arena-x', `${C.arena.x / C.width * 100}%`);
   wrap.style.setProperty('--arena-y', `${C.arena.y / C.height * 100}%`);
   fitGamePanel(root.querySelector('.stage-room')!, root.querySelector('.game-panel')!, wrap);
-  const game = new Game(createWebHost(root.querySelector('canvas')!,()=>!document.hidden&&!online?.submitting&&!root.querySelector('dialog[open]')),update,undefined,new AudioSystem(createWebAudio));
+  // The strip under the arena steers the paddle too, so a thumb never has to cover it.
+  const game = new Game(createWebHost(root.querySelector('canvas')!,()=>!document.hidden&&!online?.submitting&&!root.querySelector('dialog[open]'),[el('touch-pad')]),update,undefined,new AudioSystem(createWebAudio));
   button('start').onclick = () => activateCentralAction(game);
   button('pause').onclick = () => game.state === 'paused' ? game.start() : game.pause();
   button('reset').onclick = () => game.reset();

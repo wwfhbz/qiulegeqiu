@@ -11,7 +11,7 @@ import { FRAME, isBallInDeathZone } from './WorldGeometry';
 import { Effects } from './Effects';
 import { PowerUps, type PowerKind } from './PowerUps';
 import { EndlessField } from './endless/EndlessField';
-import { ENDLESS,ENDLESS_CURRENT,endlessPower,dropEvery,endlessSpeed } from './endless/EndlessRules';
+import { ENDLESS,ENDLESS_CURRENT,endlessPower,endlessBonus,dropEvery,endlessSpeed,DROP_SALT,BONUS_SALT,type BonusKind } from './endless/EndlessRules';
 export interface Ball { x: number; y: number; vx: number; vy: number; radius: number; alive: boolean; previousX?: number; previousY?: number; outsideArena?: boolean }
 export function reflect(b: Ball, nx: number, ny: number) {
   const dot = b.vx * nx + b.vy * ny;
@@ -109,7 +109,7 @@ export class Physics {
   useField(field:Blocks){this.blocks=field;field.onHit=this.destroyed;}
   // Endless-only timed powers and drop schedule (own seeded stream, mirrored by the server verifier).
   pierceRemaining=0;fireRemaining=0;
-  private endlessDrops=seededRandom(1);private nextDropAt:number=ENDLESS_CURRENT.drops.start;
+  private endlessDrops=seededRandom(1);private endlessBonuses=seededRandom(1);private nextDropAt:number=ENDLESS_CURRENT.drops.start;
 
   paddleX: number = C.arena.x; targetX: number = C.arena.x;
   accumulator = 0; ticks = 0; paused = false;
@@ -188,6 +188,17 @@ export class Physics {
     this.recycleDead(); // Administrative removal deliberately emits no death event.
   }
   tripleRuleVersion:TripleRuleVersion=TRIPLE_RULE_VERSION;
+  /** Next relief reward from the seeded bonus stream (the verifier draws the same sequence). */
+  drawBonus():BonusKind{return endlessBonus(this.endlessBonuses);}
+  /** Apply a relief reward directly: no falling drop and no pickup event (the caller journals a 'bonus'). */
+  applyBonus(kind:BonusKind){
+    if(!this.balls.some(ball=>ball.alive))return;
+    if(kind==='plus3')this.addBalls(ENDLESS.plusBalls);
+    else if(kind==='pierce')this.pierceRemaining=ENDLESS.pierceSeconds;
+    else if(kind==='fire')this.fireRemaining=ENDLESS.fireSeconds;
+    this.effects.power(kind);this.effects.emit('power',this.paddleX,C.paddle.y,0,kind);this.onSound?.('power');
+    if(kind==='lightning')this.lightning();
+  }
   /** +3: three extra balls fanned out from the first live ball (capped at the 100-ball limit). */
   addBalls(count:number){
     this.recycleDead();const source=this.balls[0];if(!source)return;
@@ -265,7 +276,7 @@ export class Physics {
     if(field){
       this.obstacles.load([]);field.start(this.seed,field.variant);this.powers.setCapacity(C.power.maxDrops);
       // Separate stream from the field's row patterns; the verifier derives both from the run seed.
-      this.endlessDrops=seededRandom((this.seed^0x5bd1e995)>>>0);this.nextDropAt=dropEvery(0,field.variant);this.speedScale=endlessSpeed(0);
+      this.endlessDrops=seededRandom((this.seed^DROP_SALT)>>>0);this.endlessBonuses=seededRandom((this.seed^BONUS_SALT)>>>0);this.nextDropAt=dropEvery(0,field.variant);this.speedScale=endlessSpeed(0);
       this.resetRound();return;
     }
     this.obstacles.load(this.level.obstacles??[]);this.blocks.reset(this.level.obstacles??[],this.level);this.allocatePowers();

@@ -7,6 +7,7 @@ import { Physics } from './Physics';
 import type { FxEvent } from './Effects';
 import { FRAME } from './WorldGeometry';
 import { PowerFx } from './PowerFx';
+import { ENDLESS } from './endless/EndlessRules';
 import type {CanvasSurface,RendererHost} from './platform/Contracts';
 export type {RendererHost} from './platform/Contracts';
 
@@ -90,6 +91,24 @@ export class Renderer {
     c.fillStyle='rgba(255,255,255,.45)';c.beginPath();c.ellipse?.(x-r*.3,y-r*.45,r*.38,r*.2,-.5,0,Math.PI*2);c.fill();
     if(style.label==='icon')this.icon(c,x,y,kind,r);
     else{c.fillStyle='#FFFFFF';c.textAlign='center';c.textBaseline='middle';c.font=`900 ${style.label.length>1?18:22}px `+OCEAN.fonts.numbers;c.lineWidth=3;c.strokeStyle='rgba(0,0,0,.25)';c.strokeText(style.label,x,y+1);c.fillText(style.label,x,y+1);c.textBaseline='alphabetic';}
+  }
+  /** The +1 life drop: a fluorescent green heart, 1.5× the size of other power orbs, with a pulsing halo. */
+  private lifeHeart(c:Ctx,x:number,y:number,now:number){
+    const s=OCEAN.powerBadge.radius*1.5,pulse=1+.12*Math.sin(now/160),green=OCEAN.powers.life.color;
+    const halo=this.glow(green);
+    if(halo){c.save();c.globalCompositeOperation='lighter';c.globalAlpha=.9;const r=s*2.6*pulse;c.drawImage(halo as CanvasImageSource,x-r,y-r,r*2,r*2);c.globalAlpha=.55;const r2=s*4*pulse;c.drawImage(halo as CanvasImageSource,x-r2,y-r2,r2*2,r2*2);c.restore();}
+    c.save();c.translate(x,y);c.scale(pulse,pulse);
+    const heart=()=>{c.beginPath();c.moveTo(0,s*.92);c.bezierCurveTo(-s*1.35,s*.05,-s*.95,-s*1.05,0,-s*.38);c.bezierCurveTo(s*.95,-s*1.05,s*1.35,s*.05,0,s*.92);c.closePath();};
+    const g=c.createRadialGradient?.(-s*.3,-s*.4,s*.1,0,0,s*1.1);
+    if(g){g.addColorStop(0,'#C8FFE0');g.addColorStop(.45,green);g.addColorStop(1,'#0B8F4A');}
+    heart();c.fillStyle=g||green;c.fill();c.lineWidth=3;c.strokeStyle='#E8FFF2';c.stroke();
+    c.fillStyle='rgba(255,255,255,.55)';c.beginPath();c.ellipse?.(-s*.38,-s*.38,s*.24,s*.13,-.6,0,Math.PI*2);c.fill();
+    c.fillStyle='#FFFFFF';c.textAlign='center';c.textBaseline='middle';c.font=`900 ${Math.round(s*.62)}px ${OCEAN.fonts.numbers}`;c.fillText('+1',0,s*.05);
+    c.restore();
+    // Name pill, also 1.5× and green-bordered.
+    c.font=`800 ${Math.round(15*1.4)}px ${OCEAN.fonts.body}`;const w=c.measureText('+1 生命').width+22,py=y+s+10;
+    c.fillStyle='rgba(6,16,29,.9)';c.beginPath();c.roundRect(x-w/2,py,w,30,15);c.fill();c.lineWidth=2;c.strokeStyle=green;c.stroke();
+    c.fillStyle='#B9FFD6';c.textBaseline='middle';c.fillText('+1 生命',x,py+15.5);c.textBaseline='alphabetic';
   }
   /** Vector icons read better than a single small character on phones. */
   private icon(c:Ctx,x:number,y:number,kind:PowerKind,r:number){
@@ -195,6 +214,8 @@ export class Renderer {
       case 'clear':this.flash('#FFFFFF',.35,now,420);this.shake(10,now);this.ring(e.x,e.y,now,700,10,420,OCEAN.colors.positive,6);this.ring(a.x,a.y,now,900,a.radius*.2,a.radius*1.2,OCEAN.colors.accent,4);this.popup('clear','清台！','',a.x,a.y-170,now,OCEAN.colors.positive,58,1300);break;
       case 'zap':{const z=this.zaps[this.zapCursor++%this.zaps.length];z.x1=e.sx??e.x;z.y1=e.sy??e.y;z.x2=e.x;z.y2=e.y;z.start=now;z.seed=e.seq;if(this.zapSound<now-60){this.zapSound=now;this.flash(OCEAN.powers.lightning.color,.10,now,160);}break;}
       case 'burn':case 'slash':case 'poof':this.powerFx.react(e,now);break;
+      case 'crush':this.shake(12,now);this.flash(OCEAN.colors.danger,.35,now,500);this.dangerUntil=now+700;this.ring(e.x,e.y,now,600,20,a.radius,OCEAN.colors.danger,6);this.popup('clear','压线太久！','-1 生命',a.x,a.y,now,OCEAN.colors.danger,48,1400);break;
+      case 'relief':this.flash(OCEAN.colors.accent,.22,now,350);this.ring(e.x,e.y,now,700,10,a.radius*.9,OCEAN.colors.accent,6);this.ring(e.x,e.y,now,900,10,a.radius*1.2,'#FFFFFF',3);this.popup('clear','解压！',`清除 ${e.value} 块砖`,a.x,a.y-120,now,OCEAN.colors.accent,46,1300);break;
       case 'hit':case 'descend':break;
     }
   }
@@ -258,7 +279,14 @@ export class Renderer {
       c.setLineDash?.([10,8]);c.lineWidth=pressed?4:2;c.strokeStyle=pressed?rgba(OCEAN.colors.danger,.55+.4*pulse):rgba(OCEAN.colors.warning,.5);c.beginPath();
       // At the bottom of the bowl a chord would be a short stub: trace the lower rim instead, so the death line reads clearly.
       if(floorField.variant.floor==='bowl'){const span=.62;c.arc(a.x,a.y,a.radius-7,Math.PI/2-span,Math.PI/2+span);}else{c.moveTo(a.x-half,y);c.lineTo(a.x+half,y);}
-      c.stroke();c.setLineDash?.([]);}
+      c.stroke();c.setLineDash?.([]);
+      // Pressure-death countdown: shown once the wall sits on the line, blinking faster as time runs out.
+      if(floorField.variant.crush&&floorField.pressure>0){const left=Math.max(0,(ENDLESS.crushTicks-floorField.pressure)*C.step),urgent=left<3,blink=urgent?.5+.5*Math.sin(now/70):1;
+        c.save();c.globalAlpha=.6+.4*blink;c.textAlign='center';c.textBaseline='middle';c.font=`900 ${urgent?30:24}px ${OCEAN.fonts.body}`;c.lineWidth=5;c.strokeStyle='rgba(6,16,29,.9)';
+        const text=`压线 ${left.toFixed(1)} 秒后扣命`;c.strokeText(text,a.x,y+24);c.fillStyle=OCEAN.colors.danger;c.fillText(text,a.x,y+24);
+        // A draining bar under the text.
+        const w=220,k=left/(ENDLESS.crushTicks*C.step);c.globalAlpha=1;c.fillStyle='rgba(255,255,255,.15)';c.fillRect(a.x-w/2,y+44,w,5);c.fillStyle=OCEAN.colors.danger;c.fillRect(a.x-w/2,y+44,w*k,5);c.restore();}
+    }
     if(!p.endless&&b.remaining>0&&b.remaining<=OCEAN.motion.lastBricks&&b.removed>0){
       if(this.lastBricksRevision!==b.revision){this.lastBricks.length=0;for(let i=0;i<b.alive.length&&this.lastBricks.length<b.remaining;i++)if(b.alive[i])this.lastBricks.push(i);this.lastBricksRevision=b.revision;}
       const pulse=.5+.5*Math.sin(now/180);c.lineWidth=2;c.strokeStyle=rgba(OCEAN.colors.warning,.35+.45*pulse);
@@ -306,6 +334,8 @@ export class Renderer {
     let orbs=0;for(const item of p.powers.items)if(item.alive)orbs++;const halos=budget.highlights&&orbs<=40;
     for(const item of p.powers.items)if(item.alive){
       const bob=Math.sin(now/220+item.dropId)*2,style=OCEAN.powers[item.kind];
+      // +1 life is rare and precious: a larger glowing green heart, drawn on its own every frame.
+      if(item.kind==='life'){this.lifeHeart(c,item.x,item.y+bob,now);continue;}
       if(halos){const hg=this.glow(style.color);if(hg){c.globalAlpha=.5;c.drawImage(hg as CanvasImageSource,item.x-32,item.y-32+bob,64,64);c.globalAlpha=1;}}
       if(this.badges){const ab=OCEAN.powerBadge;c.drawImage(this.badges as CanvasImageSource,this.badgeKinds.indexOf(item.kind)*ab.cellWidth*ab.pixelRatio,0,ab.cellWidth*ab.pixelRatio,ab.cellHeight*ab.pixelRatio,item.x-ab.cellWidth/2,item.y-ab.orbY+bob,ab.cellWidth,ab.cellHeight);}else this.badge(c,item.x,item.y+bob,item.kind);
     }
