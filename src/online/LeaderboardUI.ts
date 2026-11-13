@@ -5,6 +5,7 @@ import "./ranking/legacy.css";
 import {REFERENCE,referenceSeconds} from './ranking/ReferenceLayout';
 import {assertGlobalBoard,ENDLESS_BOARD,ENDLESS_RULES_VERSION,type LeaderboardMetadata} from '../../shared/Challenge';
 import {CUP_SVG,BALL_SVG} from './ranking/Artwork';
+import {iconSvg} from '../../shared/Icons';
 import {rankingElement,boardStatus} from './ranking/WebCards';
 import {motionQuality,personalRanking,RANKING_THEME,RankingMotion,type RankingScore} from './ranking/Presentation';
 import { GAME_NAME } from '../../shared/Brand';
@@ -20,7 +21,7 @@ export class LeaderboardUI {
   constructor(private root:HTMLElement,private game:Game){
     this.sync=new ChallengeSync(this.api,game);
     this.sync.onProgress=(uploaded,total)=>{if(this.busy)this.message(`正在校验挑战记录… 已上传 ${uploaded}/${total} 条`);};
-    const trophy=document.createElement('button');trophy.className='trophy';trophy.type='button';trophy.innerHTML=CUP_SVG;trophy.setAttribute('aria-label','全球排行榜');root.querySelector('header')!.append(trophy);
+    const trophy=document.createElement('button');trophy.className='trophy icon-btn';trophy.type='button';trophy.innerHTML=iconSvg('trophy');trophy.setAttribute('aria-label','全球排行榜');root.querySelector('header')!.append(trophy);
     this.dialog=document.createElement('dialog');this.dialog.className='ranking-dialog';this.dialog.setAttribute('aria-label','全球历史排行榜');this.dialog.innerHTML=`
       <div class="ranking-title"><span class="stellar-cup">${CUP_SVG}</span><div><small>${GAME_NAME} · 挑战记录</small><h2>全球历史排行榜</h2><p>同一个榜单，每一次真实突破</p></div><button type="button" data-online-close aria-label="关闭排行榜">×</button></div>
       <div class="ranking-scroll">

@@ -80,7 +80,7 @@ export class Renderer {
   private badge(c:Ctx,x:number,y:number,kind:PowerKind){
     const a=OCEAN.powerBadge,style=OCEAN.powers[kind],r=a.radius;
     c.font='800 15px '+OCEAN.fonts.body;const pillW=Math.max(44,c.measureText(style.name).width+16),pillY=y+r+5;
-    c.fillStyle='rgba(6,16,29,.88)';c.beginPath();c.roundRect(x-pillW/2,pillY,pillW,22,11);c.fill();
+    c.fillStyle='rgba(34,22,92,.94)';c.beginPath();c.roundRect(x-pillW/2,pillY,pillW,22,11);c.fill();
     c.lineWidth=1.5;c.strokeStyle=style.color;c.stroke();
     c.fillStyle=style.good?'#FFFFFF':'#FFD0D6';c.textAlign='center';c.textBaseline='middle';c.fillText(style.name,x,pillY+11.5);c.textBaseline='alphabetic';
     const g=c.createRadialGradient?.(x-r*.35,y-r*.4,r*.1,x,y,r);
@@ -107,7 +107,7 @@ export class Renderer {
     c.restore();
     // Name pill, also 1.5× and green-bordered.
     c.font=`800 ${Math.round(15*1.4)}px ${OCEAN.fonts.body}`;const w=c.measureText('+1 生命').width+22,py=y+s+10;
-    c.fillStyle='rgba(6,16,29,.9)';c.beginPath();c.roundRect(x-w/2,py,w,30,15);c.fill();c.lineWidth=2;c.strokeStyle=green;c.stroke();
+    c.fillStyle='rgba(34,22,92,.94)';c.beginPath();c.roundRect(x-w/2,py,w,30,15);c.fill();c.lineWidth=2;c.strokeStyle=green;c.stroke();
     c.fillStyle='#B9FFD6';c.textBaseline='middle';c.fillText('+1 生命',x,py+15.5);c.textBaseline='alphabetic';
   }
   /** Vector icons read better than a single small character on phones. */
@@ -159,23 +159,23 @@ export class Renderer {
   private drawBackdrop(c:Ctx,wall:Physics['wall']){
     const a=C.arena;
     const bg=c.createLinearGradient?.(0,0,0,C.height);
-    if(bg){bg.addColorStop(0,'#08111F');bg.addColorStop(.55,OCEAN.colors.background);bg.addColorStop(1,'#0E2036');}
+    if(bg){bg.addColorStop(0,'#33258A');bg.addColorStop(.55,OCEAN.colors.background);bg.addColorStop(1,'#140F38');}
     c.fillStyle=bg||OCEAN.colors.background;c.fillRect(0,0,C.width,C.height);
     // Soft light shafts from the surface.
-    const shaft=c.createLinearGradient?.(0,0,0,C.height*.8);if(shaft){shaft.addColorStop(0,'rgba(159,233,255,.07)');shaft.addColorStop(1,'rgba(159,233,255,0)');}
-    c.save();c.fillStyle=shaft||'rgba(159,233,255,.03)';
+    const shaft=c.createLinearGradient?.(0,0,0,C.height*.8);if(shaft){shaft.addColorStop(0,'rgba(255,190,240,.08)');shaft.addColorStop(1,'rgba(255,190,240,0)');}
+    c.save();c.fillStyle=shaft||'rgba(255,190,240,.03)';
     for(const [x,w,skew] of [[150,70,90],[330,40,60],[520,90,-70],[680,50,-40]] as const){c.beginPath();c.moveTo(x,0);c.lineTo(x+w,0);c.lineTo(x+w+skew,C.height*.85);c.lineTo(x+skew-w*.4,C.height*.85);c.closePath();c.fill();}
     c.restore();
     // Arena bowl with depth.
     const bowl=c.createRadialGradient?.(a.x,a.y-a.radius*.35,a.radius*.1,a.x,a.y,a.radius);
-    if(bowl){bowl.addColorStop(0,'#1E4670');bowl.addColorStop(.7,OCEAN.colors.arena);bowl.addColorStop(1,'#0B1A2E');}
+    if(bowl){bowl.addColorStop(0,'#4434A8');bowl.addColorStop(.7,OCEAN.colors.arena);bowl.addColorStop(1,'#150F3D');}
     c.beginPath();c.arc(a.x,a.y,a.radius,0,Math.PI*2);c.fillStyle=bowl||OCEAN.colors.arena;c.fill();
     // Fine concentric guide rings give the bowl a "sonar" texture.
-    c.strokeStyle='rgba(120,200,255,.05)';c.lineWidth=1;for(let r=60;r<a.radius;r+=60){c.beginPath();c.arc(a.x,a.y,r,0,Math.PI*2);c.stroke();}
+    c.strokeStyle='rgba(210,190,255,.07)';c.lineWidth=1;for(let r=60;r<a.radius;r+=60){c.beginPath();c.arc(a.x,a.y,r,0,Math.PI*2);c.stroke();}
     // Neon rim: wide faint strokes underneath a crisp core line.
     c.lineCap='round';
-    for(const [width,alpha] of [[14,.06],[8,.12],[4,.25]] as const){c.beginPath();c.arc(a.x,a.y,a.radius,wall.startAngle,wall.endAngle);c.strokeStyle=rgba(OCEAN.colors.accent,alpha);c.lineWidth=width;c.stroke();}
-    c.beginPath();c.arc(a.x,a.y,a.radius,wall.startAngle,wall.endAngle);c.strokeStyle='#BFF4FF';c.lineWidth=Math.max(1.6,wall.width);c.stroke();
+    for(const [width,alpha] of [[16,.08],[9,.16],[4,.32]] as const){c.beginPath();c.arc(a.x,a.y,a.radius,wall.startAngle,wall.endAngle);c.strokeStyle=rgba('#B49CFF',alpha);c.lineWidth=width;c.stroke();}
+    c.beginPath();c.arc(a.x,a.y,a.radius,wall.startAngle,wall.endAngle);c.strokeStyle='#F3EEFF';c.lineWidth=Math.max(1.6,wall.width);c.stroke();
     // Exit posts glow warm so the gap reads as "the goal".
     for(const x of [wall.leftX,wall.rightX]){c.beginPath();c.arc(x,wall.endpointY,5,0,Math.PI*2);c.fillStyle=OCEAN.colors.warning;c.fill();c.beginPath();c.arc(x,wall.endpointY,10,0,Math.PI*2);c.fillStyle=rgba(OCEAN.colors.warning,.18);c.fill();}
     // U-frame.
@@ -282,7 +282,7 @@ export class Renderer {
       c.stroke();c.setLineDash?.([]);
       // Pressure-death countdown: shown once the wall sits on the line, blinking faster as time runs out.
       if(floorField.variant.crush&&floorField.pressure>0){const left=Math.max(0,(ENDLESS.crushTicks-floorField.pressure)*C.step),urgent=left<3,blink=urgent?.5+.5*Math.sin(now/70):1;
-        c.save();c.globalAlpha=.6+.4*blink;c.textAlign='center';c.textBaseline='middle';c.font=`900 ${urgent?30:24}px ${OCEAN.fonts.body}`;c.lineWidth=5;c.strokeStyle='rgba(6,16,29,.9)';
+        c.save();c.globalAlpha=.6+.4*blink;c.textAlign='center';c.textBaseline='middle';c.font=`900 ${urgent?30:24}px ${OCEAN.fonts.body}`;c.lineWidth=5;c.strokeStyle='rgba(34,22,92,.94)';
         const text=`压线 ${left.toFixed(1)} 秒后扣命`;c.strokeText(text,a.x,y+24);c.fillStyle=OCEAN.colors.danger;c.fillText(text,a.x,y+24);
         // A draining bar under the text.
         const w=220,k=left/(ENDLESS.crushTicks*C.step);c.globalAlpha=1;c.fillStyle='rgba(255,255,255,.15)';c.fillRect(a.x-w/2,y+44,w,5);c.fillStyle=OCEAN.colors.danger;c.fillRect(a.x-w/2,y+44,w*k,5);c.restore();}
@@ -363,7 +363,7 @@ export class Renderer {
     for(const r of this.rings){const t=(now-r.start)/r.duration;if(t<0||t>=1)continue;const e=1-(1-t)*(1-t);c.globalAlpha=(1-t)*.9;c.strokeStyle=r.color;c.lineWidth=r.width*(1-t*.6);c.beginPath();c.arc(r.x,r.y,r.from+(r.to-r.from)*e,0,Math.PI*2);c.stroke();}
     c.globalAlpha=1;c.textAlign='center';c.textBaseline='middle';
     for(const q of this.popups){const t=(now-q.start)/q.duration;if(t<0||t>=1)continue;const pop=t<.15?.6+.4*(t/.15)*1.15:t<.25?1.15-.15*((t-.15)/.1):1,rise=t*26;
-      c.globalAlpha=t>.7?(1-t)/.3:1;c.font=`900 ${Math.round(q.size*pop)}px ${OCEAN.fonts.body}`;c.lineWidth=5;c.strokeStyle='rgba(6,16,29,.85)';c.strokeText(q.text,q.x,q.y-rise);c.fillStyle=q.color;c.fillText(q.text,q.x,q.y-rise);
+      c.globalAlpha=t>.7?(1-t)/.3:1;c.font=`900 ${Math.round(q.size*pop)}px ${OCEAN.fonts.body}`;c.lineWidth=5;c.strokeStyle='rgba(40,16,90,.9)';c.strokeText(q.text,q.x,q.y-rise);c.fillStyle=q.color;c.fillText(q.text,q.x,q.y-rise);
       if(q.sub){c.font=`700 ${Math.round(q.size*.45)}px ${OCEAN.fonts.body}`;c.lineWidth=4;c.strokeText(q.sub,q.x,q.y-rise+q.size*.72);c.fillStyle=OCEAN.colors.text;c.fillText(q.sub,q.x,q.y-rise+q.size*.72);}}
     c.globalAlpha=1;c.textBaseline='alphabetic';
     if(now<this.flashUntil){c.globalAlpha=this.flashAlpha*(this.flashUntil-now)/Math.max(1,this.flashUntil-this.flashStart);c.fillStyle=this.flashColor;c.beginPath();c.arc(a.x,a.y,a.radius,0,Math.PI*2);c.fill();c.globalAlpha=1;}
@@ -375,8 +375,8 @@ export class Renderer {
       const fontSize=Math.max(30,Math.min(46,16*C.width/Math.max(1,this.host.viewport().width)));
       c.font=`700 ${fontSize}px ${OCEAN.fonts.body}`;
       const width=Math.min(C.width-80,c.measureText(START_HINT).width+56),fresh=b.removed===0,cardH=fresh?fontSize*3.9:fontSize*1.7,top=a.y-cardH/2+(fresh?fontSize*.4:0);
-      c.fillStyle='rgba(6,16,29,.78)';c.beginPath();c.roundRect(a.x-width/2,top,width,cardH,18);c.fill();
-      c.strokeStyle=rgba(OCEAN.colors.accent,.55);c.lineWidth=1.5;c.stroke();
+      c.fillStyle='rgba(40,28,112,.9)';c.beginPath();c.roundRect(a.x-width/2,top,width,cardH,18);c.fill();
+      c.strokeStyle=rgba(OCEAN.colors.gold,.85);c.lineWidth=2.5;c.stroke();
       if(fresh){c.font=`800 ${Math.round(fontSize*.62)}px ${OCEAN.fonts.body}`;c.fillStyle=OCEAN.colors.warning;c.fillText(p.endless?'压迫下沉 · 3条命':`第 ${p.level.number} 关`,a.x,top+fontSize*.75);c.font=`900 ${Math.round(fontSize*1.35)}px ${OCEAN.fonts.body}`;c.fillStyle=OCEAN.colors.text;c.fillText(p.level.name,a.x,top+fontSize*1.85);}
       const blink=.75+.25*Math.sin(now/260);c.globalAlpha*=blink;c.font=`700 ${Math.round(fontSize*.72)}px ${OCEAN.fonts.body}`;c.fillStyle=OCEAN.colors.accent;c.fillText(START_HINT,a.x,top+cardH-fontSize*.78,width-24);c.restore();
     }
