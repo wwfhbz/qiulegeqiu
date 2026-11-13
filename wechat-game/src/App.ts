@@ -86,6 +86,8 @@ export class MiniGameApp {
   const button=(rect:Rect,label:string,run:()=>void)=>{neonButton(c,rect,'cyan',rect.height/2);c.font='700 15px '+OCEAN.fonts.body;c.textAlign='center';c.textBaseline='middle';c.fillStyle=NEON.cyan;c.fillText(label,rect.x+rect.width/2,rect.y+rect.height/2,rect.width-16);this.actions.push({rect,run});};
   const iconButton=(rect:Rect,icon:IconName,run:()=>void,accent:NeonAccent='dim')=>{candyButton(c,rect,accent==='gold'?'gold':'violet',12);drawIcon(c,icon,rect.x+rect.width/2,rect.y+rect.height/2,16,accent==='gold'?'#6A3A00':'#FFFFFF');this.actions.push({rect:{x:rect.x-2,y:rect.y-4,width:44,height:44},run});};
   if(g.physics.wideRemaining>0||g.score.multiplier>1)canvasText(c,`${g.physics.wideRemaining>0?'加宽 '+g.physics.wideRemaining.toFixed(1)+' 秒 ':''}${g.score.multiplier>1?'连击 ×'+g.score.multiplier:''}`,v.width/2,v.buttonsY-6,v.width-16,10,OCEAN.colors.positive,'center');
+  // Long endless runs: warn before the record limit makes the run impossible to submit.
+  if(g.journal.truncated||g.journal.nearLimit)canvasText(c,g.journal.truncated?'记录已满，本局无法上榜':'记录即将满额，请尽快结束本局',v.width/2,v.buttonsY-22,v.width-16,11,OCEAN.colors.warning,'center');
   const action=centralActionFor(g);
   if(g.state==='levelComplete'&&g.result){c.fillStyle=OCEAN.colors.text;c.font='14px sans-serif';c.fillText(`第${g.levels.current.number}关突破！本关 ${g.result.levelTotal} 分`,v.width/2,v.arena.y+(C.arena.y-VIEW.y)*v.scale-38);}
   if(g.state==='paused'){c.fillStyle=OCEAN.alpha.veil;c.fillRect(v.arena.x,v.arena.y,v.arena.width,v.arena.height);}
@@ -112,7 +114,7 @@ export class MiniGameApp {
   neonButton(c,{x:4,y:v.titleY+4,width:118,height:40},'dim',20);
   for(const tab of v.modeTabs){const selected=tab.mode===g.mode,visual={x:tab.x,y:v.titleY+6,width:tab.width,height:36};if(selected)candyButton(c,visual,'gold',18);c.font=`800 14px ${OCEAN.fonts.body}`;c.textAlign='center';c.textBaseline='middle';c.fillStyle=selected?'#5A2C00':OCEAN.colors.secondary;c.fillText(tab.mode==='campaign'?'闯关':'无尽',tab.x+tab.width/2,v.titleY+24,tab.width-8);this.actions.push({rect:tab,run:()=>void this.requestMode(tab.mode)});}
   iconButton({x:v.width-98,y:v.titleY,width:40,height:36},g.state==='paused'?'play':'pause',()=>{if(g.state==='paused')g.start();else g.pause();});
-  iconButton({x:v.width-50,y:v.titleY,width:40,height:36},'restart',()=>{this.panel.close();g.reset();});
+  iconButton({x:v.width-50,y:v.titleY,width:40,height:36},'restart',()=>void this.confirmRestart());
   this.panel.draw(c,v.width,(this.panel.ranking||this.panel.friend)?v.top:v.hudY,v.bottom,now,g.state!=='paused',this.lowDevice||v.width<360,this.rankingArt,this.dpr);
   if(this.panel.title==='我的资料'){if(this.profile.image){try{c.drawImage(this.profile.image,v.width-56,v.hudY+8,32,32);}catch{defaultAvatar(c,v.width-40,v.hudY+24,16);}}else defaultAvatar(c,v.width-40,v.hudY+24,16);}
  }
@@ -132,6 +134,16 @@ export class MiniGameApp {
   if(active.mode){const tab=this.view.modeTabs.find(tab=>tab.mode===active.mode);if(tab&&inside(tab,point.x,point.y))void this.requestMode(active.mode);return;}
   if(this.panel.open){this.panel.tap(active.x,active.y,point.x,point.y);return;}
   this.actions.find(a=>inside(a.rect,active.x,active.y)&&inside(a.rect,point.x,point.y))?.run();
+ }
+ /** Restart sits next to pause: confirm before throwing away a run in progress. */
+ private async confirmRestart(){const g=this.game;if(this.busy)return;
+  const inProgress=g.journal.events.length>0&&g.state!=='gameOver'&&g.state!=='victory';
+  if(!inProgress){this.panel.close();g.reset();return;}
+  const generation=g.journal.generation,running=g.state==='running';if(running)g.pause();this.busy=true;
+  try{const answer=await this.modal('重新开始','确定放弃本局，重新开始吗？当前分数不会保留。','重新开始','继续本局');
+   if(g.journal.generation!==generation)return;
+   if(answer.confirm){this.panel.close();g.reset();}else if(running&&this.active&&g.state==='paused')g.start();}
+  finally{this.busy=false;this.previous=0;}
  }
  private hapticTracker=new HapticTracker();
  /** Short vibration on decisive moments only (shared policy with Web); silent when muted. */

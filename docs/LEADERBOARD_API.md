@@ -29,7 +29,7 @@ Node.js 24 LTS + TypeScript + Fastify + 内置SQLite，无需Redis或额外数�
 
 生产cookie：__Secure-qlgq，256bit随机凭据，HttpOnly、Secure、SameSite=Strict、Path=/api、90天。开发HTTP使用qlgq_dev。数据库仅存token哈希，CSRF随机值由/api/me返回；所有POST须同源Origin和X-CSRF-Token。PUBLIC_ORIGIN生产必须HTTPS。无CORS放行，不接受请求体playerId，不记录明文凭据。代理仅信任loopback，Nginx覆盖X-Forwarded-For。API JSON正文256KiB，所有参数验证且数据库参数化；错误不暴露SQLite路径。
 
-每IP每分钟600请求、查名120/分钟、注册10/小时、匿名初始化120/小时；每会话挑战30/小时、提交30/小时、申诉3/天。单挑战6小时、最多50000事件、每批最多256条。窗口持久化数据库，过期频控行自动删除。无多进程共享内存限流依赖。
+每IP每分钟600请求、查名120/分钟、注册10/小时、匿名初始化120/小时；每会话挑战120/小时、提交30/小时、申诉3/天。单挑战6小时、最多200000事件、每批最多256条。窗口持久化数据库，过期频控行自动删除。无多进程共享内存限流依赖。
 
 ## 接口
 

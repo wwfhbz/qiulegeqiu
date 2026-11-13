@@ -44,7 +44,12 @@ export function verifyTrace(events: ChallengeEvent[], wallMs: number,seed=1,rule
         if(!hasLaunched){if(usesBrickPowers(rulesVersion)&&(e.brickPowerVersion!==2||e.tripleRuleVersion!==2))throw new ApiError(422,'新版排行榜需要新手关预分配道具和新版X3规则，请重新挑战');brickPowerVersion=e.brickPowerVersion??1;if(brickPowerVersion===2&&(!usesBrickPowers(rulesVersion)||e.tripleRuleVersion!==2))throw new ApiError(422,'新手关道具需要十二关与新版X3规则');allocation();tripleRule=e.tripleRuleVersion??1;if(tripleRule===2&&rulesVersion===LEGACY_RULES_VERSION)throw new ApiError(422,'旧十关挑战不支持新版X3规则');hasLaunched=true;}
         phase='running';balls=1;break;
       case 'hit':{
-        if(phase!=='running'||!balls||!valid[e.index])throw new ApiError(422,'重复或不可能的方块事件');valid[e.index]=0;score.hit(e.index);bricks++;destroyedThisLevel++;
+        if(phase!=='running'||!balls||!valid[e.index])throw new ApiError(422,'重复或不可能的方块事件');
+        // A ball can only reach a brick through open space: a hit on a brick whose eight neighbours are all still
+        // standing cannot come from real play (campaign has no pierce, fire or lightning). Flag it for review.
+        {const cols=blocks.cols,row=Math.floor(e.index/cols),col=e.index%cols;let open=false;
+         for(let dr=-1;dr<=1&&!open;dr++)for(let dc=-1;dc<=1;dc++){if(!dr&&!dc)continue;const r=row+dr,c=col+dc;if(r<0||c<0||r>=blocks.rows||c>=cols||!valid[r*cols+c]){open=true;break;}}
+         if(!open)suspicious.add('击碎了四周无空隙的砖块');}valid[e.index]=0;score.hit(e.index);bricks++;destroyedThisLevel++;
         if(hitTick!==e.tick){hitTick=e.tick;tickHits=0;}if(++tickHits>Math.max(tickBallMax,balls)*12)suspicious.add('单步击碎数量异常');
         const interval=Math.round(C.power.dropEvery/dropMultiplier(levels[level-1]));
         const legacyKind=destroyedThisLevel%interval===0?weightedPower(powerProfile(levels[level-1]),random):undefined;

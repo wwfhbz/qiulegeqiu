@@ -15,7 +15,7 @@ export function refreshBest(db:Db,playerId:string,rules:string=LEGACY_RULES_VERS
  else db.prepare('DELETE FROM season_player_bests WHERE rules_version=? AND player_id=?').run(rules,playerId);
 }
 
-/** Ranking over the given seasons: each player's single best verified score; scores are never converted.
+/** Ranking over the selected mode: each player's single best verified score; scores are never converted.
  * Derive from verified records so stale per-season pointers cannot hide a valid personal best. */
 const ranking=(mode:'campaign'|'endless')=>`WITH candidates AS (
  SELECT ${fields},c.rules_version,

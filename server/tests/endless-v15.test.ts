@@ -3,7 +3,7 @@ import {randomUUID} from 'node:crypto';
 import {Game} from '../../src/Game';
 import {C} from '../../src/GameConfig';
 import {ENDLESS,ENDLESS_V4,ENDLESS_V5,ENDLESS_V6,type EndlessVariant} from '../../src/endless/EndlessRules';
-import {ENDLESS_RULES_VERSION,ENDLESS_V4_RULES_VERSION,ENDLESS_V5_RULES_VERSION,ENDLESS_RANKING_SCOPE,type ChallengeEvent} from '../../shared/Challenge';
+import {ENDLESS_V6_RULES_VERSION as ENDLESS_RULES_VERSION,ENDLESS_V4_RULES_VERSION,ENDLESS_V5_RULES_VERSION,ENDLESS_RANKING_SCOPE,type ChallengeEvent} from '../../shared/Challenge';
 import {verifyTrace} from '../src/verifier';
 import {createApp} from '../src/app';
 function finish(g:Game){for(let n=0;n<10&&g.state!=='gameOver';n++){for(const b of g.physics.balls)Object.assign(b,{x:400,y:1080,vx:0,vy:760,outsideArena:true});g.update(C.step);if(g.state==='ready')g.start();}expect(g.state).toBe('gameOver');}

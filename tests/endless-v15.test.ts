@@ -4,9 +4,9 @@ import {readFileSync} from 'node:fs';
 import {Game} from '../src/Game';
 import {C} from '../src/GameConfig';
 import {EndlessField} from '../src/endless/EndlessField';
-import {ENDLESS,ENDLESS_CURRENT,ENDLESS_V4,ENDLESS_V5,ENDLESS_V6,ENDLESS_V15_POWER_WEIGHTS,FIRE_OFFSETS_V15,endlessSettings,endlessPower,dropEvery,descentInterval,endlessVersion,type EndlessVariant} from '../src/endless/EndlessRules';
+import {ENDLESS,ENDLESS_V6 as ENDLESS_CURRENT,ENDLESS_V4,ENDLESS_V5,ENDLESS_V6,ENDLESS_V15_POWER_WEIGHTS,FIRE_OFFSETS_V15,endlessSettings,endlessPower,dropEvery,descentInterval,endlessVersion,type EndlessVariant} from '../src/endless/EndlessRules';
 import {seededRandom} from '../src/Random';
-import {ENDLESS_RULES_VERSION,ENDLESS_V5_RULES_VERSION,ENDLESS_V4_RULES_VERSION,RULES_VERSION} from '../shared/Challenge';
+import {ENDLESS_V6_RULES_VERSION as ENDLESS_RULES_VERSION,ENDLESS_V5_RULES_VERSION,ENDLESS_V4_RULES_VERSION,RULES_VERSION} from '../shared/Challenge';
 import {MiniGameApp} from '../wechat-game/src/App';
 import {wxFixture} from './helpers/WxFixture';
 import {cloudKey} from '../wechat-game/src/social/Protocol';
@@ -57,7 +57,7 @@ it('+3最多100、÷2向上取整至少1不扣命、生命最多3；普通丢命
  const g=game(),p=g.physics;for(let i=0;i<40;i++)p.collect('plus3');expect(p.balls).toHaveLength(100);p.halve();p.halve();p.halve();expect(p.balls).toHaveLength(13);for(let i=0;i<10;i++)p.halve();expect(p.balls).toHaveLength(1);expect(g.lives).toBe(3);p.collect('life');expect(g.lives).toBe(3);const f=p.endless!;f.hit(live(f)[0]);const destroyed=f.destroyedTotal,score=g.score.total;Object.assign(p.balls[0],{x:400,y:1080,vx:0,vy:760,outsideArena:true});g.update(C.step);expect(g.lives).toBe(2);expect(f.destroyedTotal).toBe(destroyed);expect(g.score.total).toBe(score);g.start();p.collect('life');expect(g.lives).toBe(3);
 });
 it('Web和微信共用V1.5规则/初始20行/确定轨迹与得分；后台计时冻结，好友榜固定键不轮换',()=>{
- const fixture=wxFixture(),app=new MiniGameApp(fixture.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});try{const a=game(31),b=app.game;b.setMode('endless');b.journal.seed=31;b.physics.setSeed(31);b.physics.reset();b.start();expect(b.rulesVersion).toBe(ENDLESS_RULES_VERSION);for(let n=0;n<1200;n++){a.update(C.step);b.update(C.step);}expect(b.journal.events).toEqual(a.journal.events);expect(b.score.total).toBe(a.score.total);expect(b.physics.balls).toEqual(a.physics.balls);expect(b.physics.endless!.descents).toBe(a.physics.endless!.descents);
+ const fixture=wxFixture(),app=new MiniGameApp(fixture.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});try{const a=game(31),b=app.game;b.setMode('endless');b.physics.endless!.variant=ENDLESS_CURRENT;b.journal.seed=31;b.physics.setSeed(31);b.physics.reset();b.start();expect(b.rulesVersion).toBe(ENDLESS_RULES_VERSION);for(let n=0;n<1200;n++){a.update(C.step);b.update(C.step);}expect(b.journal.events).toEqual(a.journal.events);expect(b.score.total).toBe(a.score.total);expect(b.physics.balls).toEqual(a.physics.balls);expect(b.physics.endless!.descents).toBe(a.physics.endless!.descents);
  if(b.state==='ready')b.start();b.physics.collect('wide');const time=b.physics.wideRemaining,since=b.physics.endless!.sinceDescent;fixture.events.hide();b.update(100);fixture.events.show();expect(b.physics.wideRemaining).toBe(time);expect(b.physics.endless!.sinceDescent).toBe(since);expect(cloudKey('endless')).toBe('qqcj_endless_'+ENDLESS_V4_RULES_VERSION);
  }finally{app.dispose();}
 });
