@@ -1,0 +1,122 @@
+{
+  "harness": "Chromium wx API compatibility mock; not official DevTools",
+  "reports": [
+    {
+      "name": "phone",
+      "width": 750,
+      "height": 812,
+      "moved": true,
+      "balls": 3,
+      "playedBricks": 1,
+      "state": "gameOver",
+      "lives": 0,
+      "best": {
+        "id": "173d99f8-8c14-4bdd-b974-1a72958b550d",
+        "score": 0,
+        "reached_level": 1,
+        "bricks_destroyed": 0,
+        "duration_ms": 10042,
+        "completed_all_levels": 0,
+        "achieved_at": 1794570533191,
+        "player_id": "8c71721c-34d1-40fc-a431-9caed053d055",
+        "nickname": "兼容测试375",
+        "region_label": "中国",
+        "region_code": "ISO:CN",
+        "rules_version": "1.8.0-arcade-5l-12lv-powerpts-v6",
+        "rank": 1,
+        "display_name": "中国·兼容测试375"
+      },
+      "boardCount": 1,
+      "share": {
+        "title": "我在《球球出击》闯关模式获得 0 分，你能超过我吗？",
+        "query": "source=score&mode=campaign"
+      },
+      "stress": {
+        "frames": 90,
+        "elapsedMs": 1490.0999999992546,
+        "averageFps": 60.398630964395025,
+        "maxFrameMs": 16.800000000000182,
+        "ballsAtEnd": 100
+      },
+      "errors": []
+    },
+    {
+      "name": "small-phone",
+      "width": 640,
+      "height": 568,
+      "moved": true,
+      "balls": 3,
+      "playedBricks": 1,
+      "state": "gameOver",
+      "lives": 0,
+      "best": {
+        "id": "26d5e098-d436-4aec-ae19-e09a0529e549",
+        "score": 0,
+        "reached_level": 1,
+        "bricks_destroyed": 0,
+        "duration_ms": 10042,
+        "completed_all_levels": 0,
+        "achieved_at": 1794570553191,
+        "player_id": "85f66ffd-4c2c-4a86-89da-48d4967a0b4b",
+        "nickname": "兼容测试320",
+        "region_label": "中国",
+        "region_code": "ISO:CN",
+        "rules_version": "1.8.0-arcade-5l-12lv-powerpts-v6",
+        "rank": 2,
+        "display_name": "中国·兼容测试320"
+      },
+      "boardCount": 2,
+      "share": {
+        "title": "我在《球球出击》闯关模式获得 0 分，你能超过我吗？",
+        "query": "source=score&mode=campaign"
+      },
+      "stress": {
+        "frames": 90,
+        "elapsedMs": 1484.500000000373,
+        "averageFps": 60.62647356010602,
+        "maxFrameMs": 16.800000000000182,
+        "ballsAtEnd": 100
+      },
+      "errors": []
+    },
+    {
+      "name": "tablet",
+      "width": 1536,
+      "height": 1024,
+      "moved": true,
+      "balls": 3,
+      "playedBricks": 1,
+      "state": "gameOver",
+      "lives": 0,
+      "best": {
+        "id": "d89b3fa7-cfbd-4ce4-9103-7a51d21cd901",
+        "score": 0,
+        "reached_level": 1,
+        "bricks_destroyed": 0,
+        "duration_ms": 10042,
+        "completed_all_levels": 0,
+        "achieved_at": 1794570573191,
+        "player_id": "5be25900-4fbb-4ccc-ac36-5cfe7d3fd9ee",
+        "nickname": "兼容测试768",
+        "region_label": "中国",
+        "region_code": "ISO:CN",
+        "rules_version": "1.8.0-arcade-5l-12lv-powerpts-v6",
+        "rank": 3,
+        "display_name": "中国·兼容测试768"
+      },
+      "boardCount": 3,
+      "share": {
+        "title": "我在《球球出击》闯关模式获得 0 分，你能超过我吗？",
+        "query": "source=score&mode=campaign"
+      },
+      "stress": {
+        "frames": 90,
+        "elapsedMs": 1483.8999999999996,
+        "averageFps": 60.65098726329269,
+        "maxFrameMs": 16.800000000000182,
+        "ballsAtEnd": 100
+      },
+      "errors": []
+    }
+  ]
+}

@@ -1,3 +1,8 @@
+import {CloudSync} from './social/CloudSync';
+import {FriendBoard} from './social/FriendBoard';
+import {Profile} from './social/Profile';
+import {scoreShare,shareTitle} from './social/Share';
+import {ball as defaultAvatar} from '../../src/online/ranking/Artwork';
 import {touchPoint} from './TouchPoint';
 import {drawHud} from './GameChrome';
 import {HapticTracker} from '../../src/Haptics';
@@ -30,7 +35,7 @@ interface Region {code:string;prefix:string;name:string;hasChildren:boolean;path
 function clientId(){return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const n=Math.floor(Math.random()*16);return (c==='x'?n:(n&3)|8).toString(16);});}
 export class MiniGameApp {
  readonly game:Game;readonly api:WechatApi;readonly panel=new Panel();readonly canvas:Canvas;
- readonly platform:WechatPlatform;
+ readonly platform:WechatPlatform;readonly profile:Profile;private cloud:CloudSync;private scoreShareImage?:string;private sharing=false;
  private rankingArt?:CanvasImageSource;
  private backgroundFill?:CanvasGradient|string;
  private arena:Canvas;private renderer:Renderer;private ctx:CanvasRenderingContext2D;private sync:ChallengeSync;
@@ -44,25 +49,25 @@ export class MiniGameApp {
 
   const rankingImage=wx.createImage?.();if(rankingImage){rankingImage.onload=()=>{this.rankingArt=rankingImage as unknown as CanvasImageSource;};rankingImage.src="assets/ranking-scene.png";}
   this.ctx=context(this.canvas);context(this.arena);context(cache);
-  this.api=new WechatApi(wx,config);
+  this.api=new WechatApi(wx,config);this.profile=new Profile(wx);this.cloud=new CloudSync(wx,this.api);
   this.game=new Game(undefined,()=>{},undefined,this.platform.createAudio());
   this.game.audio.muted=this.platform.read('qiulegeqiu:wechat-muted:v1')===true;
   if(this.platform.read(MODE_KEY)==='endless'){this.game.setMode('endless');this.rankingBoard='endless';}
   const renderHost=this.platform.rendererHost(cache,()=>({width:this.view.arena.width,height:this.view.arena.height}),()=>this.dpr);renderHost.lowPerformance=()=>this.lowDevice||this.view.width<360;this.renderer=new Renderer(this.arena,renderHost);
   this.sync=new ChallengeSync(this.api,this.game,()=>Date.now(),clientId);this.resize();
   wx.onTouchStart(e=>this.down(e));wx.onTouchMove(e=>this.move(e));wx.onTouchEnd(e=>this.up(e));wx.onTouchCancel(()=>{this.touch=undefined;});
-  wx.onHide(()=>this.hide());wx.onShow(()=>{this.active=true;this.previous=0;this.resize();this.platform.resume();});wx.onWindowResize?.(()=>this.resize());
+  wx.onHide(()=>this.hide());wx.onShow(()=>{this.active=true;this.previous=0;this.resize();this.platform.resume();this.panel.friend?.resume();this.cloud.resume();});wx.onWindowResize?.(()=>this.resize());
   wx.showShareMenu({menus:['shareAppMessage']});wx.onShareAppMessage(()=>this.shareData());this.makeShareImage();
  }
- resize(){const w=this.wx.getWindowInfo();const menu=this.wx.getMenuButtonBoundingClientRect?.();this.view=layout(w.windowWidth,w.windowHeight,w.safeArea?.top,w.safeArea?.bottom,menu?.bottom,menu?.top,menu?.left);this.dpr=Math.min(w.pixelRatio||1,2);
+ resize(){this.profile?.clearButton();const w=this.wx.getWindowInfo();const menu=this.wx.getMenuButtonBoundingClientRect?.();this.view=layout(w.windowWidth,w.windowHeight,w.safeArea?.top,w.safeArea?.bottom,menu?.bottom,menu?.top,menu?.left);this.dpr=Math.min(w.pixelRatio||1,2);
   this.canvas.width=Math.round(w.windowWidth*this.dpr);this.canvas.height=Math.round(w.windowHeight*this.dpr);this.backgroundFill=undefined;this.renderer.resize();}
  run(){this.platform.start(now=>this.frame(now));}
- dispose(){this.platform.dispose();this.renderer.dispose();this.game.dispose();}
- hide(){this.platform.suspend();this.game.audio.suspend();this.active=false;this.previous=0;this.touch=undefined;this.game.pause();if(this.online)void this.sync.flush().catch(()=>{});}
- frame(now:number){if(!this.active)return;const dt=this.previous?Math.min(.1,Math.max(0,(now-this.previous)/1000)):0;this.previous=now;
+ dispose(){this.profile.clearButton();this.panel.close();this.platform.dispose();this.renderer.dispose();this.game.dispose();}
+ hide(){this.profile.clearButton();this.panel.friend?.hide();this.platform.suspend();this.game.audio.suspend();this.active=false;this.previous=0;this.touch=undefined;this.game.pause();if(this.online)void this.sync.flush().catch(()=>{});}
+ frame(now:number){if(!this.active)return;if(this.panel.title!=='我的资料')this.profile.clearButton();const dt=this.previous?Math.min(.1,Math.max(0,(now-this.previous)/1000)):0;this.previous=now;
   // Before the first choice the picker stays up; if another panel closes over it, show it again.
   if(this.picking&&!this.panel.open)this.modePicker();
-  this.game.update(dt);this.haptics();if(this.online)this.sync.observe();if(!this.panel.ranking&&!this.titleOpen)this.renderer.draw(this.game.physics,this.game.state==='ready',now);this.draw(now);
+  this.game.update(dt);this.haptics();if(this.online)this.sync.observe();if(!this.panel.ranking&&!this.panel.friend&&!this.titleOpen)this.renderer.draw(this.game.physics,this.game.state==='ready',now);this.draw(now);
   if((this.game.state==='gameOver'||this.game.state==='victory')&&this.lastEnd!==this.game.journal.generation){this.lastEnd=this.game.journal.generation;this.result();}
  }
  private draw(now:number){const c=this.ctx,v=this.view;c.setTransform(this.dpr,0,0,this.dpr,0,0);
@@ -75,7 +80,7 @@ export class MiniGameApp {
 }
   c.fillStyle=this.backgroundFill;c.fillRect(0,0,v.width,v.height);
   const g=this.game;drawHud(c,g,{x:6,y:v.hudY,width:v.width-12,height:v.hudHeight});
-  if(!this.panel.ranking)c.drawImage(this.arena as CanvasImageSource,v.arena.x,v.arena.y,v.arena.width,v.arena.height);this.actions=[];
+  if(!this.panel.ranking&&!this.panel.friend)c.drawImage(this.arena as CanvasImageSource,v.arena.x,v.arena.y,v.arena.width,v.arena.height);this.actions=[];
   const button=(rect:Rect,label:string,run:()=>void)=>{neonButton(c,rect,'cyan',rect.height/2);c.font='700 15px '+OCEAN.fonts.body;c.textAlign='center';c.textBaseline='middle';c.fillStyle=NEON.cyan;c.fillText(label,rect.x+rect.width/2,rect.y+rect.height/2,rect.width-16);this.actions.push({rect,run});};
   const iconButton=(rect:Rect,icon:IconName,run:()=>void,accent:NeonAccent='dim')=>{candyButton(c,rect,accent==='gold'?'gold':'violet',12);drawIcon(c,icon,rect.x+rect.width/2,rect.y+rect.height/2,16,accent==='gold'?'#6A3A00':'#FFFFFF');this.actions.push({rect:{x:rect.x-2,y:rect.y-4,width:44,height:44},run});};
   if(g.physics.wideRemaining>0||g.score.multiplier>1)canvasText(c,`${g.physics.wideRemaining>0?'加宽 '+g.physics.wideRemaining.toFixed(1)+' 秒 ':''}${g.score.multiplier>1?'连击 ×'+g.score.multiplier:''}`,v.width/2,v.buttonsY-6,v.width-16,10,OCEAN.colors.positive,'center');
@@ -106,11 +111,12 @@ export class MiniGameApp {
   for(const tab of v.modeTabs){const selected=tab.mode===g.mode,visual={x:tab.x,y:v.titleY+6,width:tab.width,height:36};if(selected)candyButton(c,visual,'gold',18);c.font=`800 14px ${OCEAN.fonts.body}`;c.textAlign='center';c.textBaseline='middle';c.fillStyle=selected?'#5A2C00':OCEAN.colors.secondary;c.fillText(tab.mode==='campaign'?'闯关':'无尽',tab.x+tab.width/2,v.titleY+24,tab.width-8);this.actions.push({rect:tab,run:()=>void this.requestMode(tab.mode)});}
   iconButton({x:v.width-98,y:v.titleY,width:40,height:36},g.state==='paused'?'play':'pause',()=>{if(g.state==='paused')g.start();else g.pause();});
   iconButton({x:v.width-50,y:v.titleY,width:40,height:36},'restart',()=>{this.panel.close();g.reset();});
-  this.panel.draw(c,v.width,this.panel.ranking?v.top:v.hudY,v.bottom,now,g.state!=='paused',this.lowDevice||v.width<360,this.rankingArt,this.dpr);
+  this.panel.draw(c,v.width,(this.panel.ranking||this.panel.friend)?v.top:v.hudY,v.bottom,now,g.state!=='paused',this.lowDevice||v.width<360,this.rankingArt,this.dpr);
+  if(this.panel.title==='我的资料'){if(this.profile.image){try{c.drawImage(this.profile.image,v.width-56,v.hudY+8,32,32);}catch{defaultAvatar(c,v.width-40,v.hudY+24,16);}}else defaultAvatar(c,v.width-40,v.hudY+24,16);}
  }
  private down(e:TouchEvent){
   if(this.touch)return;const t=e.changedTouches[0],point=t&&touchPoint(t);if(!point)return;this.game.audio.unlock();const {x,y}=point;
-  this.touch={id:t.identifier,x,y,mode:!this.panel.ranking&&!this.titleOpen?this.view.modeTabs.find(tab=>inside(tab,x,y))?.mode:undefined,moved:false,lastY:y,drag:!this.panel.open&&(inside(this.view.arena,x,y)||inside(this.view.pad,x,y))&&!this.actions.some(a=>inside(a.rect,x,y))};
+  this.touch={id:t.identifier,x,y,mode:!this.panel.ranking&&!this.panel.friend&&!this.titleOpen?this.view.modeTabs.find(tab=>inside(tab,x,y))?.mode:undefined,moved:false,lastY:y,drag:!this.panel.open&&(inside(this.view.arena,x,y)||inside(this.view.pad,x,y))&&!this.actions.some(a=>inside(a.rect,x,y))};
   if(this.touch.drag){this.target(x);if(!this.busy&&!this.boardLoading)startFromPlayfield(this.game,()=>void this.activate());}
  }
  private move(e:TouchEvent){
@@ -139,7 +145,7 @@ export class MiniGameApp {
    }
   }catch(error){this.online=false;this.toast((error as Error).message);}finally{this.busy=false;if(this.game.journal.generation===generation&&this.game.state===state)activateCentralAction(this.game);if(!this.active)this.game.pause();this.previous=0;}
  }
- private async loginWithPrivacy(){if(this.wx.requirePrivacyAuthorize)await new Promise<void>((r,j)=>this.wx.requirePrivacyAuthorize!({success:r,fail:()=>j(Error('未获得隐私授权，可继续单机'))}));await this.api.login();}
+ private async loginWithPrivacy(){if(this.wx.requirePrivacyAuthorize)await new Promise<void>((r,j)=>this.wx.requirePrivacyAuthorize!({success:r,fail:()=>j(Error('未获得隐私授权，可继续单机'))}));await this.api.login();this.cloud.resume();}
  private modal(title:string,content:string,confirmText='确定',cancelText='取消',editable=false,initialValue=''){return new Promise<{confirm:boolean;content?:string}>(resolve=>this.wx.showModal({title,content:editable?initialValue:content,placeholderText:editable?content:undefined,confirmText,cancelText,editable,success:resolve,fail:()=>resolve({confirm:false})}));}
  private toast(message:string){this.wx.showToast({title:message,icon:'none'});}
  private async task(work:()=>Promise<void>){if(this.busy)return;this.busy=true;try{await work();}catch(error){this.wx.showModal({title:'操作未完成',content:(error as Error).message,showCancel:false});}finally{this.busy=false;}}
@@ -186,9 +192,9 @@ export class MiniGameApp {
   this.me=await this.api.me();const lines=scoreHistoryLines(this.me.historicalBests,this.me.historicalBest);
   this.panel.show('个人历史记录',lines.length?[...lines,'旧成绩完整保留，全球榜需按新版规则重新挑战。']:['暂无旧版有效记录'],[{label:'返回菜单',run:()=>this.menu()}]);
  });}
- private result(){const g=this.game;this.panel.show(GAME_NAME+' · '+(g.state==='victory'?'十二关突破成功':'挑战结束'),[`本次总分 ${g.score.total}`,(g.mode==='endless'?`无尽模式 · 第${g.reachedLevel}阶段`:`到达第${g.levels.current.number}关`)+` · 消除 ${g.journal.bricksDestroyed} 块`,this.online?'成绩仍需服务端记录验证':'本轮为单机挑战，不上传成绩'],[
+ private result(){this.scoreShareImage=undefined;const g=this.game,generation=g.journal.generation;void scoreShare(this.wx,{mode:g.mode,score:g.score.total}).then(r=>{if(g.journal.generation===generation&&(g.state==='gameOver'||g.state==='victory'))this.scoreShareImage=r.imageUrl;}).catch(()=>{});this.panel.show(GAME_NAME+' · '+(g.state==='victory'?'十二关突破成功':'挑战结束'),[`本次总分 ${g.score.total}`,(g.mode==='endless'?`无尽模式 · 第${g.reachedLevel}阶段`:`到达第${g.levels.current.number}关`)+` · 消除 ${g.journal.bricksDestroyed} 块`,this.online?'成绩仍需服务端记录验证':'本轮为单机挑战，不上传成绩'],[
   ...(this.online&&!this.me?.player?[{label:'登记地区：'+this.region.prefix,run:()=>void this.regions(undefined,()=>this.result())}]:[]),
-  {label:'提交本次成绩',run:()=>void this.submit()}, {label:'查看全球排行榜',run:()=>void this.board()},
+  {label:'提交本次成绩',run:()=>void this.submit()}, {label:'查看全球排行榜',half:true,run:()=>void this.board()}, {label:'分享成绩',half:true,run:()=>void this.shareScore()},
   {label:'闯关模式',half:true,run:()=>this.chooseMode('campaign')},{label:'无尽模式',half:true,run:()=>this.chooseMode('endless')}, {label:'关闭结算',run:()=>this.panel.close()}
  ]);}
  private async submit(){return this.task(async()=>{if(!this.online)throw Error('本轮单机成绩无法登记；下一轮开始时可选择联网');
@@ -199,7 +205,7 @@ export class MiniGameApp {
    if(!ok.confirm){await this.regions(undefined,()=>void this.submit());return;}
    await this.api.request('/players',{nickname,regionCode:this.region.code});this.me=await this.api.me();
   }
-  const result=await this.sync.submit();let refreshed=true;try{this.me=await this.api.me();}catch{this.me=undefined;refreshed=false;}this.toast((result.verificationStatus==='verified'?'成绩已登记':'成绩待复核')+(refreshed?'':'，个人记录暂无法刷新'));await this.board();
+  const result=await this.sync.submit();if(result.verificationStatus==='verified')void this.cloud.retry();let refreshed=true;try{this.me=await this.api.me();}catch{this.me=undefined;refreshed=false;}this.toast((result.verificationStatus==='verified'?'成绩已登记':'成绩待复核')+(refreshed?'':'，个人记录暂无法刷新'));await this.board();
  });}
  /** Which board the ranking panel shows; follows the mode just played unless the player toggles it. */
  private rankingBoard:'global'|'endless'='global';
@@ -208,6 +214,8 @@ export class MiniGameApp {
   const show=(state:'loading'|'ready'|'error',items:RankingScore[]=[],nextOffset:number|null=null,best?:RankingScore|null,note='',personalAvailable=true,error?:string)=>{
    if(revision!==this.boardRevision)return;
    this.panel.showRanking({board,state,items,nextOffset,offset,best,note,personalAvailable,personalSignedOut:!this.api.authenticated,error},[
+    {label:'全球榜',tab:true,disabled:true,run:()=>{}},{label:'好友榜',tab:true,run:()=>this.friends()},
+    {label:'我的资料',run:()=>this.myProfile()},
     {label:'上一页',disabled:offset===0||state==='loading',run:()=>void this.board(Math.max(0,offset-pageSize))},
     {label:'刷新',run:()=>void this.board(offset)},
     {label:'下一页',disabled:nextOffset===null||state==='loading',run:()=>{if(nextOffset!==null)void this.board(nextOffset);}},
@@ -237,6 +245,20 @@ export class MiniGameApp {
   const ticket=await this.modal('输入网页绑定码','请在已登录的网页排行榜生成；不要使用他人的绑定码。','绑定','取消',true);if(!ticket.confirm)return;
   await this.api.request('/wechat/bind',{ticket:ticket.content?.trim()});this.me=await this.api.me();this.toast('已绑定原网页玩家');this.menu();});}
  private async appeal(){return this.task(async()=>{if(!this.api.authenticated)throw Error('请先在开始挑战时选择联网登录');const r=await this.modal('账号与隐私申诉','请说明更正、注销或删除请求，不要填写密码。','提交','取消',true);if(r.confirm){await this.api.request('/appeals',{message:r.content||''});this.toast('申诉已提交');}});}
- private shareData(){return {title:this.me?.best?`${GAME_NAME}：我的最高纪录 ${this.me.best.score} 分，一起突破！`:`${GAME_NAME}：十二关弹球挑战，一起突破！`,imageUrl:this.shareImage,query:'source=friend'};}
+ private async shareScore(){if(this.sharing||(this.game.state!=='gameOver'&&this.game.state!=='victory'))return;this.sharing=true;try{const data=await scoreShare(this.wx,{mode:this.game.mode,score:this.game.score.total});this.wx.shareAppMessage(data);}catch{this.toast('分享暂不可用，可继续游戏');}finally{this.sharing=false;}}
+ private friends(){
+  this.game.pause();this.boardRevision++;this.boardLoading=false;const mode=this.rankingBoard==='endless'?'endless':'campaign';
+  const friend=new FriendBoard(this.wx,mode,{global:()=>void this.board(),change:()=>{this.rankingBoard=mode==='campaign'?'endless':'global';this.friends();},close:()=>this.panel.close(),invite:()=>this.wx.shareAppMessage(this.shareData()),retry:()=>{void this.cloud.retry();},status:()=>this.cloud.status,permissions:()=>{if(this.wx.openSetting)this.wx.openSetting({success:()=>{if(this.panel.friend===friend){friend.resume();void this.cloud.retry();}},fail:()=>this.toast('未更改授权，可继续全球榜或单机')});else this.toast('请在微信右上角设置中管理朋友信息授权');}});
+  this.panel.showFriends(friend);void this.cloud.retry();
+  if(this.wx.authorize)this.wx.authorize({scope:'scope.WxFriendInteraction',success:()=>{if(this.panel.friend===friend)friend.resume();},fail:()=>this.toast('未获得朋友信息授权，可在好友榜的授权设置中管理')});
+ }
+ private myProfile(){this.game.pause();this.boardRevision++;this.boardLoading=false;this.profile.clearButton();this.panel.show('我的资料',['展示昵称：'+this.profile.data.nickname,'榜单昵称：'+(this.me?.player?.display_name||'登记后由服务器管理'),'展示资料仅存本机，不修改身份；好友榜使用微信返回资料'],[
+  {label:'填写昵称',half:true,run:()=>void this.task(async()=>{const r=await this.modal('本机展示昵称','2～12个中文、字母或数字','保存','取消',true,this.profile.data.nickname);if(r.confirm)this.profile.nickname(r.content||'');this.myProfile();})},
+  {label:'选择头像',half:true,run:()=>void this.task(async()=>{await this.profile.chooseAvatar();this.myProfile();})},
+  {label:'主动获取微信资料（可拒绝）',run:()=>void this.task(async()=>{if(this.wx.requirePrivacyAuthorize)await new Promise<void>((resolve,reject)=>this.wx.requirePrivacyAuthorize!({success:resolve,fail:()=>reject(Error('未同意资料隐私授权，默认资料保持不变'))}));if(this.panel.title!=='我的资料'||!this.active)return;const target=this.panel.hits[2]?.rect;if(!target)throw Error('界面已更新，请再次点击资料按钮');this.profile.authorize(target,message=>{this.toast(message);this.myProfile();});})},
+  {label:'默认资料',half:true,run:()=>{this.profile.nickname('球球玩家');this.profile.data.avatar='';this.profile.image=undefined;this.platform.write('qiulegeqiu:local-profile:v1',{...this.profile.data});this.myProfile();}},
+  {label:'返回排行榜',half:true,run:()=>void this.board()},{label:'关闭',run:()=>{this.profile.clearButton();this.panel.close();}}
+ ]);}
+ private shareData(){if(this.game.state==='gameOver'||this.game.state==='victory')return {title:shareTitle({mode:this.game.mode,score:this.game.score.total}),imageUrl:this.scoreShareImage,query:'source=score&mode='+this.game.mode};return {title:this.me?.best?`${GAME_NAME}：我的最高纪录 ${this.me.best.score} 分，一起突破！`:`${GAME_NAME}：十二关弹球挑战，一起突破！`,imageUrl:this.shareImage,query:'source=friend'};}
  private makeShareImage(){const card=this.wx.createCanvas();card.width=500;card.height=400;const c=context(card);c.fillStyle=OCEAN.colors.background;c.fillRect(0,0,500,400);c.strokeStyle=OCEAN.colors.border;c.lineWidth=2;c.beginPath();c.arc(250,190,145,0,Math.PI*2);c.stroke();for(let y=90;y<220;y+=18)for(let x=155;x<350;x+=18)if(Math.hypot(x-250,y-190)<130){c.fillStyle=brickColor(Math.floor((y-90)/18),40);c.fillRect(x,y,14,14);}c.fillStyle=OCEAN.paddle.body;c.fillRect(195,310,110,8);c.fillStyle=OCEAN.ball.body;c.beginPath();c.arc(245,270,6,0,Math.PI*2);c.fill();c.font='bold 30px sans-serif';c.textAlign='center';c.fillText(GAME_NAME,250,375);card.toTempFilePath?.({success:r=>{this.shareImage=r.tempFilePath;}});}
 }

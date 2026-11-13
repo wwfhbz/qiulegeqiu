@@ -3,5 +3,6 @@
   "showStatusBar": false,
   "networkTimeout": {
     "request": 6000
-  }
+  },
+  "openDataContext": "open-data"
 }
