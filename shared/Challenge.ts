@@ -37,22 +37,19 @@ export const ENDLESS_RANKING_SCOPE='all-endless-versions';
 export function isEndlessRules(rules:string){return rules.startsWith('endless-');}
 export function assertEndlessBoard(data:LeaderboardMetadata){if(data.board!==ENDLESS_BOARD||data.rankingScope!==ENDLESS_RANKING_SCOPE)throw Error('排行榜后端需更新为永久统一无尽榜；历史成绩仍保留');}
 export const SUPPORTED_RULES_VERSIONS=[LEGACY_RULES_VERSION,PREVIOUS_RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,V17_RULES_VERSION,RULES_VERSION,ENDLESS_V1_RULES_VERSION,ENDLESS_V2_RULES_VERSION,ENDLESS_V3_RULES_VERSION,ENDLESS_V4_RULES_VERSION,ENDLESS_V5_RULES_VERSION,ENDLESS_V6_RULES_VERSION,ENDLESS_RULES_VERSION] as const;
-/**
- * Seasons whose verified scores share the global board: every twelve-level ruleset. A rules update must
- * never empty the board, so each player's best across these seasons ranks. Ten-level scores stay history only.
- */
-export const GLOBAL_BOARD_RULES_VERSIONS=[PREVIOUS_RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,V17_RULES_VERSION,RULES_VERSION] as const;
+/** Compatibility/audit inventory only. Live ranking uses mode, never a version whitelist. */
+export const GLOBAL_BOARD_RULES_VERSIONS=[LEGACY_RULES_VERSION,PREVIOUS_RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,V17_RULES_VERSION,RULES_VERSION] as const;
 /** Seasons whose first launch must declare preassigned tutorial powers and the X3 threshold rule. */
 export function usesBrickPowers(rules:string){return rules===RULES_VERSION||rules===V17_RULES_VERSION||rules===V16_RULES_VERSION||rules===V15_RULES_VERSION||rules===V13_RULES_VERSION;}
 
-/** Old API servers may silently ignore unknown query parameters: never label that old board as new. */
-export function assertRulesVersion(actual:unknown,requested:string){if(actual===requested||(requested===LEGACY_RULES_VERSION&&actual===undefined))return;throw Error('排行榜服务尚未支持此赛季，请等待后端升级或查看旧版历史榜');}
-
 export const GLOBAL_BOARD='global';
+export const CAMPAIGN_RANKING_SCOPE='all-campaign-versions';
+/** Deprecated metadata retained for older clients; never identifies a ranking pool. */
+export const GLOBAL_BOARD_COMPAT_VERSION='1.8.0-arcade-5l-12lv-powerpts-v6';
 export const GLOBAL_BOARD_PATH='/leaderboard?board=global';
 export interface LeaderboardMetadata {rankingScope?:string;board?:string;rankingRulesVersion?:string;rulesVersion?:string}
 export function assertGlobalBoard(data:LeaderboardMetadata){
- if(data.board!==GLOBAL_BOARD||data.rankingRulesVersion!==RULES_VERSION)throw Error('排行榜后端需要更新，暂时无法读取统一榜单；历史成绩仍保留，单机游戏不受影响');
+ if(data.board!==GLOBAL_BOARD||data.rankingScope!==CAMPAIGN_RANKING_SCOPE)throw Error('排行榜后端需要更新，暂时无法读取统一榜单；历史成绩仍保留，单机游戏不受影响');
 }
 export function assertChallengeSupport(data:{ok?:boolean;rulesVersion?:string;supportedRulesVersions?:readonly string[]}){
  if(data.ok!==true)throw Error('排行榜健康检查响应无效，请检查API代理配置');

@@ -1,8 +1,9 @@
+import type {NicknameQuota} from '../../shared/NicknamePolicy';
 import {apiPayload,assertIdentityPayload} from '../../shared/ApiErrors';
 import {RULES_VERSION,assertGlobalBoard,type LeaderboardMetadata} from '../../shared/Challenge';
 export interface BestScore { rules_version?:string; score:number; reached_level:number; bricks_destroyed:number; duration_ms:number; rank:number; display_name:string }
 export interface Player { id:string; nickname:string; region_code:string; prefix:string; status:string; display_name:string }
-export interface Me extends LeaderboardMetadata {historicalBest?:BestScore|null;historicalBests?:(BestScore&{rules_version:string})[];rankingAvailable?:boolean;csrfToken:string; player:Player|null; best:BestScore|null }
+export interface Me extends LeaderboardMetadata {nicknameChange?:NicknameQuota|null;historicalBest?:BestScore|null;historicalBests?:(BestScore&{rules_version:string})[];rankingAvailable?:boolean;csrfToken:string; player:Player|null; best:BestScore|null }
 export class ApiClient {
   private identity?: Promise<Me>; private csrf=''; private loading=false;
   async request<T>(path:string,body?:unknown):Promise<T>{

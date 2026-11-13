@@ -1,3 +1,4 @@
+import {nicknameQuotaText} from '../../shared/NicknamePolicy';
 import {scoreHistoryLines} from '../../shared/ScoreHistory';
 import "./ranking/ranking.css";
 import "./ranking/reference.css";
@@ -30,7 +31,7 @@ export class LeaderboardUI {
         <form id="score-form"><label>玩家昵称<input id="nickname" maxlength="24" autocomplete="nickname" placeholder="2～12个字符" required></label>
         <details id="region-details"><summary id="region-label">地区：中国</summary><div id="region-picker"></div></details>
         <p id="bound-region" hidden></p><p id="nickname-check" role="status"></p><p class="identity-note">身份由本浏览器安全会话保留。清除浏览器数据后，不能仅凭昵称找回。</p>
-        <button type="submit" id="submit-score">提交成绩</button></form>
+        <p id="nickname-quota" role="status"></p><button type="button" id="change-nickname" hidden>修改昵称</button><button type="submit" id="submit-score">提交成绩</button></form>
         <div class="ranking-actions"><button type="button" id="view-board">查看排行榜</button><button type="button" id="skip-score">跳过提交</button></div>
       </section>
       <section id="board-content"><div class="board-tabs" role="tablist" aria-label="榜单"><button type="button" role="tab" data-board="global" aria-selected="true">闯关榜</button><button type="button" role="tab" data-board="endless" aria-selected="false">无尽榜</button></div><p class="ranking-caption"><span id="board-caption">★ 全球 TOP100</span><span>历史最高有效成绩</span></p><div class="reference-head">${REFERENCE.labels.map(label=>`<span>${label}</span>`).join('')}</div><div id="ranking-rows" role="list" aria-label="全球排名"></div><div class="ranking-actions ranking-pagination"><button type="button" id="previous-page">上一页</button><button type="button" id="refresh-board">↻ 刷新</button><button type="button" id="next-page">下一页</button></div><button type="button" id="return-score" hidden>本次挑战成绩</button><details class="ranking-account"><summary>账号与历史记录</summary><button type="button" id="wechat-link">生成微信账号绑定码</button><p id="historical-best"></p></details></section>
@@ -41,6 +42,7 @@ export class LeaderboardUI {
     root.append(this.dialog);this.picker=new RegionPicker(this.el('region-picker'),this.api,()=>{this.el('region-label').textContent=`地区：${this.picker.prefix}`;void this.checkNickname();});
     this.button('refresh-board').onclick=()=>{this.message('');void this.loadBoard(this.offset);void this.api.me(true).then(me=>this.applyMe(me)).catch(error=>{this.personalUnavailable();this.message(error.message);});};
     this.button('submit-score').disabled=false;
+    this.button('change-nickname').onclick=()=>void this.changeNickname();
     for(const tab of Array.from(this.dialog.querySelectorAll<HTMLButtonElement>('[data-board]')))tab.onclick=()=>{this.selectBoard(tab.dataset.board as 'global'|'endless');this.message('');void this.loadBoard(0);};
     trophy.onclick=()=>{if(game.state==='running')game.pause();this.open(false);};
     this.dialog.querySelector<HTMLButtonElement>('[data-online-close]')!.onclick=()=>this.dialog.close();
@@ -68,15 +70,16 @@ export class LeaderboardUI {
   private message(text:string){this.el('online-message').textContent=text;}
   private applyMe(me:Me){
     const previouslyBound=!!this.me?.player;this.me=me;
+    this.button('change-nickname').hidden=!me.player;this.el('nickname-quota').textContent=me.player?(me.nicknameChange?nicknameQuotaText(me.nicknameChange):'昵称额度暂不可用，请刷新或升级后端；仍可提交成绩'):'';
     if(me.player){this.checking++;this.input('nickname').value=me.player.nickname;this.input('nickname').disabled=true;this.el('region-details').hidden=true;this.el('bound-region').hidden=false;this.el('bound-region').textContent=`地区：${me.player.prefix}`;this.el('nickname-check').textContent='已绑定当前玩家';this.el('region-label').textContent=me.player.display_name;}
     else{this.input('nickname').disabled=false;this.el('region-details').hidden=false;this.el('bound-region').hidden=true;if(previouslyBound){this.checking++;this.input('nickname').value='';this.el('nickname-check').textContent='当前身份已失效，请重新登记；不能仅凭昵称找回旧账号。';}this.el('region-label').textContent=`地区：${this.picker.prefix}`;}
     if(this.board==='global')this.applyBest(me.best,me.rankingAvailable!==false);else void this.loadEndlessBest();
     const history=scoreHistoryLines(me.historicalBests,me.historicalBest);
-    this.el('historical-best').textContent=history.length?history.join('；')+'（已完整保留，需新版重赛上榜）':'';
+    this.el('historical-best').textContent=history.length?history.join('；')+'（历史有效成绩已参与所属模式统一排名）':'';
   }
   private applyBest(best:Me['best'],available:boolean){
     const endless=this.board==='endless',mine=personalRanking(best,available);
-    this.el('my-best').textContent=mine.card?mine.title:!available?'个人排名暂不可用，排行榜后端需要更新':endless?'我的排名：未上榜 · 完成无尽模式并提交成绩后登记':'我的排名：未上榜 · 完成十二关规则挑战后登记成绩';
+    this.el('my-best').textContent=mine.card?mine.title:!available?'个人排名暂不可用，排行榜后端需要更新':endless?'我的排名：未上榜 · 完成无尽模式并提交成绩后登记':'我的排名：未上榜 · 完成闯关挑战并提交有效成绩后登记';
     this.el('my-name').textContent=best?.display_name??this.me?.player?.display_name??'';
     const myStats=this.el('my-stats');myStats.replaceChildren();if(best){for(const [label,value] of [['最高总分',mine.card!.score],[endless?'最高阶段':'最高关卡',endless?`第${best.reached_level}阶段`:mine.card!.level],['消除砖块',mine.card!.bricks],['最佳时间',referenceSeconds(best.duration_ms)]]){const item=document.createElement('span'),caption=document.createElement('small'),number=document.createElement('strong');caption.textContent=label;number.textContent=value;item.append(caption,number);myStats.append(item);}}else myStats.textContent=!available?'个人排名暂不可用，排行榜后端需要更新':'完成挑战并提交有效成绩后上榜';
   }
@@ -98,6 +101,13 @@ export class LeaderboardUI {
   showResult(){if(this.game.state==='gameOver'||this.game.state==='victory')this.open(true);}
   private open(ended:boolean){this.dialog.querySelector('h2')!.textContent=ended?'本次挑战成绩':'全球历史排行榜';this.dialog.setAttribute('aria-label',ended?'本次挑战成绩':'全球历史排行榜');this.dialog.classList.toggle('submission-view',ended);this.button('return-score').hidden=ended||(this.game.state!=='gameOver'&&this.game.state!=='victory');this.el('challenge-entry').hidden=!ended;this.el('board-content').hidden=ended;this.message('');if(ended){const s=this.game.journal.summary(this.game.score.total,this.game.reachedLevel,this.game.state==='victory');this.el('challenge-score').textContent=s.score.toLocaleString('zh-CN');const endless=this.game.mode==='endless';this.el('sv-mode').textContent=endless?'无尽模式':'闯关模式';this.el('sv-mode').dataset.mode=this.game.mode;this.el('sv-title').textContent=this.game.state==='victory'?'全部关卡突破！':endless?'挑战结束':'生命耗尽';this.el('challenge-level-label').textContent=endless?'到达阶段':'关卡';this.el('challenge-level').textContent=endless?`第${s.reachedLevel}阶段`:`到达第${s.reachedLevel}关`;this.el('challenge-bricks').textContent=s.bricksDestroyed.toLocaleString('zh-CN');this.el('challenge-time').textContent=`${(s.durationMs/1000).toFixed(1)} 秒`;}
     if(!this.dialog.open)this.dialog.showModal();this.syncMotion();void this.api.me(true).then(me=>this.applyMe(me)).catch(error=>{this.personalUnavailable();this.message(error.message);});if(!ended)void this.loadBoard(0);
+  }
+  private async changeNickname(){
+    if(this.busy||!this.me?.player)return;const nickname=window.prompt('修改昵称（每自然周最多2次、每自然年最多6次，按北京时间计算）',this.me.player.nickname);if(nickname===null)return;
+    this.button('change-nickname').disabled=true;
+    try{await this.api.request('/players/nickname',{nickname});this.applyMe(await this.api.me(true));this.message('昵称已同步；成绩、排名与身份保持不变');}
+    catch(error){this.message((error as Error).message+'；仍可提交成绩');try{this.applyMe(await this.api.me(true));}catch{/* Keep the existing identity and submit action available. */}}
+    finally{this.button('change-nickname').disabled=false;}
   }
   private async checkNickname(){if(this.me?.player)return;const name=this.input('nickname').value;if(!name.trim()){this.el('nickname-check').textContent='';return;}const revision=++this.checking;try{const result=await this.api.request<{message:string;available:boolean}>(`/players/availability?${new URLSearchParams({nickname:name,region:this.picker.code})}`);if(revision===this.checking)this.el('nickname-check').textContent=result.message;}catch(error){if(revision===this.checking)this.el('nickname-check').textContent=(error as Error).message;}}
   private async submit(){

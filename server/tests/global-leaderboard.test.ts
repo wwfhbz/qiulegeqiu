@@ -23,12 +23,12 @@ it('统一榜单与真实个人排名一致，按玩家最高有效记录去重�
  const result=await s.app.inject({url:'/api/leaderboard?board=global&limit=20'});expect(result.json().board).toBe('global');expect(result.json().rankingRulesVersion).toBe(RULES_VERSION);expect(result.json().items.map((r:{rank:number})=>r.rank)).toEqual(Array.from({length:20},(_,i)=>i+1));
  const all=[];let offset:number|null=0;while(offset!==null){const page=(await s.app.inject({url:`/api/leaderboard?board=global&limit=20&offset=${offset}`})).json();all.push(...page.items);offset=page.nextOffset;}expect(all).toHaveLength(100);expect(new Set(all.map(r=>r.player_id)).size).toBe(100);
  for(const row of all)expect(globalPersonalBest(s.db,row.player_id)!.rank).toBe(row.rank);
- expect(globalPersonalBest(s.db,ids[104])).toMatchObject({score:1,rank:105});
+ expect(globalPersonalBest(s.db,ids[104])).toMatchObject({score:999997,rank:1});expect(globalPersonalBest(s.db,ids[103])).toMatchObject({score:2,rank:105});
  const headers=await web(s),session=s.db.prepare('SELECT id FROM sessions WHERE csrf_token=?').get(headers['x-csrf-token'])!;s.db.prepare('UPDATE sessions SET player_id=? WHERE id=?').run(ids[104],session.id);
- const me=(await s.app.inject({url:'/api/me?board=global',headers})).json();expect(me.best.rank).toBe(105);expect(me.historicalBest.id).toBe(legacyId);expect((await s.app.inject({url:'/api/me/best?board=global',headers})).json().best.rank).toBe(105);
+ const me=(await s.app.inject({url:'/api/me?board=global',headers})).json();expect(me.best.rank).toBe(1);expect(me.historicalBest.id).toBe(legacyId);expect((await s.app.inject({url:'/api/me/best?board=global',headers})).json().best.rank).toBe(1);
  expect(s.db.prepare('SELECT * FROM scores ORDER BY id').all()).toEqual(snapshot);expect(s.db.prepare('SELECT * FROM player_bests').all()).toEqual(oldPointer);
  expect((await s.app.inject({url:'/api/leaderboard?board=global&offset=100'})).statusCode).toBe(400);
- expect((await s.app.inject({url:'/api/leaderboard?board=global&rulesVersion='+LEGACY_RULES_VERSION})).statusCode).toBe(400);
+ expect((await s.app.inject({url:'/api/leaderboard?board=global&rulesVersion='+LEGACY_RULES_VERSION})).statusCode).toBe(200);
 });
 it('并列分按关卡、用时、首次达成、稳定ID排序，个人排名不错误固定为1',async()=>{
  const s=await setup(),ps=Array.from({length:5},(_,i)=>player(s,i));

@@ -43,7 +43,7 @@ it('V1.7道具：随机掉落间隔逐关增加，第4～12关生命与炸弹各
  for(const kind of ['life','bomb']){const rate=(counts[kind]??0)/200000;expect(rate).toBeGreaterThan(.001);expect(rate).toBeLessThan(.005);}
 });
 
-it('规则更新不清空全球榜：所有十二关赛季（含将来新增的）都参与全球排名，只排除旧十关和无尽模式',()=>{
- expect([...GLOBAL_BOARD_RULES_VERSIONS]).toEqual(SUPPORTED_RULES_VERSIONS.filter(v=>v!==LEGACY_RULES_VERSION&&!v.startsWith('endless-')));
+it('规则更新不清空全球榜：兼容清单包括旧十关和十二关，排名依模式不依清单',()=>{
+ expect([...GLOBAL_BOARD_RULES_VERSIONS]).toEqual(SUPPORTED_RULES_VERSIONS.filter(v=>!v.startsWith('endless-')));
  expect(GLOBAL_BOARD_RULES_VERSIONS).toContain(RULES_VERSION);
 });

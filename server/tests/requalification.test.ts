@@ -23,7 +23,7 @@ it('独立新版要求真实预分配标记；旧十二关和旧十关日志继�
  for(const rules of SUPPORTED_RULES_VERSIONS.filter(v=>!v.startsWith('endless-'))){const g=trace(rules,10);expect(verifyTrace(g.journal.events,1000000,42,rules).summary).toEqual(g.journal.summary(g.score.total,1,false));if(rules!==RULES_VERSION&&rules!==V13_RULES_VERSION&&rules!==V15_RULES_VERSION&&rules!==V16_RULES_VERSION&&rules!==V17_RULES_VERSION)expect(()=>verifyTrace(g.journal.events,1000000,42,RULES_VERSION)).toThrow('预分配');}
  const fresh=trace(RULES_VERSION,10);expect(()=>verifyTrace(fresh.journal.events,1000000,42,PREVIOUS_RULES_VERSION)).toThrow();
 });
-it('旧客户端提交、旧版最高分指针和历史行保持完整；规则更新不清空全球榜：十二关各赛季取个人最高，旧十关只留历史',async()=>{
+it('旧客户端提交、旧版最高分指针和历史行保持完整；规则更新不清空全球榜：十二关各赛季取个人最高，旧十关也参与统一排名',async()=>{
  let now=Date.now();const s=await createApp({dbPath:':memory:',origin:'https://test.local',secure:true,rateLimit:false,now:()=>now});
  try{
  const health=(await s.app.inject({url:'/api/health'})).json();expect(health.supportedRulesVersions).toEqual(SUPPORTED_RULES_VERSIONS);expect(health.challengeProtocolVersion).toBe(2);
@@ -37,6 +37,6 @@ it('旧客户端提交、旧版最高分指针和历史行保持完整；规则�
  const board=(await s.app.inject({url:'/api/leaderboard?board=global'})).json();expect(board.rankingRulesVersion).toBe(RULES_VERSION);expect(board.items).toHaveLength(1);expect(board.items[0]).toMatchObject({id:twelve,rank:1});expect(board.items[0].score).toBeGreaterThan(10);
  const after=(await s.app.inject({url:'/api/me?board=global',headers})).json();expect(after.best.id).toBe(twelve);expect(fresh).toBeTruthy();expect(after.historicalBests).toEqual(before.historicalBests);
  const better=await submit(PREVIOUS_RULES_VERSION,101);expect((await s.app.inject({url:'/api/me?board=global',headers})).json().best.id).toBe(better);expect((await s.app.inject({url:'/api/leaderboard?board=global'})).json().items).toHaveLength(1);expect((await s.app.inject({url:'/api/leaderboard?rulesVersion='+PREVIOUS_RULES_VERSION})).json().items[0].score).toBeGreaterThan(10);
- expect((await s.app.inject({url:'/api/leaderboard?board=global&rulesVersion='+PREVIOUS_RULES_VERSION})).statusCode).toBe(400);
+ expect((await s.app.inject({url:'/api/leaderboard?board=global&rulesVersion='+PREVIOUS_RULES_VERSION})).statusCode).toBe(200);
  }finally{await s.app.close();}
 });

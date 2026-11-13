@@ -35,7 +35,11 @@ it('新手通关自动进入下一关，继承生命分数，回合球数恢复1
 it('更大出口仍可漏接死亡，多球全灭只扣一次，不改变死亡线',()=>{for(const config of LEVELS.slice(0,2)){const g=new Game();if(config.number===2)clear(g);expect(g.levels.current.number).toBe(config.number);g.start();g.physics.triple();for(const b of g.physics.balls)Object.assign(b,{x:300,y:FRAME.deathY+b.radius+2,vy:760,outsideArena:true});g.update(C.step);expect(g.lives).toBe(4);expect(g.physics.balls).toHaveLength(1);expect(FRAME.deathY).toBe(C.paddle.y+C.paddle.height/2+C.frame.deathGap);}});
 it('开口视觉和物理一致，200口处可通行而旧106口仍反弹',()=>{const make=():Ball=>({x:470,y:C.arena.y+C.arena.radius-4,vx:0,vy:-440,radius:C.ball.radius,alive:true,outsideArena:true});const open=make(),closed=make();boundary(open,wallForLevel(LEVELS[0]));boundary(closed,wallForLevel(LEVELS[2]));expect(open.vy).toBeLessThan(0);expect(closed.vy).toBeGreaterThan(0);});
 it('十二关全部完成最终胜利，通关和死亡同帧优先通关',()=>{const g=new Game();for(let n=1;n<=12;n++){expect(g.levels.current.number).toBe(n);clear(g);if(n>2&&n<12)g.nextLevel();}expect(g.state).toBe('victory');expect(g.lives).toBe(5);const h=new Game();h.start();for(let i=0;i<h.physics.blocks.alive.length;i++)h.physics.blocks.hit(i);Object.assign(h.physics.balls[0],{x:400,y:1080,vy:760,outsideArena:true});h.update(C.step);expect(h.levels.current.number).toBe(2);expect(h.lives).toBe(5);});
-import {assertRulesVersion,RULES_VERSION,LEGACY_RULES_VERSION} from '../shared/Challenge';
-it('旧后端忽略查询参数时不能把旧榜标成新榜，旧榜仍兼容无版本响应',()=>{expect(()=>assertRulesVersion(undefined,RULES_VERSION)).toThrow('尚未支持');expect(()=>assertRulesVersion(LEGACY_RULES_VERSION,RULES_VERSION)).toThrow();expect(()=>assertRulesVersion(undefined,LEGACY_RULES_VERSION)).not.toThrow();expect(()=>assertRulesVersion(RULES_VERSION,RULES_VERSION)).not.toThrow();});
+import {assertGlobalBoard,CAMPAIGN_RANKING_SCOPE,RULES_VERSION,LEGACY_RULES_VERSION} from '../shared/Challenge';
+it('永久闯关榜按mode/scope识别，旧隔离API不可冒充；历史/未来元数据不再划分榜单',()=>{
+ expect(()=>assertGlobalBoard({})).toThrow('后端需要更新');expect(()=>assertGlobalBoard({board:'global',rankingRulesVersion:RULES_VERSION})).toThrow();
+ for(const tag of [LEGACY_RULES_VERSION,RULES_VERSION,'future'])expect(()=>assertGlobalBoard({board:'global',rankingRulesVersion:tag,rankingScope:CAMPAIGN_RANKING_SCOPE})).not.toThrow();
+ expect(()=>assertGlobalBoard({board:'endless',rankingScope:CAMPAIGN_RANKING_SCOPE})).toThrow();
+});
 import {tutorialTolerance} from './helpers/tutorialTolerance';
 it('真实碰撞模型45组出球容错检查，不接球仍会死亡，350ms跟踪可接住',()=>{const [old,...tutorials]=tutorialTolerance();for(const report of tutorials){expect(report.stationary.caught).toBeGreaterThanOrEqual(old.stationary.caught);expect(report.stationary.dead).toBeGreaterThan(0);expect(report.trackingAfter350ms.caught).toBe(45);}});

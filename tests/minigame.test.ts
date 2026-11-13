@@ -42,7 +42,7 @@ it('网络异常不阻止单机开始、暂停、重开；结束可跳过成绩�
 });
 it('微信登录只提交临时代码，会话持久化和CSRF正确，无openid或分数认证',async()=>{
  const f=fixture();f.wx.login=o=>o.success({code:'temporary-code'});const token='a'.repeat(43),csrfToken='csrf-token';
- f.wx.request=o=>{f.requests.push(o);if(o.url.endsWith('/wechat/login'))o.success({statusCode:200,data:{token,csrfToken,expiresAt:Date.now()+60000}});else o.success({statusCode:200,data:o.url.includes('/me?')?{csrfToken,player:null,best:null,board:'global',rankingRulesVersion:RULES_VERSION}:{ok:true}});};
+ f.wx.request=o=>{f.requests.push(o);if(o.url.endsWith('/wechat/login'))o.success({statusCode:200,data:{token,csrfToken,expiresAt:Date.now()+60000}});else o.success({statusCode:200,data:o.url.includes('/me?')?{csrfToken,player:null,best:null,board:'global',rankingRulesVersion:RULES_VERSION,rankingScope:'all-campaign-versions'}:{ok:true}});};
  const api=new WechatApi(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});await Promise.all([api.login(),api.login()]);expect(f.requests).toHaveLength(1);expect(f.requests[0].data).toEqual({code:'temporary-code'});
  await api.request('/challenges',{rulesVersion:'test'});const challenge=f.requests.find(r=>r.url.endsWith('/challenges'))!;expect(challenge.header.authorization).toBe('Bearer '+token);expect(challenge.header['x-csrf-token']).toBe(csrfToken);
  const back=new WechatApi(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});expect(back.authenticated).toBe(true);
@@ -71,7 +71,7 @@ it('新版品牌与Canvas HUD读取同一个真实生命源，逐轮立即显示
 it('微信个人会话失效不能隐藏公开全球榜，只有一个榜单且可刷新',async()=>{
  const f=fixture();f.wx.login=o=>o.success({code:'login-code'});f.wx.request=o=>{
   if(o.url.endsWith('/wechat/login'))return o.success({statusCode:200,data:{token:'c'.repeat(43),csrfToken:'proof',expiresAt:Date.now()+60000}});
-  if(o.url.includes('/leaderboard?'))return o.success({statusCode:200,data:{board:'global',rankingRulesVersion:RULES_VERSION,items:[{rank:1,display_name:'中国·公开榜玩家',score:10,reached_level:1}],nextOffset:null}});
+  if(o.url.includes('/leaderboard?'))return o.success({statusCode:200,data:{board:'global',rankingRulesVersion:RULES_VERSION,rankingScope:'all-campaign-versions',items:[{rank:1,display_name:'中国·公开榜玩家',score:10,reached_level:1}],nextOffset:null}});
   o.success({statusCode:401,data:{message:'登录状态失效'}});
  };const app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});await app.api.login();await (app as unknown as {board():Promise<void>}).board();
  expect(app.panel.title).toContain('全球历史排行榜');expect(app.panel.lines.join('')).toContain('中国·公开榜玩家');expect(app.panel.lines.join('')).toContain('重新登录');expect(app.panel.actions.map(a=>a.label)).toContain('刷新');expect(app.panel.actions.some(a=>/赛季|旧版/.test(a.label))).toBe(false);expect(app.api.authenticated).toBe(false);
@@ -80,7 +80,7 @@ it('重置数据库后旧微信凭据失效：身份GET只续登一次，随后�
  const f=fixture();let logins=0,reads=0;f.wx.login=o=>{logins++;o.success({code:'new-code-'+logins});};f.wx.request=o=>{
   if(o.url.endsWith('/wechat/login'))return o.success({statusCode:200,data:{token:(logins===1?'a':'b').repeat(43),csrfToken:'proof',expiresAt:Date.now()+60000}});
   if(++reads===1)return o.success({statusCode:401,data:{message:'旧会话已失效'}});
-  o.success({statusCode:200,data:{csrfToken:'proof',player:null,best:null,board:'global',rankingRulesVersion:RULES_VERSION}});
+  o.success({statusCode:200,data:{csrfToken:'proof',player:null,best:null,board:'global',rankingRulesVersion:RULES_VERSION,rankingScope:'all-campaign-versions'}});
  };const api=new WechatApi(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});await api.login();const me=await api.me();expect(me.player).toBeNull();expect(me.rankingAvailable).toBe(true);expect(logins).toBe(2);expect(reads).toBe(2);expect(api.authenticated).toBe(true);
 });
 it('持续401有明确终止，旧写请求绝不在新身份下自动重放',async()=>{
@@ -88,10 +88,10 @@ it('持续401有明确终止，旧写请求绝不在新身份下自动重放',as
  const api=new WechatApi(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});await expect(api.me()).rejects.toThrow('会话不存在');expect(logins).toBe(2);expect(reads).toBe(2);
  logins=0;await api.login();await expect(api.request('/players',{nickname:'重新登记',regionCode:'ISO:CN'})).rejects.toThrow('会话不存在');expect(logins).toBe(1);expect(posts).toBe(1);
 });
-it.each([[320,568],[390,844]])('微信%s×%s个人历史显示旧版记录，未重赛不冒充当前排名，菜单不新增整行高度',async(w,h)=>{
+it.each([[320,568],[390,844]])('微信%s×%s个人历史显示旧版记录并说明参与永久统一排名，菜单不新增整行高度',async(w,h)=>{
  const f=fixture(w,h),app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});(app as unknown as {chooseMode(m:string):void}).chooseMode('campaign');
- vi.spyOn(app.api,'me').mockResolvedValue({rankingAvailable:true,csrfToken:'fixture',player:null,best:null,board:'global',rankingRulesVersion:RULES_VERSION,historicalBests:[{rules_version:'1.2.0-arcade-5l-12lv-v1',score:314115,reached_level:5,bricks_destroyed:10258,duration_ms:632700,rank:1,display_name:'历史玩家'}]});
+ vi.spyOn(app.api,'me').mockResolvedValue({rankingAvailable:true,csrfToken:'fixture',player:null,best:null,board:'global',rankingRulesVersion:RULES_VERSION,rankingScope:'all-campaign-versions',historicalBests:[{rules_version:'1.2.0-arcade-5l-12lv-v1',score:314115,reached_level:5,bricks_destroyed:10258,duration_ms:632700,rank:1,display_name:'历史玩家'}]});
  try{app.frame(100);f.events.down(f.touch(1,20,100));f.events.up(f.touch(1,20,100));expect(app.panel.title).toBe('游戏菜单');const action=app.panel.actions.find(a=>a.label==='个人历史记录');expect(action?.half).toBe(true);action!.run();
- await vi.waitFor(()=>expect(app.panel.title).toBe('个人历史记录'));expect(app.panel.lines).toContain('旧版十二关记录：314115 分 · 第5关');expect(app.panel.lines.join('')).toContain('重新挑战');app.frame(116);expect(app.panel.hits.every(hit=>hit.rect.y+hit.rect.height<h-34)).toBe(true);expect(app.game.state).toBe('ready');expect(app.game.journal.events).toHaveLength(0);
+ await vi.waitFor(()=>expect(app.panel.title).toBe('个人历史记录'));expect(app.panel.lines).toContain('旧版十二关记录：314115 分 · 第5关');expect(app.panel.lines.join('')).toContain('永久统一排行榜');app.frame(116);expect(app.panel.hits.every(hit=>hit.rect.y+hit.rect.height<h-34)).toBe(true);expect(app.game.state).toBe('ready');expect(app.game.journal.events).toHaveLength(0);
  }finally{app.dispose();}
 });
