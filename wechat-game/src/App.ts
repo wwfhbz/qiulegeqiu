@@ -1,9 +1,10 @@
+import {drawHud} from './GameChrome';
 import {HapticTracker} from '../../src/Haptics';
 import {VIEW,viewX,viewFraction} from '../../src/Viewport';
 const MODE_KEY='qiulegeqiu:wechat-mode:v1';
 import {OCEAN,brickColor} from '../../shared/VisualTheme';
 import {drawIcon,type IconName} from '../../shared/Icons';
-import {canvasText,neonButton,NEON,type NeonAccent} from '../../shared/CanvasUI';
+import {canvasText,neonButton,candyButton,NEON,type NeonAccent} from '../../shared/CanvasUI';
 import {scoreHistoryLines} from '../../shared/ScoreHistory';
 import {assertGlobalBoard,ENDLESS_BOARD,ENDLESS_RULES_VERSION,type LeaderboardMetadata} from '../../shared/Challenge';
 import type {GameMode} from '../../src/Game';
@@ -70,19 +71,10 @@ export class MiniGameApp {
   if(!this.backgroundFill){const gradient=c.createLinearGradient(0,0,0,v.height);gradient?.addColorStop(0,'#081028');gradient?.addColorStop(.45,'#050816');gradient?.addColorStop(1,'#03050C');this.backgroundFill=gradient||OCEAN.colors.background;
 }
   c.fillStyle=this.backgroundFill;c.fillRect(0,0,v.width,v.height);
-  // HUD: one dense line (level · score · balls · hearts) and a hairline progress line.
-  const g=this.game,b=g.physics.blocks,hud={x:4,y:v.hudY,width:v.width-8,height:v.hudHeight};neonButton(c,hud,'dim',10);
-  const field=g.physics.endless,progress=field?Math.round(field.descentProgress*100):Math.round(b.removed/Math.max(1,b.total)*100),r1=hud.y+13,r2=hud.y+30;
-  canvasText(c,field?'阶段':'关卡',hud.x+10,r1,30,9,OCEAN.colors.muted);canvasText(c,field?`第${g.reachedLevel}阶段`:`${String(g.levels.current.number).padStart(2,'0')}/${g.levels.count}`,hud.x+36,r1,70,12,OCEAN.colors.text);
-  canvasText(c,'分数',hud.x+hud.width*.42-4,r1,30,9,OCEAN.colors.muted,'right');canvasText(c,String(g.score.total),hud.x+hud.width*.42,r1,hud.width*.28,16,NEON.cyan);
-  canvasText(c,`球×${g.physics.balls.length}`,hud.x+hud.width*.72,r1,50,11,OCEAN.colors.secondary);
-  {c.font=`700 12px ${OCEAN.fonts.body}`;c.textBaseline='middle';c.textAlign='right';const lost='♡'.repeat(Math.max(0,g.maxLives-g.lives)),right=hud.x+hud.width-10;c.fillStyle='rgba(255,255,255,.25)';if(lost)c.fillText(lost,right,r1);c.fillStyle=OCEAN.colors.heart;if(g.lives>0)c.fillText('♥'.repeat(g.lives),right-c.measureText(lost).width,r1);}
-  canvasText(c,field?(field.blocked?'压到底线':'下沉'):'进度',hud.x+10,r2,40,9,OCEAN.colors.muted);
-  const tail=field?`已下沉${field.descents}行`:`剩余 ${b.remaining} · ${progress}%`;c.font=`500 9px ${OCEAN.fonts.body}`;const tailW=c.measureText(tail).width;canvasText(c,tail,hud.x+hud.width-10,r2,tailW+4,9,OCEAN.colors.positive,'right');
-  const barX=hud.x+44,barW=hud.width-58-tailW;c.fillStyle='rgba(120,200,255,.14)';c.fillRect(barX,r2-1,barW,2);if(progress>0){c.fillStyle=NEON.cyan;c.fillRect(barX,r2-1,barW*progress/100,2);}
+  const g=this.game;drawHud(c,g,{x:6,y:v.hudY,width:v.width-12,height:v.hudHeight});
   if(!this.panel.ranking)c.drawImage(this.arena as CanvasImageSource,v.arena.x,v.arena.y,v.arena.width,v.arena.height);this.actions=[];
   const button=(rect:Rect,label:string,run:()=>void)=>{neonButton(c,rect,'cyan',rect.height/2);c.font='700 15px '+OCEAN.fonts.body;c.textAlign='center';c.textBaseline='middle';c.fillStyle=NEON.cyan;c.fillText(label,rect.x+rect.width/2,rect.y+rect.height/2,rect.width-16);this.actions.push({rect,run});};
-  const iconButton=(rect:Rect,icon:IconName,run:()=>void,accent:NeonAccent='dim')=>{neonButton(c,rect,accent,8);drawIcon(c,icon,rect.x+rect.width/2,rect.y+rect.height/2,16,accent==='gold'?NEON.gold:OCEAN.colors.secondary);this.actions.push({rect,run});};
+  const iconButton=(rect:Rect,icon:IconName,run:()=>void,accent:NeonAccent='dim')=>{candyButton(c,rect,accent==='gold'?'gold':'violet',12);drawIcon(c,icon,rect.x+rect.width/2,rect.y+rect.height/2,16,accent==='gold'?'#6A3A00':'#FFFFFF');this.actions.push({rect:{x:rect.x-2,y:rect.y-4,width:44,height:44},run});};
   if(g.physics.wideRemaining>0||g.score.multiplier>1)canvasText(c,`${g.physics.wideRemaining>0?'加宽 '+g.physics.wideRemaining.toFixed(1)+' 秒 ':''}${g.score.multiplier>1?'连击 ×'+g.score.multiplier:''}`,v.width/2,v.buttonsY-6,v.width-16,10,OCEAN.colors.positive,'center');
   const action=centralActionFor(g);
   if(g.state==='levelComplete'&&g.result){c.fillStyle=OCEAN.colors.text;c.font='14px sans-serif';c.fillText(`第${g.levels.current.number}关突破！本关 ${g.result.levelTotal} 分`,v.width/2,v.arena.y+(C.arena.y-VIEW.y)*v.scale-38);}
@@ -93,7 +85,7 @@ export class MiniGameApp {
   else if(action&&g.state!=='ready'&&!this.busy){const centerY=v.arena.y+(C.arena.y-VIEW.y)*v.scale;button({x:v.width/2-70,y:centerY-22,width:140,height:44},action.label.replace('▶ ',''),()=>void this.activate());}
   // Touch strip under the arena: a quiet hint; dragging here steers the paddle (see down/move).
   // Joined to the arena's bottom edge: same width, rounded bottom corners, a track and a knob that follows the paddle.
-  if(!this.panel.open&&v.pad.height>=30){const p={x:v.arena.x,y:v.pad.y,width:v.arena.width,height:v.pad.height};// Fills to the screen bottom: the whole strip steers.
+  if((!this.panel.open||this.picking)&&v.pad.height>=30){const p={x:v.arena.x,y:v.pad.y,width:v.arena.width,height:v.pad.height};// Fills to the screen bottom: the whole strip steers.
    c.save();c.beginPath();c.roundRect(p.x,p.y,p.width,p.height,[0,0,10,10]);c.fillStyle='rgba(6,10,24,.95)';c.fill();
    c.beginPath();c.roundRect(v.arena.x-.5,v.arena.y-.5,v.arena.width+1,p.y+p.height-v.arena.y+1,10);c.strokeStyle='rgba(120,200,255,.2)';c.lineWidth=1;c.stroke();
    const ty=p.y+Math.min(p.height/2-5,p.height*.42),tx=p.x+20,tw=p.width-40;c.fillStyle='rgba(120,200,255,.16)';c.fillRect(tx,ty-1,tw,2);
@@ -102,12 +94,14 @@ export class MiniGameApp {
    canvasText(c,'左右滑动控制挡板',v.width/2,ty+14,v.width-40,9,OCEAN.colors.muted,'center');}
   // Compact native-style utility controls stay below the capsule safe area.
   // Top bar: small ghost icon buttons sharing the capsule menu's row (left of it), so no row is spent on them.
-  const bs=30,gap=4,tb=(i:number)=>({x:6+i*(bs+gap),y:v.top+(v.barHeight-bs)/2,width:bs,height:bs}),tr=(i:number)=>({x:v.barRight-bs-i*(bs+gap),y:v.top+(v.barHeight-bs)/2,width:bs,height:bs});
-  iconButton(tb(0),'menu',()=>this.menu());
-  iconButton(tb(1),g.state==='paused'?'play':'pause',()=>{if(g.state==='paused')g.start();else g.pause();});
-  iconButton(tr(0),'trophy',()=>void this.board(),'gold');
-  iconButton(tr(1),'restart',()=>{this.panel.close();g.reset();});
-  iconButton(tr(2),g.audio.muted?'soundOff':'soundOn',()=>{g.audio.toggle();this.platform.write('qiulegeqiu:wechat-muted:v1',g.audio.muted);});
+  const bs=40,tool=(x:number)=>({x,y:v.top,width:bs,height:v.barHeight});
+  iconButton(tool(6),'menu',()=>this.menu());
+  iconButton(tool(52),g.audio.muted?'soundOff':'soundOn',()=>{g.audio.toggle();this.platform.write('qiulegeqiu:wechat-muted:v1',g.audio.muted);});
+  iconButton(tool(v.barRight-bs),'trophy',()=>void this.board(),'gold');
+  c.font=`900 23px ${OCEAN.fonts.body}`;c.textAlign='left';c.textBaseline='middle';const titleGold=c.createLinearGradient(0,v.titleY,0,v.titleY+36);titleGold?.addColorStop(0,'#FFFFFF');titleGold?.addColorStop(.6,'#FFE27A');titleGold?.addColorStop(1,'#FFB31F');c.fillStyle=titleGold||'#FFE27A';c.fillText(GAME_NAME,14,v.titleY+20,v.width-124);
+  iconButton({x:v.width-98,y:v.titleY,width:40,height:36},g.state==='paused'?'play':'pause',()=>{if(g.state==='paused')g.start();else g.pause();});
+  iconButton({x:v.width-50,y:v.titleY,width:40,height:36},'restart',()=>{this.panel.close();g.reset();});
+  this.panel.pickerAnchor={top:v.arena.y,centerY:v.arena.y+(C.arena.y-VIEW.y)*v.scale};
   this.panel.draw(c,v.width,v.top,v.bottom,now,g.state!=='paused',this.lowDevice||v.width<360,this.rankingArt,this.dpr);
  }
  private down(e:TouchEvent){if(this.touch)return;const t=e.changedTouches[0];if(!t)return;this.game.audio.unlock();this.touch={id:t.identifier,x:t.clientX,y:t.clientY,moved:false,lastY:t.clientY,drag:!this.panel.open&&(inside(this.view.arena,t.clientX,t.clientY)||inside(this.view.pad,t.clientX,t.clientY))&&!this.actions.some(a=>inside(a.rect,t.clientX,t.clientY))};if(this.touch.drag){this.target(t.clientX);if(!this.busy&&!this.boardLoading)startFromPlayfield(this.game,()=>void this.activate());}}
