@@ -183,7 +183,8 @@ export class Physics {
   }
   halve() {
     this.recycleDead();const keep=Math.max(1,Math.ceil(this.balls.length/2));
-    for(let i=keep;i<this.balls.length;i++)this.balls[i].alive=false;
+    // Visual only: show where each removed ball was before it disappears.
+    for(let i=keep;i<this.balls.length;i++){const b=this.balls[i];this.effects.emit('poof',b.x,b.y);b.alive=false;}
     this.recycleDead(); // Administrative removal deliberately emits no death event.
   }
   tripleRuleVersion:TripleRuleVersion=TRIPLE_RULE_VERSION;
@@ -203,6 +204,7 @@ export class Physics {
   /** Fire: a brick hit by a burning ball also burns its eight neighbours (no chain reaction). */
   private burn(index:number){
     const g=this.blocks,row=Math.floor(index/g.cols),col=index%g.cols;
+    this.effects.emit('burn',g.left+col*g.step+g.size/2,g.top+row*g.step+g.size/2,g.step);
     for(let r=row-1;r<=row+1;r++)for(let c=col-1;c<=col+1;c++)if(r>=0&&c>=0&&r<g.rows&&c<g.cols&&(r!==row||c!==col))g.hit(r*g.cols+c);
   }
   /** Pierce: break every brick the ball overlaps without bouncing. */
@@ -211,7 +213,7 @@ export class Physics {
     for(let r=Math.max(0,Math.floor((b.y-b.radius-g.top)/s));r<=Math.min(g.rows-1,Math.floor((b.y+b.radius-g.top)/s));r++)
       for(let c=Math.max(0,Math.floor((b.x-b.radius-g.left)/s));c<=Math.min(g.cols-1,Math.floor((b.x+b.radius-g.left)/s));c++){
         const i=r*g.cols+c;if(!g.alive[i])continue;const x=g.left+c*s,y=g.top+r*s;
-        if(Math.hypot(b.x-Math.max(x,Math.min(x+g.size,b.x)),b.y-Math.max(y,Math.min(y+g.size,b.y)))<b.radius){g.hit(i);if(this.fireRemaining>0)this.burn(i);}
+        if(Math.hypot(b.x-Math.max(x,Math.min(x+g.size,b.x)),b.y-Math.max(y,Math.min(y+g.size,b.y)))<b.radius){this.effects.emit('slash',x+g.size/2,y+g.size/2,0,undefined,b.vx,b.vy);g.hit(i);if(this.fireRemaining>0)this.burn(i);}
       }
   }
   private child(source:Ball,angle:number,sign:number){

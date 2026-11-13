@@ -4,10 +4,12 @@ import { C } from './GameConfig';
  * Presentation-side event kinds. Effects never feeds back into physics, scoring or the journal;
  * the renderer only reads `events` by sequence number and never mutates this object.
  */
-export type FxKind = 'paddle'|'lost'|'power'|'bomb'|'clear'|'combo'|'hit'|'descend'|'zap';
+/** 'burn': a fire contact (value = cell size); 'slash': a brick cut by a piercing ball; 'poof': a ball removed by ÷2. */
+export type FxKind = 'paddle'|'lost'|'power'|'bomb'|'clear'|'combo'|'hit'|'descend'|'zap'|'burn'|'slash'|'poof';
 /** `sx`/`sy`: source point for 'zap' (lightning) bolts. */
 export interface FxEvent { seq:number; kind:FxKind; x:number; y:number; value:number; power?:PowerKind; sx?:number; sy?:number }
-const EVENT_SLOTS = 64;
+// Fire, pierce and lightning can emit dozens of events in one frame; keep enough history for the renderer.
+const EVENT_SLOTS = 256;
 export class Effects {
   readonly particles = Array.from({ length: C.effects.particles }, () => ({ x:0,y:0,vx:0,vy:0,life:0,tag:0 }));
   readonly flashes = Array.from({ length: C.effects.flashes }, () => ({ x:0,y:0,life:0 }));

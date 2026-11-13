@@ -47,3 +47,12 @@ it('随机掉落按无尽道具表从同一种子复现，起始每16块一个�
  const run=()=>{const g=endless(5);g.start();const f=g.physics.endless!;let n=0;for(let i=0;i<f.alive.length&&n<40;i++)if(f.alive[i]){f.hit(i);n++;}return g.physics.powers.items.filter(d=>d.alive).map(d=>d.kind);};
  const a=run();expect(a).toEqual(run());expect(a).toHaveLength(2);for(const k of a)expect(['plus3','wide','halve','pierce','fire','lightning','life']).toContain(k);
 });
+it('道具特效事件：火焰每次接触发出燃烧事件，穿透每块砖发出切割事件，÷2为每颗被移除的球发出消散事件；不改变物理结果',()=>{
+ const g=endless();g.start();const p=g.physics,fx=p.effects,kinds=()=>fx.events.filter(e=>e.seq>0).map(e=>e.kind);
+ p.collect('plus3');p.collect('plus3');const balls=p.balls.filter(b=>b.alive).length;const before=fx.eventSeq;p.collect('halve');
+ expect(fx.events.filter(e=>e.seq>before&&e.kind==='poof')).toHaveLength(balls-Math.ceil(balls/2));
+ const field=p.endless!,row=8,col=22,x=field.left+col*field.step+field.size/2,y=field.top+row*field.step+field.size+3;
+ p.fireRemaining=5;Object.assign(p.balls[0],{x,y,vx:0,vy:-440,outsideArena:false});p.update(C.step);expect(kinds()).toContain('burn');
+ const g2=endless();g2.start();const q=g2.physics;q.pierceRemaining=5;Object.assign(q.balls[0],{x,y,vx:0,vy:-440,outsideArena:false});for(let n=0;n<30;n++)q.update(C.step);
+ expect(q.effects.events.filter(e=>e.kind==='slash').length).toBeGreaterThan(2);
+});
