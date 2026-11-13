@@ -17,7 +17,7 @@ export const OCEAN={
  bricks:['#3FA9F5','#2EC4B6','#FFB547','#FF6B81','#9B8CFF','#4CD9A0'],
  ball:{body:'#FFFFFF',edge:'#BFE9FF',highlight:'#FFFFFF',trail:'#7FE8FF',glow:'#4FE3FF'},
  paddle:{body:'#EAF7FF',edge:'#2F7FB8',accent:'#4FE3FF',shadow:'#06101D',wide:'#2EC4B6'},
- powers:{triple:{color:'#FFB547',label:'×3',good:true},wide:{color:'#2EC4B6',label:'↔',good:true},halve:{color:'#FF4D6A',label:'÷2',good:false},life:{color:'#4CD9A0',label:'♥',good:true},bomb:{color:'#9B8CFF',label:'✸',good:true}},
+ powers:{triple:{color:'#FFB547',label:'×3',good:true},wide:{color:'#2EC4B6',label:'↔',good:true},halve:{color:'#FF4D6A',label:'÷2',good:false},life:{color:'#4CD9A0',label:'♥',good:true},bomb:{color:'#9B8CFF',label:'✸',good:true},plus3:{color:'#FFB547',label:'+3',good:true},pierce:{color:'#4FD8F0',label:'穿',good:true},fire:{color:'#FF7A45',label:'火',good:true},lightning:{color:'#F5C518',label:'电',good:true}},
  powerBadge:{width:30,height:30,radius:15,cellWidth:44,cellHeight:44,pixelRatio:2},
  rank:{gold:'#C6AB74',silver:'#A6BECE',bronze:'#C49C84',fourth:'#81A9C7',fifth:'#7497B4',normal:'#8499AF',mine:'#294D62'},
  fonts:{body:'"PingFang SC", "Microsoft YaHei", sans-serif',numbers:'Arial, "PingFang SC", sans-serif'},
@@ -35,6 +35,8 @@ export function levelBandColors(level=1):readonly string[]{
  return colors;
 }
 export function brickColor(row:number,step=16,level=1){return levelBandColors(level)[brickColorIndex(row,step)];}
+/** Endless: colour follows the brick's world row (it moves with the brick): 8 rows per band, 48 per palette. */
+export function endlessBrickColor(worldRow:number){const w=Math.max(0,Math.floor(worldRow));return levelBandColors(1+Math.floor(w/48)%OCEAN.levelPalettes.length)[Math.floor(w/8)%OCEAN.brickBands.count];}
 export function rankColor(rank:number){return rank===1?OCEAN.rank.gold:rank===2?OCEAN.rank.silver:rank===3?OCEAN.rank.bronze:rank===4?OCEAN.rank.fourth:rank===5?OCEAN.rank.fifth:OCEAN.rank.normal;}
 export function visualBudget(balls:number,lowDevice=false){
  const tier=balls>50?2:balls>20?1:0;

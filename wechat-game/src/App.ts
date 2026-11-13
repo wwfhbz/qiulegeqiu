@@ -1,8 +1,10 @@
 import {HapticTracker} from '../../src/Haptics';
+const MODE_KEY='qiulegeqiu:wechat-mode:v1';
 import {OCEAN,brickColor} from '../../shared/VisualTheme';
 import {panel,canvasText} from '../../shared/CanvasUI';
 import {scoreHistoryLines} from '../../shared/ScoreHistory';
-import {assertGlobalBoard,type LeaderboardMetadata} from '../../shared/Challenge';
+import {assertGlobalBoard,ENDLESS_BOARD,ENDLESS_RULES_VERSION,type LeaderboardMetadata} from '../../shared/Challenge';
+import type {GameMode} from '../../src/Game';
 import {GAME_NAME} from '../../shared/Brand';
 import {Game} from '../../src/Game';
 import {startFromPlayfield} from '../../src/PlayfieldStart';
@@ -41,6 +43,7 @@ export class MiniGameApp {
   this.api=new WechatApi(wx,config);
   this.game=new Game(undefined,()=>{},undefined,this.platform.createAudio());
   this.game.audio.muted=this.platform.read('qiulegeqiu:wechat-muted:v1')===true;
+  if(this.platform.read(MODE_KEY)==='endless'){this.game.setMode('endless');this.rankingBoard='endless';}
   const renderHost=this.platform.rendererHost(cache,()=>({width:this.view.arena.width,height:this.view.arena.height}),()=>this.dpr);renderHost.lowPerformance=()=>this.lowDevice||this.view.width<360;this.renderer=new Renderer(this.arena,renderHost);
   this.sync=new ChallengeSync(this.api,this.game,()=>Date.now(),clientId);this.resize();
   wx.onTouchStart(e=>this.down(e));wx.onTouchMove(e=>this.move(e));wx.onTouchEnd(e=>this.up(e));wx.onTouchCancel(()=>{this.touch=undefined;});
@@ -60,7 +63,8 @@ export class MiniGameApp {
   if(!this.backgroundFill){const gradient=c.createLinearGradient(0,0,0,v.height);gradient?.addColorStop(0,OCEAN.colors.background);gradient?.addColorStop(1,OCEAN.colors.gradientEnd);this.backgroundFill=gradient||OCEAN.colors.background;}
   c.fillStyle=this.backgroundFill;c.fillRect(0,0,v.width,v.height);canvasText(c,GAME_NAME,v.width/2,v.top+24,v.width-120,15,OCEAN.colors.text,'center');
   const g=this.game,b=g.physics.blocks,hud={x:8,y:v.hudY-4,width:v.width-16,height:56};panel(c,hud,OCEAN.colors.arena,OCEAN.colors.line,10);
-  const progress=Math.round(b.removed/Math.max(1,b.total)*100),cells=[['关卡',`${String(g.levels.current.number).padStart(2,'0')}/${g.levels.count}`],['生命',`♥×${g.lives}`],['得分',String(g.score.total)],['弹球',`球×${g.physics.balls.length}`],['剩余砖块',String(b.remaining)],['进度',`${progress}%`]];
+  const field=g.physics.endless,progress=field?Math.round(field.descentProgress*100):Math.round(b.removed/Math.max(1,b.total)*100);
+  const cells=[field?['无尽阶段',`第${g.reachedLevel}阶段`]:['关卡',`${String(g.levels.current.number).padStart(2,'0')}/${g.levels.count}`],['生命',`♥×${g.lives}`],['得分',String(g.score.total)],['弹球',`球×${g.physics.balls.length}`],['剩余砖块',String(b.remaining)],field?[field.blocked?'压到底线':'下沉',`已下沉${field.descents}行`]:['进度',`${progress}%`]];
   cells.forEach(([label,value],i)=>{const x=hud.x+10+(i%3)*(hud.width-12)/3,y=hud.y+8+Math.floor(i/3)*26,w=(hud.width-24)/3;canvasText(c,label,x,y,w,8,OCEAN.colors.muted);canvasText(c,value,x,y+12,w,12,i===1?OCEAN.colors.heart:i===5?OCEAN.colors.positive:OCEAN.colors.number);});
   const meterX=hud.x+10+2*(hud.width-12)/3,meterWidth=(hud.width-24)/3;c.fillStyle=OCEAN.colors.line;c.fillRect(meterX,hud.y+53,meterWidth,2);c.fillStyle=OCEAN.colors.positive;c.fillRect(meterX,hud.y+53,meterWidth*progress/100,2);
   if(!this.panel.ranking)c.drawImage(this.arena as CanvasImageSource,v.arena.x,v.arena.y,v.arena.width,v.arena.height);this.actions=[];
@@ -101,15 +105,23 @@ export class MiniGameApp {
   {label:'分享小游戏',run:()=>this.wx.shareAppMessage(this.shareData()),half:true},{label:this.game.audio.muted?'开启音效':'静音',run:()=>{this.game.audio.toggle();this.platform.write('qiulegeqiu:wechat-muted:v1',this.game.audio.muted);this.menu();},half:true},
   {label:'个人历史记录',run:()=>void this.history(),half:true},
   {label:'绑定已有网页账号',run:()=>void this.bind(),half:true},
+  {label:this.game.mode==='endless'?'切换到闯关模式':'切换到无尽模式',run:()=>void this.switchMode(this.game.mode==='endless'?'campaign':'endless')},
   {label:'单机重新挑战',run:()=>{this.offlinePreference=true;this.online=false;this.panel.close();this.game.reset();},half:true},{label:'联网重新挑战',run:()=>{this.offlinePreference=false;this.panel.close();this.game.reset();},half:true},
   {label:'隐私保护说明',run:()=>this.wx.showModal({title:'隐私保护说明',content:privacy,showCancel:false}),half:true},{label:'用户协议',run:()=>this.wx.showModal({title:'用户协议',content:agreement,showCancel:false}),half:true},
   {label:'账号及隐私申诉',run:()=>void this.appeal()}, {label:'关闭菜单',run:()=>this.panel.close()}
  ]);}
+ /** Mode switch always starts a fresh run, so confirm if one is in progress; the choice is remembered. */
+ private async switchMode(mode:GameMode){
+  const g=this.game,inProgress=g.journal.events.length>0&&g.state!=='gameOver'&&g.state!=='victory';
+  if(inProgress&&!(await this.modal('切换模式','切换模式会结束当前这一局，确定切换吗？','切换','取消')).confirm)return;
+  g.setMode(mode);this.rankingBoard=mode==='endless'?'endless':'global';this.platform.write(MODE_KEY,mode);this.panel.close();
+  this.toast(mode==='endless'?'无尽模式：砖墙会不断下沉，3条命':'闯关模式：12关挑战');
+ }
  private async history(){return this.task(async()=>{
   this.me=await this.api.me();const lines=scoreHistoryLines(this.me.historicalBests,this.me.historicalBest);
   this.panel.show('个人历史记录',lines.length?[...lines,'旧成绩完整保留，全球榜需按新版规则重新挑战。']:['暂无旧版有效记录'],[{label:'返回菜单',run:()=>this.menu()}]);
  });}
- private result(){const g=this.game;this.panel.show(GAME_NAME+' · '+(g.state==='victory'?'十二关突破成功':'挑战结束'),[`本次总分 ${g.score.total}`,`到达第${g.levels.current.number}关 · 消除 ${g.journal.bricksDestroyed} 块`,this.online?'成绩仍需服务端记录验证':'本轮为单机挑战，不上传成绩'],[
+ private result(){const g=this.game;this.panel.show(GAME_NAME+' · '+(g.state==='victory'?'十二关突破成功':'挑战结束'),[`本次总分 ${g.score.total}`,(g.mode==='endless'?`无尽模式 · 第${g.reachedLevel}阶段`:`到达第${g.levels.current.number}关`)+` · 消除 ${g.journal.bricksDestroyed} 块`,this.online?'成绩仍需服务端记录验证':'本轮为单机挑战，不上传成绩'],[
   ...(this.online&&!this.me?.player?[{label:'登记地区：'+this.region.prefix,run:()=>void this.regions(undefined,()=>this.result())}]:[]),
   {label:'提交本次成绩',run:()=>void this.submit()}, {label:'查看全球排行榜',run:()=>void this.board()},
   {label:'跳过提交，重新挑战',run:()=>{this.panel.close();g.reset();}}, {label:'关闭结算',run:()=>this.panel.close()}
@@ -124,21 +136,25 @@ export class MiniGameApp {
   }
   const result=await this.sync.submit();let refreshed=true;try{this.me=await this.api.me();}catch{this.me=undefined;refreshed=false;}this.toast((result.verificationStatus==='verified'?'成绩已登记':'成绩待复核')+(refreshed?'':'，个人记录暂无法刷新'));await this.board();
  });}
- private async board(offset=0){
+ /** Which board the ranking panel shows; follows the mode just played unless the player toggles it. */
+ private rankingBoard:'global'|'endless'='global';
+ private async board(offset=0,board:'global'|'endless'=this.rankingBoard){this.rankingBoard=board;const endless=board==='endless';
   this.game.pause();const pageSize=20,revision=++this.boardRevision;this.boardLoading=true;
   const show=(state:'loading'|'ready'|'error',items:RankingScore[]=[],nextOffset:number|null=null,best?:RankingScore|null,note='',personalAvailable=true,error?:string)=>{
    if(revision!==this.boardRevision)return;
-   this.panel.showRanking({state,items,nextOffset,offset,best,note,personalAvailable,personalSignedOut:!this.api.authenticated,error},[
+   this.panel.showRanking({board,state,items,nextOffset,offset,best,note,personalAvailable,personalSignedOut:!this.api.authenticated,error},[
     {label:'上一页',disabled:offset===0||state==='loading',run:()=>void this.board(Math.max(0,offset-pageSize))},
     {label:'刷新',run:()=>void this.board(offset)},
     {label:'下一页',disabled:nextOffset===null||state==='loading',run:()=>{if(nextOffset!==null)void this.board(nextOffset);}},
+    {label:endless?'闯关榜':'无尽榜',disabled:state==='loading',run:()=>void this.board(0,endless?'global':'endless')},
     {label:'关闭',run:()=>{this.boardRevision++;this.boardLoading=false;this.panel.close();}}
-   ],row=>{const card=rankingCard(row);this.wx.showModal({title:card.name,content:`${card.rankLabel}\n最高总分 ${card.score}\n最高关卡 ${card.level}\n消除砖块 ${card.bricks}\n最佳时间 ${card.time}`,showCancel:false});});
+   ],row=>{const card=rankingCard(row,endless);this.wx.showModal({title:card.name,content:`${card.rankLabel}\n最高总分 ${card.score}\n${endless?'最高阶段':'最高关卡'} ${card.level}\n消除砖块 ${card.bricks}\n最佳时间 ${card.time}`,showCancel:false});});
   };
   show('loading',[],null,undefined,'正在连接星际榜单',false);
-  try{const result=await this.api.request<{items:BestScore[];nextOffset:number|null}&LeaderboardMetadata>(`/leaderboard?offset=${offset}&limit=${pageSize}&board=global`);assertGlobalBoard(result);
+  try{const result=await this.api.request<{items:BestScore[];nextOffset:number|null}&LeaderboardMetadata>(`/leaderboard?offset=${offset}&limit=${pageSize}&board=${board}`);if(endless){if(result.board!==ENDLESS_BOARD||result.rankingRulesVersion!==ENDLESS_RULES_VERSION)throw Error('排行榜后端尚未支持无尽榜，请等待服务器更新');}else assertGlobalBoard(result);
    let me:Me|undefined,identityError='';try{if(this.api.authenticated)me=await this.api.me();}catch{this.me=undefined;identityError='个人记录暂不可用，请重新登录；全球榜单仍可查看';}if(revision!==this.boardRevision)return;if(me)this.me=me;
-   show('ready',result.items,result.nextOffset,me?.best,identityError||'每一份荣耀，都来自真实挑战',!identityError&&me?.rankingAvailable!==false);
+   let best=me?.best;if(endless&&me){try{best=(await this.api.request<{best:BestScore|null}>('/me/best?board=endless')).best;}catch{best=null;}if(revision!==this.boardRevision)return;}
+   show('ready',result.items,result.nextOffset,best,identityError||'每一份荣耀，都来自真实挑战',!identityError&&me?.rankingAvailable!==false);
   }catch(error){if(revision===this.boardRevision){show('error',[],null,undefined,'全球 TOP100',false,(error as Error).message);this.toast((error as Error).message);}}
   finally{if(revision===this.boardRevision)this.boardLoading=false;}
  }

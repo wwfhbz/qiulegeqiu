@@ -3,7 +3,7 @@ import {RankingMotion,rankingCard,personalRanking,motionQuality,type RankingScor
 import {REFERENCE as BASE,rankingFlowGeometry,referenceSeconds} from '../../src/online/ranking/ReferenceLayout';
 import type {CanvasSurface} from '../../src/platform/Contracts';
 import {inside,type Rect} from './Layout';
-export interface RankingView {state:BoardState;items:RankingScore[];best?:RankingScore|null;personalAvailable?:boolean;personalSignedOut?:boolean;error?:string;note?:string;offset:number;nextOffset:number|null}
+export interface RankingView {board?:'global'|'endless';state:BoardState;items:RankingScore[];best?:RankingScore|null;personalAvailable?:boolean;personalSignedOut?:boolean;error?:string;note?:string;offset:number;nextOffset:number|null}
 export interface RankingAction {label:string;run:()=>void;disabled?:boolean}
 export function rankingLayout(width:number,top:number,bottom:number,items:readonly {rank:number}[]=Array.from({length:20},(_,i)=>({rank:i+1}))){const s=rankingFlowGeometry(width,top,bottom,items),R=s.reference;return {body:{x:s.x+R.body.x*s.scale,y:s.y+R.body.y*s.scale,width:R.body.width*s.scale,height:R.body.height*s.scale},navY:s.y+R.navY*s.scale,my:{x:s.x+R.personal.x*s.scale,y:s.y+R.personal.y*s.scale,width:R.personal.width*s.scale,height:R.personal.height*s.scale},scale:s.scale};}
 
@@ -32,9 +32,9 @@ export class RankingCanvas {
   this.hits=[];const s=rankingFlowGeometry(width,top,bottom,this.view.items),R=s.reference,u=1/s.scale;this.scale=s.scale;this.viewportHeight=R.body.height;this.body=rankingLayout(width,top,bottom,this.view.items).body;
   const screen=(r:Rect):Rect=>({x:s.x+r.x*s.scale,y:s.y+r.y*s.scale,width:r.width*s.scale,height:r.height*s.scale});
   c.fillStyle='#020628';c.fillRect(0,top,width,bottom-top);c.save();c.translate(s.x,s.y);c.scale(s.scale,s.scale);
-  rounded(c,{x:0,y:0,width:R.width,height:R.height},28/s.scale,'#101b43','#e2bc76');if(art){const source=art as unknown as {width?:number;height?:number};c.drawImage(art,0,0,source.width||1105,(source.height||1424)*.18,0,0,R.width,s.headerPixels/s.scale);}else{label(c,'球球出击',600,55,700,62,'#b2edff');label(c,'全球历史排行榜',600,145,930,70,'#fff382');}
+  rounded(c,{x:0,y:0,width:R.width,height:R.height},28/s.scale,'#101b43','#e2bc76');if(art){const source=art as unknown as {width?:number;height?:number};c.drawImage(art,0,0,source.width||1105,(source.height||1424)*.18,0,0,R.width,s.headerPixels/s.scale);}else{label(c,'球球出击',600,55,700,62,'#b2edff');label(c,this.view.board==='endless'?'无尽模式排行榜':'全球历史排行榜',600,145,930,70,'#fff382');}
   rounded(c,R.header,28,gradient(c,R.header.y,R.header.height,['#302665','#141b4f']),'#5f53b1');let column=R.header.x;
-  R.labels.forEach((text,i)=>{const w=BASE.columns[i]*R.header.width;label(c,text,column+w/2,R.header.y+R.header.height/2,w-8,Math.max(28,9/s.scale),'#c8d6ff');column+=w;});
+  R.labels.forEach((text,i)=>{const w=BASE.columns[i]*R.header.width;label(c,i===3&&this.view.board==='endless'?'最高阶段':text,column+w/2,R.header.y+R.header.height/2,w-8,Math.max(28,9/s.scale),'#c8d6ff');column+=w;});
   c.save();c.beginPath();c.rect(R.body.x-5,R.body.y-5,R.body.width+10,R.body.height+10);c.clip();let y=R.body.y-this.scrollY;
   this.contentHeight=this.view.items.reduce((sum,row)=>sum+s.rowHeight(row.rank)+6/s.scale,0);
   if(this.view.state!=='ready'||!this.view.items.length){
@@ -48,13 +48,13 @@ export class RankingCanvas {
   const my=R.personal,me=personalRanking(this.view.best,this.view.personalAvailable!==false,this.view.personalSignedOut);
   rounded(c,my,14*u,gradient(c,my.y,my.height,['#553783','#37255f']),'#a78acb');ball(c,my.x+18*u,my.y+24*u,12*u);
   label(c,me.title,my.x+40*u,my.y+16*u,my.width-50*u,12*u,'#ffe6ac','left');
-  if(this.view.best){const d=rankingCard(this.view.best);label(c,d.name,my.x+40*u,my.y+33*u,my.width-50*u,11*u,'#d8c5ef','left',true);const values=[d.score,d.level,d.bricks,referenceSeconds(this.view.best.duration_ms)];values.forEach((value,i)=>{const w=my.width/4,x=my.x+w*i+6*u;label(c,R.labels[i+2],x,my.y+53*u,w-10*u,9*u,'#b9add2','left');label(c,value,x,my.y+73*u,w-10*u,(width<450?10:12)*u,'#fff0bd','left');});}
+  if(this.view.best){const d=rankingCard(this.view.best,this.view.board==='endless');label(c,d.name,my.x+40*u,my.y+33*u,my.width-50*u,11*u,'#d8c5ef','left',true);const values=[d.score,d.level,d.bricks,referenceSeconds(this.view.best.duration_ms)];values.forEach((value,i)=>{const w=my.width/4,x=my.x+w*i+6*u;label(c,R.labels[i+2],x,my.y+53*u,w-10*u,9*u,'#b9add2','left');label(c,value,x,my.y+73*u,w-10*u,(width<450?10:12)*u,'#fff0bd','left');});}
   else label(c,me.message,my.x+8*u,my.y+65*u,my.width-16*u,11*u,'#d1c1e5','left');
-  const navWidth=R.width-24*u,navX=12*u;this.actions.filter(a=>a.label!=='关闭').forEach((a,i)=>{const rect={x:navX+i*navWidth/3,y:R.navY,width:navWidth/3-8*u,height:44*u};rounded(c,rect,12,a.disabled?'#192253':'#263c85','#7792e5');label(c,a.label,rect.x+rect.width/2,rect.y+22*u,rect.width-12*u,12*u,a.disabled?'#6f75a0':'#e7f0ff');if(!a.disabled){const hit=screen(rect);hit.y-=Math.max(0,(44-hit.height)/2);hit.height=Math.max(44,hit.height);this.hits.push({rect:hit,run:a.run});}});
+  const navWidth=R.width-24*u,navX=12*u,nav=this.actions.filter(a=>a.label!=='关闭'),slots=Math.max(3,nav.length);nav.forEach((a,i)=>{const rect={x:navX+i*navWidth/slots,y:R.navY,width:navWidth/slots-8*u,height:44*u};rounded(c,rect,12,a.disabled?'#192253':'#263c85','#7792e5');label(c,a.label,rect.x+rect.width/2,rect.y+22*u,rect.width-12*u,12*u,a.disabled?'#6f75a0':'#e7f0ff');if(!a.disabled){const hit=screen(rect);hit.y-=Math.max(0,(44-hit.height)/2);hit.height=Math.max(44,hit.height);this.hits.push({rect:hit,run:a.run});}});
   const exit=this.actions.find(a=>a.label==='关闭');if(exit){const cx=R.width-23*u,cy=23*u;c.beginPath();c.arc(cx,cy,18*u,0,Math.PI*2);c.fillStyle='#344b8b';c.fill();c.lineWidth=1.5*u;c.strokeStyle='#c6d9ff';c.stroke();label(c,'×',cx,cy,34*u,28*u,'#e8fcff');this.hits.push({rect:screen({x:cx-22*u,y:cy-22*u,width:44*u,height:44*u}),run:exit.run});}
   c.restore();
  }
- private row(c:CanvasRenderingContext2D,row:RankingScore,r:Rect,phase:number,quality:string){const d=rankingCard(row),u=1/this.scale;c.save();c.shadowColor='#ffd520';c.shadowBlur=d.honor?2:0;
+ private row(c:CanvasRenderingContext2D,row:RankingScore,r:Rect,phase:number,quality:string){const d=rankingCard(row,this.view.board==='endless'),u=1/this.scale;c.save();c.shadowColor='#ffd520';c.shadowBlur=d.honor?2:0;
   const fill=d.honor?gradient(c,r.y,r.height,['#ffc56f','#bb4c1c','#a34321','#ffdf59']):gradient(c,r.y,r.height,['#285a95','#143466','#214c82']);rounded(c,r,26,fill,d.honor?'#fff5a2':'#4e99d4');c.shadowBlur=0;
   if(d.honor&&quality==='full'){c.save();c.beginPath();c.roundRect(r.x,r.y,r.width,r.height,26);c.clip();c.globalAlpha=.08;c.fillStyle='#fffcca';const sx=r.x+((phase%5)/5)*(r.width+180)-180;c.fillRect(sx,r.y,100,r.height);c.restore();}
   let x=r.x;const centers=BASE.columns.map(part=>{const w=r.width*part,center=x+w/2;x+=w;return center;});badge(c,d.rank,centers[0],r.y+r.height/2,135,d.honor?88:68);

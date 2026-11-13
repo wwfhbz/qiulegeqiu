@@ -1,4 +1,4 @@
-import {OCEAN,brickColorIndex,brickColor,levelBandColors,visualBudget} from '../shared/VisualTheme';
+import {OCEAN,brickColorIndex,brickColor,endlessBrickColor,levelBandColors,visualBudget} from '../shared/VisualTheme';
 import {StartHint,START_HINT} from './PlayfieldStart';
 import { POWER_LABELS,type PowerKind } from './PowerRules';
 import { ARCADE } from './ArcadeRules';
@@ -33,7 +33,7 @@ export class Renderer {
   private ctx: Ctx;
   private startHint=new StartHint();
   private cache:CanvasSurface;
-  private badges?:CanvasSurface;private badgeKinds:PowerKind[]=['triple','wide','halve','life','bomb'];
+  private badges?:CanvasSurface;private badgeKinds:PowerKind[]=['triple','wide','halve','life','bomb','plus3','pierce','fire','lightning'];
   private backdrop?:CanvasSurface;private backdropKey='';
   private bricks:CanvasSurface[]=[];private brickKey='';
   private glows=new Map<string,CanvasSurface|null>();
@@ -53,6 +53,7 @@ export class Renderer {
   private bubbles=Array.from({length:BUBBLES},(_,i)=>({x:FRAME.left+((i*137)%(FRAME.right-FRAME.left)),y:(i*263)%C.height,r:1+(i%4)*.8,speed:8+(i%5)*5,phase:i}));
   private lastBricks:number[]=[];private lastBricksRevision=-1;
   private lastTime=0;private roundOver=false;
+  private zaps=Array.from({length:24},()=>({x1:0,y1:0,x2:0,y2:0,start:-1e9,seed:0}));private zapCursor=0;private zapSound=-1e9;
   constructor(private canvas:CanvasSurface, private host:RendererHost) {
     this.cache=host.cache;this.badges=host.createSurface?.();
     const ctx=canvas.getContext('2d');if(!ctx)throw Error('当前设备不支持二维画布');this.ctx=ctx;
@@ -68,7 +69,7 @@ export class Renderer {
     this.canvas.width = Math.max(1, Math.round(C.width * this.ratio)); this.canvas.height = Math.max(1, Math.round(C.height * this.ratio));
     this.arenaFill=this.paddleFill=undefined;this.backdropKey=this.brickKey='';
     this.cache.width = this.canvas.width; this.cache.height = this.canvas.height; this.cachedRevision = -1;
-    if(this.badges){const a=OCEAN.powerBadge;this.badges.width=a.cellWidth*5*a.pixelRatio;this.badges.height=a.cellHeight*a.pixelRatio;const c=this.badges.getContext('2d')!;c.setTransform(a.pixelRatio,0,0,a.pixelRatio,0,0);c.clearRect(0,0,a.cellWidth*5,a.cellHeight);this.badgeKinds.forEach((kind,i)=>this.badge(c,i*a.cellWidth+a.cellWidth/2,a.cellHeight/2,kind));}
+    if(this.badges){const a=OCEAN.powerBadge;this.badges.width=a.cellWidth*this.badgeKinds.length*a.pixelRatio;this.badges.height=a.cellHeight*a.pixelRatio;const c=this.badges.getContext('2d')!;c.setTransform(a.pixelRatio,0,0,a.pixelRatio,0,0);c.clearRect(0,0,a.cellWidth*this.badgeKinds.length,a.cellHeight);this.badgeKinds.forEach((kind,i)=>this.badge(c,i*a.cellWidth+a.cellWidth/2,a.cellHeight/2,kind));}
   }
 
   /** Orb-style power capsule: harmful ÷2 gets a warning ring so players learn to dodge it. */
@@ -174,7 +175,8 @@ export class Renderer {
         this.popup('combo',`${e.value} 连击`,mult>1?`得分 ×${mult}`:'',a.x,a.y+70,now,color,e.value>=20?48:40,1100);this.ring(a.x,a.y+80,now,500,20,140,color,3);// Screen shake only on every 100th combo; smaller milestones get the popup alone.
         if(e.value%100===0)this.shake(6,now);break;}
       case 'clear':this.flash('#FFFFFF',.35,now,420);this.shake(10,now);this.ring(e.x,e.y,now,700,10,420,OCEAN.colors.positive,6);this.ring(a.x,a.y,now,900,a.radius*.2,a.radius*1.2,OCEAN.colors.accent,4);this.popup('clear','清台！','',a.x,a.y-170,now,OCEAN.colors.positive,58,1300);break;
-      case 'hit':break;
+      case 'zap':{const z=this.zaps[this.zapCursor++%this.zaps.length];z.x1=e.sx??e.x;z.y1=e.sy??e.y;z.x2=e.x;z.y2=e.y;z.start=now;z.seed=e.seq;if(this.zapSound<now-60){this.zapSound=now;this.flash(OCEAN.powers.lightning.color,.10,now,160);}break;}
+      case 'hit':case 'descend':break;
     }
   }
 
@@ -189,9 +191,11 @@ export class Renderer {
       c.setTransform(this.ratio, 0, 0, this.ratio, 0, 0);
       if (this.cachedRevision === -1 || this.generation !== b.generation) {
         c.clearRect(0, 0, C.width, C.height);
-        const palette=levelBandColors(p.level.number),sprites=this.brickSprites(b.size,palette);
+        // Endless colours travel with each brick's world row; campaign uses the level's fixed bands.
+        const field=p.endless,rowColor=(row:number)=>field?endlessBrickColor(field.worldRow(row)):brickColor(row,b.step,p.level.number);
+        const palette=field?[...new Set(Array.from({length:b.rows},(_,row)=>rowColor(row)))]:[...levelBandColors(p.level.number)],sprites=this.brickSprites(b.size,palette);
         for (let row = 0; row < b.rows; row++) for (let col = 0; col < b.cols; col++) if(b.alive[row*b.cols+col]){
-          const x=b.left+col*b.step,y=b.top+row*b.step,color=brickColorIndex(row,b.step);
+          const x=b.left+col*b.step,y=b.top+row*b.step,color=field?palette.indexOf(rowColor(row)):brickColorIndex(row,b.step);
           if(sprites.length)c.drawImage(sprites[color] as CanvasImageSource,x,y,b.size,b.size);else this.paintBrick(c,x,y,b.size,palette[color],false);
         }
         this.generation = b.generation; this.cleared = b.destroyed.length;
@@ -229,7 +233,11 @@ export class Renderer {
 
     c.drawImage(this.cache as CanvasImageSource, 0, 0, C.width, C.height);
     // Hunting the last few bricks is tedious: pulse a beacon around each survivor.
-    if(b.remaining>0&&b.remaining<=OCEAN.motion.lastBricks&&b.removed>0){
+    // Endless floor: the line the wall cannot cross. It pulses red while bricks press against it.
+    const floorField=p.endless;
+    if(floorField){const y=floorField.top+(floorField.floorRow+1)*floorField.step-1,half=Math.sqrt(Math.max(0,a.radius**2-(y-a.y)**2))-6,pressed=floorField.blocked,pulse=.5+.5*Math.sin(now/140);
+      c.setLineDash?.([10,8]);c.lineWidth=pressed?3:1.5;c.strokeStyle=pressed?rgba(OCEAN.colors.danger,.55+.4*pulse):rgba(OCEAN.colors.warning,.45);c.beginPath();c.moveTo(a.x-half,y);c.lineTo(a.x+half,y);c.stroke();c.setLineDash?.([]);}
+    if(!p.endless&&b.remaining>0&&b.remaining<=OCEAN.motion.lastBricks&&b.removed>0){
       if(this.lastBricksRevision!==b.revision){this.lastBricks.length=0;for(let i=0;i<b.alive.length&&this.lastBricks.length<b.remaining;i++)if(b.alive[i])this.lastBricks.push(i);this.lastBricksRevision=b.revision;}
       const pulse=.5+.5*Math.sin(now/180);c.lineWidth=2;c.strokeStyle=rgba(OCEAN.colors.warning,.35+.45*pulse);
       for(const i of this.lastBricks){const x=b.left+i%b.cols*b.step+b.size/2,y=b.top+Math.floor(i/b.cols)*b.step+b.size/2;c.beginPath();c.arc(x,y,b.size*.9+6+pulse*6,0,Math.PI*2);c.stroke();}
@@ -254,13 +262,15 @@ export class Renderer {
     if(ready){const ball=p.balls[0];if(ball){const tx=a.x-ball.x,ty=a.y+a.radius-12-ball.y,len=Math.hypot(tx,ty)||1,ux=tx/len,uy=ty/len,off=(now/40)%14;c.fillStyle=rgba(OCEAN.colors.accent,.7);for(let d=14+off;d<130;d+=14){c.globalAlpha=.75*(1-d/130);c.beginPath();c.arc(ball.x+ux*d,ball.y+uy*d,2,0,Math.PI*2);c.fill();}c.globalAlpha=1;}}
 
     // Balls: comet trail, additive glow (budgeted), solid core.
-    if(budget.trailLength){c.lineCap='round';for(const ball of p.balls)if(ball.alive){const speed=Math.hypot(ball.vx,ball.vy)||1,ux=ball.vx/speed,uy=ball.vy/speed;for(let k=0;k<3;k++){const s0=k*budget.trailLength/3,s1=(k+1)*budget.trailLength/3;c.globalAlpha=budget.trailAlpha*(1.6-k*.5);c.lineWidth=ball.radius*(1.5-k*.4);c.strokeStyle=OCEAN.ball.trail;c.beginPath();c.moveTo(ball.x-ux*s0,ball.y-uy*s0);c.lineTo(ball.x-ux*s1,ball.y-uy*s1);c.stroke();}}c.lineCap='butt';c.globalAlpha=1;}
-    const bg=budget.highlights?this.glow(OCEAN.ball.glow):undefined;
+    if(budget.trailLength){c.lineCap='round';for(const ball of p.balls)if(ball.alive){const speed=Math.hypot(ball.vx,ball.vy)||1,ux=ball.vx/speed,uy=ball.vy/speed;for(let k=0;k<3;k++){const s0=k*budget.trailLength/3,s1=(k+1)*budget.trailLength/3;c.globalAlpha=budget.trailAlpha*(1.6-k*.5);c.lineWidth=ball.radius*(1.5-k*.4);c.strokeStyle=p.fireRemaining>0?OCEAN.powers.fire.color:p.pierceRemaining>0?OCEAN.powers.pierce.color:OCEAN.ball.trail;c.beginPath();c.moveTo(ball.x-ux*s0,ball.y-uy*s0);c.lineTo(ball.x-ux*s1,ball.y-uy*s1);c.stroke();}}c.lineCap='butt';c.globalAlpha=1;}
+    // Burning balls glow orange, piercing balls cyan; colours make the active power readable at a glance.
+    const ballGlow=p.fireRemaining>0?OCEAN.powers.fire.color:p.pierceRemaining>0?OCEAN.powers.pierce.color:OCEAN.ball.glow;
+    const bg=budget.highlights?this.glow(ballGlow):undefined;
     if(bg){c.globalAlpha=.55;for(const ball of p.balls)if(ball.alive){const r=ball.radius*4.2;c.drawImage(bg as CanvasImageSource,ball.x-r,ball.y-r,r*2,r*2);}c.globalAlpha=1;}
     for(const ball of p.balls)if(ball.alive){c.fillStyle=OCEAN.ball.body;c.beginPath();c.arc(ball.x,ball.y,ball.radius+.4,0,Math.PI*2);c.fill();if(budget.highlights){c.strokeStyle=OCEAN.ball.edge;c.lineWidth=.8;c.beginPath();c.arc(ball.x,ball.y,ball.radius,0,Math.PI*2);c.stroke();}}
 
     // Brick break: bright flash plus coloured shards that inherit the brick's band colour.
-    const shardColor=(tag:number)=>tag<0?OCEAN.colors.warning:brickColor(tag,b.step,p.level.number);
+    const field=p.endless,shardColor=(tag:number)=>tag<0?OCEAN.colors.warning:field?endlessBrickColor(field.worldRow(tag)):brickColor(tag,b.step,p.level.number);
     for(const f of p.effects.flashes)if(f.life>0){const k=f.life/OCEAN.motion.flashSeconds;c.globalAlpha=Math.min(.8,k*.8);c.fillStyle='#FFFFFF';const s=b.size*(1+.6*(1-k));c.fillRect(f.x-s/2,f.y-s/2,s,s);}
     let rendered=0;
     for(const q of p.effects.particles){if(q.life>0&&rendered++<budget.particles){const k=q.life/OCEAN.motion.sourceParticleSeconds,s=1.2+2.2*k;c.globalAlpha=Math.min(1,k*1.3);c.fillStyle=shardColor(q.tag);c.fillRect(q.x-s/2,q.y-s/2,s,s);}}
@@ -285,6 +295,13 @@ export class Renderer {
       c.textAlign='center';c.textBaseline='alphabetic';c.globalAlpha=1;
     }
 
+    // Lightning bolts: jagged, fading lines from the ball to each struck brick.
+    c.lineCap='round';c.lineJoin='round';
+    for(const z of this.zaps){const t=(now-z.start)/320;if(t<0||t>=1)continue;let r=z.seed*9301+49297;const rand=()=>{r=(r*9301+49297)%233280;return r/233280-.5;};
+      c.globalAlpha=1-t;c.strokeStyle=OCEAN.powers.lightning.color;c.lineWidth=2.4;c.beginPath();c.moveTo(z.x1,z.y1);
+      for(let k=1;k<6;k++){const f=k/6,nx=-(z.y2-z.y1),ny=z.x2-z.x1,len=Math.hypot(nx,ny)||1,j=rand()*26;c.lineTo(z.x1+(z.x2-z.x1)*f+nx/len*j,z.y1+(z.y2-z.y1)*f+ny/len*j);}
+      c.lineTo(z.x2,z.y2);c.stroke();c.lineWidth=1;c.strokeStyle='#FFFFFF';c.stroke();}
+    c.globalAlpha=1;c.lineCap='butt';
     // Rings and popups.
     for(const r of this.rings){const t=(now-r.start)/r.duration;if(t<0||t>=1)continue;const e=1-(1-t)*(1-t);c.globalAlpha=(1-t)*.9;c.strokeStyle=r.color;c.lineWidth=r.width*(1-t*.6);c.beginPath();c.arc(r.x,r.y,r.from+(r.to-r.from)*e,0,Math.PI*2);c.stroke();}
     c.globalAlpha=1;c.textAlign='center';c.textBaseline='middle';
@@ -303,7 +320,7 @@ export class Renderer {
       const width=Math.min(C.width-80,c.measureText(START_HINT).width+56),fresh=b.removed===0,cardH=fresh?fontSize*3.9:fontSize*1.7,top=a.y-cardH/2+(fresh?fontSize*.4:0);
       c.fillStyle='rgba(6,16,29,.78)';c.beginPath();c.roundRect(a.x-width/2,top,width,cardH,18);c.fill();
       c.strokeStyle=rgba(OCEAN.colors.accent,.55);c.lineWidth=1.5;c.stroke();
-      if(fresh){c.font=`800 ${Math.round(fontSize*.62)}px ${OCEAN.fonts.body}`;c.fillStyle=OCEAN.colors.warning;c.fillText(`第 ${p.level.number} 关`,a.x,top+fontSize*.75);c.font=`900 ${Math.round(fontSize*1.35)}px ${OCEAN.fonts.body}`;c.fillStyle=OCEAN.colors.text;c.fillText(p.level.name,a.x,top+fontSize*1.85);}
+      if(fresh){c.font=`800 ${Math.round(fontSize*.62)}px ${OCEAN.fonts.body}`;c.fillStyle=OCEAN.colors.warning;c.fillText(p.endless?'压迫下沉 · 3条命':`第 ${p.level.number} 关`,a.x,top+fontSize*.75);c.font=`900 ${Math.round(fontSize*1.35)}px ${OCEAN.fonts.body}`;c.fillStyle=OCEAN.colors.text;c.fillText(p.level.name,a.x,top+fontSize*1.85);}
       const blink=.75+.25*Math.sin(now/260);c.globalAlpha*=blink;c.font=`700 ${Math.round(fontSize*.72)}px ${OCEAN.fonts.body}`;c.fillStyle=OCEAN.colors.accent;c.fillText(START_HINT,a.x,top+cardH-fontSize*.78,width-24);c.restore();
     }
     c.setTransform(this.ratio,0,0,this.ratio,0,0);

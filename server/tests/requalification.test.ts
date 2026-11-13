@@ -5,7 +5,7 @@ import {C} from '../../src/GameConfig';
 import {LevelManager} from '../../src/LevelManager';
 import {LEGACY_LEVELS} from '../../src/LegacyLevels';
 import {PREVIOUS_LEVELS,V13_LEVELS,V15_LEVELS,V16_LEVELS} from '../../src/Levels';
-import {RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,PREVIOUS_RULES_VERSION,LEGACY_RULES_VERSION,SUPPORTED_RULES_VERSIONS} from '../../shared/Challenge';
+import {RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,PREVIOUS_RULES_VERSION,LEGACY_RULES_VERSION,SUPPORTED_RULES_VERSIONS,ENDLESS_RULES_VERSION} from '../../shared/Challenge';
 import {createApp} from '../src/app';
 import {verifyTrace} from '../src/verifier';
 function trace(rules:string,hits:number){
@@ -18,7 +18,8 @@ function trace(rules:string,hits:number){
  return g;
 }
 it('独立新版要求真实预分配标记；旧十二关和旧十关日志继续验证但不能冒充新版上榜',()=>{
- for(const rules of SUPPORTED_RULES_VERSIONS){const g=trace(rules,10);expect(verifyTrace(g.journal.events,1000000,42,rules).summary).toEqual(g.journal.summary(g.score.total,1,false));if(rules!==RULES_VERSION&&rules!==V13_RULES_VERSION&&rules!==V15_RULES_VERSION&&rules!==V16_RULES_VERSION)expect(()=>verifyTrace(g.journal.events,1000000,42,RULES_VERSION)).toThrow('预分配');}
+ // Campaign seasons only; endless has its own replay tests.
+ for(const rules of SUPPORTED_RULES_VERSIONS.filter(v=>v!==ENDLESS_RULES_VERSION)){const g=trace(rules,10);expect(verifyTrace(g.journal.events,1000000,42,rules).summary).toEqual(g.journal.summary(g.score.total,1,false));if(rules!==RULES_VERSION&&rules!==V13_RULES_VERSION&&rules!==V15_RULES_VERSION&&rules!==V16_RULES_VERSION)expect(()=>verifyTrace(g.journal.events,1000000,42,RULES_VERSION)).toThrow('预分配');}
  const fresh=trace(RULES_VERSION,10);expect(()=>verifyTrace(fresh.journal.events,1000000,42,PREVIOUS_RULES_VERSION)).toThrow();
 });
 it('旧客户端提交、旧版最高分指针和历史行保持完整；规则更新不清空全球榜：十二关各赛季取个人最高，旧十关只留历史',async()=>{

@@ -22,3 +22,9 @@ h1{font-size:18px;font-weight:900;letter-spacing:4px;background:linear-gradient(
 .result-total strong{font-size:34px;font-weight:900;color:#FFE08A;text-shadow:0 0 12px rgba(255,181,71,.5)}
 .power-info{font-size:11px}
 @media(max-width:600px){h1{font-size:16px}#score{font-size:16px}.canvas-wrap{border-radius:12px}}
+
+/* 模式切换 */
+.mode-switch{position:absolute;left:0;top:6px;display:flex;padding:2px;border-radius:999px;background:rgba(10,24,42,.75);border:1px solid rgba(79,227,255,.25)}
+.mode-switch button{border:0;background:none;color:var(--o-secondary);font-size:12px;font-weight:700;padding:5px 11px;border-radius:999px;min-height:28px}
+.mode-switch button[aria-pressed=true]{background:linear-gradient(180deg,#7FEFFF,#2BB8E0);color:#06203A}
+@media(max-width:600px){.mode-switch button{font-size:11px;padding:5px 9px}}
