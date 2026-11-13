@@ -22,6 +22,7 @@ export interface Wx {
  onShareAppMessage(fn:()=>{title:string;imageUrl?:string;query?:string}):void;
  shareAppMessage(options:{title:string;imageUrl?:string;query?:string}):void;
  createWebAudioContext?():AudioContext;
+ vibrateShort?(options:{type?:'heavy'|'medium'|'light';fail?:()=>void}):void;
  requirePrivacyAuthorize?(options:{success:()=>void;fail:()=>void}):void;
 }
 export interface Config {apiBase:string;development:boolean}

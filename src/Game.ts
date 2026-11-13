@@ -88,6 +88,7 @@ export class Game {
         this.roundActive = false;
         this.journal.record({type:'lost',level:this.levels.current.number});
         this.remainingLives = Math.max(0, this.remainingLives - 1);
+        this.audio.play('lost');
         this.score.resetCombo(); this.physics.resetRound(this.lives > 0);
         this.state = this.lives > 0 ? 'ready' : 'gameOver';
         this.readyReason = 'lifeLost';

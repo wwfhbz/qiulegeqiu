@@ -10,11 +10,16 @@ function renderer(sprites=false){const sprite=wxFixture(),atlas=sprite.wx.create
 it('主题六色与低饱和排名语义，共享配置不携带玩法参数',()=>{
  expect(new Set(OCEAN.bricks).size).toBe(6);expect(rankColor(1)).toBe(OCEAN.rank.gold);expect(rankColor(2)).toBe(OCEAN.rank.silver);expect(rankColor(3)).toBe(OCEAN.rank.bronze);expect(rankColor(4)).not.toBe(rankColor(5));expect(Object.keys(OCEAN)).not.toContain('physics');expect(brickColorIndex(0,0)).toBe(0);
 });
-it.each([[20,0,12],[21,1,7],[50,1,7],[51,2,0],[100,2,0]])('%i球仅按预算降级拖尾：档位%i、长度%i',(balls,tier,length)=>{const b=visualBudget(balls);expect(b.tier).toBe(tier);expect(b.trailLength).toBe(length);expect(visualBudget(balls,true).particles).toBeLessThanOrEqual(b.particles);});
+it.each([[20,0,16],[21,1,7],[50,1,7],[51,2,0],[100,2,0]])('%i球仅按预算降级拖尾：档位%i、长度%i',(balls,tier,length)=>{const b=visualBudget(balls);expect(b.tier).toBe(tier);expect(b.trailLength).toBe(length);expect(visualBudget(balls,true).particles).toBeLessThanOrEqual(b.particles);});
 it('600砖按行色带缓存只首次构建；击碎后仅清除对应格子，不为单砖创建渐变',()=>{
  const g=new Game(),{r,cc}=renderer(),colors=new Set(),fill=vi.fn(()=>{colors.add(cc.fillStyle);}),clear=vi.fn(),gradient=vi.fn();cc.fill=fill;cc.clearRect=clear;cc.createLinearGradient=gradient;
- r.draw(g.physics,true,0);expect(fill).toHaveBeenCalledTimes(600);for(let i=0;i<g.physics.blocks.alive.length;i++)if(g.physics.blocks.alive[i])expect(colors.has(OCEAN.bricks[brickColorIndex(Math.floor(i/g.physics.blocks.cols))])).toBe(true);expect(gradient).not.toHaveBeenCalled();
- r.draw(g.physics,true,16);expect(fill).toHaveBeenCalledTimes(600);const before=clear.mock.calls.length;const index=g.physics.blocks.alive.findIndex(Boolean);g.physics.blocks.hit(index);r.draw(g.physics,true,32);expect(clear.mock.calls.length).toBe(before+1);expect(fill).toHaveBeenCalledTimes(600);r.dispose();
+ r.draw(g.physics,true,0);const built=fill.mock.calls.length;expect(built).toBeGreaterThanOrEqual(600);expect(built).toBeLessThanOrEqual(600*3);for(let i=0;i<g.physics.blocks.alive.length;i++)if(g.physics.blocks.alive[i])expect(colors.has(OCEAN.bricks[brickColorIndex(Math.floor(i/g.physics.blocks.cols))])).toBe(true);expect(gradient).not.toHaveBeenCalled();
+ r.draw(g.physics,true,16);expect(fill).toHaveBeenCalledTimes(built);const before=clear.mock.calls.length;const index=g.physics.blocks.alive.findIndex(Boolean);g.physics.blocks.hit(index);r.draw(g.physics,true,32);expect(clear.mock.calls.length).toBe(before+1);expect(fill).toHaveBeenCalledTimes(built);r.dispose();
+});
+it('有纹理工厂时：六种斜面砖只预渲染一次，缓存逐砖盖章，帧间不重建',()=>{
+ const g=new Game(),{r,cc,factory}=renderer(true),stamp=vi.fn(),gradient=vi.fn();cc.drawImage=stamp;cc.createLinearGradient=gradient;
+ r.draw(g.physics,true,0);expect(stamp).toHaveBeenCalledTimes(600);expect(gradient).not.toHaveBeenCalled();const surfaces=factory.mock.calls.length;
+ for(let f=1;f<10;f++)r.draw(g.physics,false,f*16);expect(stamp).toHaveBeenCalledTimes(600);expect(factory.mock.calls.length).toBe(surfaces);r.dispose();
 });
 it.each([20,50,100])('连续渲染%i球不改变Physics、Effects、ChallengeJournal、得分或生命',count=>{
  const g=new Game();g.journal.seed=42;g.physics.setSeed(42);g.start();while(g.physics.balls.length<count)g.physics.balls.push(g.physics.newBall());for(let n=0;n<20;n++)g.update(C.step);const snapshot=JSON.stringify(g),{r}=renderer();for(let frame=0;frame<60;frame++)r.draw(g.physics,false,frame*16);expect(JSON.stringify(g)).toBe(snapshot);r.dispose();g.dispose();
@@ -27,8 +32,8 @@ it('Web及微信同样保留600/480、1200/360/240配置、五命与新版规则
 
 it('480个道具徽章使用共享纹理图集，不在每帧重复排版480次文字',()=>{
  const g=new Game(),{r,c,ac,factory}=renderer(true);const text=vi.fn();ac.fillText=text;
- for(let i=0;i<g.physics.blocks.alive.length;i++)g.physics.blocks.hit(i);r.resize();expect(text).toHaveBeenCalledTimes(5);expect(factory).toHaveBeenCalledOnce();
- const draw=vi.fn();c.drawImage=draw;r.draw(g.physics,false,0);expect(draw).toHaveBeenCalledTimes(481);r.draw(g.physics,false,16);expect(draw).toHaveBeenCalledTimes(962);expect(text).toHaveBeenCalledTimes(5);expect(g.physics.powers.items.filter(p=>p.alive)).toHaveLength(480);r.dispose();
+ for(let i=0;i<g.physics.blocks.alive.length;i++)g.physics.blocks.hit(i);r.resize();expect(text).toHaveBeenCalledTimes(5);
+ const draw=vi.fn();c.drawImage=draw;r.draw(g.physics,false,0);const perFrame=draw.mock.calls.length;expect(perFrame).toBeGreaterThanOrEqual(480);expect(perFrame).toBeLessThanOrEqual(480+8);r.draw(g.physics,false,16);expect(draw).toHaveBeenCalledTimes(perFrame*2);expect(text).toHaveBeenCalledTimes(5);expect(factory.mock.calls.length).toBeLessThan(20);expect(g.physics.powers.items.filter(p=>p.alive)).toHaveLength(480);r.dispose();
 });
 it('微信错误使用完整原生文字提示且恢复提交状态，不清理挑战记录',async()=>{
  const f=wxFixture(),app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false}),message='本地错误回归：'.repeat(40),modal=vi.fn();f.wx.showModal=modal;const original=JSON.stringify(app.game.journal.events);

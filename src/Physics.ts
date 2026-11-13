@@ -131,7 +131,8 @@ export class Physics {
     const b = this.blocks;
     const x = b.left + index % b.cols * b.step + b.size / 2;
     const y = b.top + Math.floor(index / b.cols) * b.step + b.size / 2;
-    this.effects.burst(x, y);
+    this.effects.burst(x, y, Math.floor(index / b.cols));
+    if (b.remaining === 0) this.effects.emit('clear', x, y);
     this.onBlockDestroyed?.(index);
     this.onSound?.(this.effects.combo > 1 ? 'combo' : 'break', this.effects.combo);
     const interval = this.powerDropEvery;
@@ -149,7 +150,7 @@ export class Physics {
     else if(kind==='triple')this.triple();
     else if(kind==='halve')this.halve();
     else if(kind==='bomb'){const target=this.obstacles.destroyNearest(C.arena.x,C.arena.y);this.effects.explode(target?.x??C.arena.x,target?.y??C.arena.y);bombTarget=target?.config.id??null;}
-    this.effects.power(kind);
+    this.effects.power(kind);this.effects.emit('power',this.paddleX,C.paddle.y,0,kind);
     this.onPowerCollected?.(kind,dropId);
     if(kind==='bomb')this.onBomb?.(bombTarget);
     this.onSound?.(kind==='bomb'?'bomb':kind==='halve'?'halve':kind==='life'?'life':'power');
@@ -252,13 +253,13 @@ export class Physics {
       for (let i = 0; i < steps && b.alive; i++) {
         b.x += b.vx * h; b.y += b.vy * h;
         boundary(b,this.wall); frameCollision(b);
-        if (paddleCollision(b, this.paddleX, this.paddleWidth)) this.onSound?.('paddle');
+        if (paddleCollision(b, this.paddleX, this.paddleWidth)) { this.effects.emit('paddle', b.x, C.paddle.y); this.onSound?.('paddle'); }
         // Resolve a bounded number of simultaneous contacts before the next movement.
         for (let contact = 0; contact < 3; contact++) if (!blockCollision(b, this.blocks)) break;
         for(let contact=0;contact<3;contact++)if(!this.obstacles.collide(b,obstacleStart+(i+1)*h))break;
         boundary(b,this.wall); frameCollision(b);
         // The only gameplay removal condition, evaluated after all contact corrections.
-        if (isBallInDeathZone(b)) { b.alive = false; this.onBallLost?.(); }
+        if (isBallInDeathZone(b)) { b.alive = false; this.effects.emit('lost', b.x, FRAME.deathY); this.onBallLost?.(); }
       }
     }
     this.obstacles.time=obstacleStart+dt;this.obstacles.sync();
