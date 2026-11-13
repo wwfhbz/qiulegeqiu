@@ -4,12 +4,13 @@ import {readFileSync} from 'node:fs';
 import {Game} from '../src/Game';
 import {C} from '../src/GameConfig';
 import {EndlessField} from '../src/endless/EndlessField';
-import {ENDLESS,ENDLESS_V4,ENDLESS_V5,ENDLESS_V6,ENDLESS_CURRENT,ENDLESS_POWER_WEIGHTS,ENDLESS_V14_POWER_WEIGHTS,FIRE_OFFSETS_V14,FIRE_OFFSETS_LEGACY,descentInterval,dropEvery,endlessPower,endlessSettings,endlessVersion,ENDLESS_VARIANTS,type EndlessVariant} from '../src/endless/EndlessRules';
+import {ENDLESS,ENDLESS_V4,ENDLESS_V5,ENDLESS_V5 as ENDLESS_CURRENT,ENDLESS_POWER_WEIGHTS,ENDLESS_V14_POWER_WEIGHTS,FIRE_OFFSETS_V14,FIRE_OFFSETS_LEGACY,descentInterval as interval,dropEvery as drops,endlessPower as power,endlessSettings,endlessVersion,ENDLESS_VARIANTS,type EndlessVariant} from '../src/endless/EndlessRules';
 import {seededRandom} from '../src/Random';
-import {ENDLESS_RULES_VERSION,ENDLESS_V4_RULES_VERSION,ENDLESS_V5_RULES_VERSION,RULES_VERSION} from '../shared/Challenge';
+import {ENDLESS_V5_RULES_VERSION as ENDLESS_RULES_VERSION,ENDLESS_V4_RULES_VERSION,RULES_VERSION} from '../shared/Challenge';
 import {MiniGameApp} from '../wechat-game/src/App';
 import {wxFixture} from './helpers/WxFixture';
 import {cloudKey} from '../wechat-game/src/social/Protocol';
+const descentInterval=(n:number,v=ENDLESS_V5)=>interval(n,v),dropEvery=(n:number,v=ENDLESS_V5)=>drops(n,v),endlessPower=(r:()=>number,v=ENDLESS_V5)=>power(r,v);
 function game(seed=7,v:EndlessVariant=ENDLESS_CURRENT){const g=new Game();g.setMode('endless');g.physics.endless!.variant=v;g.journal.seed=seed;g.physics.setSeed(seed);g.physics.reset();g.start();return g;}
 const park=(g:Game)=>{for(const b of g.physics.balls)Object.assign(b,{x:400,y:920,vx:440,vy:0,outsideArena:true});};
 const step=(g:Game,n:number)=>{for(let i=0;i<n;i++){park(g);g.update(C.step);}};
@@ -38,8 +39,8 @@ it('旧main黄金样本：V1.3的三组随机道具和10000tick砖墙逐字节�
   expect([0,1,10,1000].map(n=>descentInterval(n,ENDLESS_V4))).toEqual(sample.intervals);expect([0,125,199,200,1000,6000].map(n=>dropEvery(n,ENDLESS_V4))).toEqual(sample.drops);
  }
 });
-it('规则注册表同时保留V1.0–V1.5；未知配置不能冒充当前规则',()=>{
- expect(Object.keys(ENDLESS_VARIANTS)).toHaveLength(6);expect(endlessVersion(ENDLESS_V4)).toBe(ENDLESS_V4_RULES_VERSION);expect(endlessVersion(ENDLESS_V5)).toBe(ENDLESS_V5_RULES_VERSION);expect(endlessVersion(ENDLESS_V6)).toBe(ENDLESS_RULES_VERSION);expect(()=>endlessVersion({...ENDLESS_V6})).toThrow('未知');
+it('规则注册表同时保留V1.0–V1.4；未知配置不能冒充当前规则',()=>{
+ expect(Object.keys(ENDLESS_VARIANTS)).toHaveLength(7);expect(endlessVersion(ENDLESS_V4)).toBe(ENDLESS_V4_RULES_VERSION);expect(endlessVersion(ENDLESS_V5)).toBe(ENDLESS_RULES_VERSION);expect(()=>endlessVersion({...ENDLESS_V5})).toThrow('未知');
  const g=game(7,ENDLESS_V4);expect(g.rulesVersion).toBe(ENDLESS_V4_RULES_VERSION);g.setMode('campaign');expect(g.rulesVersion).toBe(RULES_VERSION);
 });
 it('新加宽2倍8秒、刷新不叠加、边缘合法；闯关和旧版仍1.8倍5秒',()=>{
@@ -78,7 +79,7 @@ it('540tick初始下沉、10行公式、180封顶；同一种子和规则的生�
  const a=new EndlessField(),b=new EndlessField();a.start(7,ENDLESS_V4);b.start(7,ENDLESS_V5);expect(b.alive).toEqual(a.alive);expect(b.floorRow).toBe(a.floorRow);for(let n=0;n<539;n++)expect(b.tick()).toBe(false);expect(b.tick()).toBe(true);expect(b.sinceDescent).toBe(0);expect(a.descents).toBe(0);
 });
 it('Web与微信共享V1.4；固定输入产生相同轨迹、分数、日志；后台不累计下沉或技能时间',()=>{
- const f=wxFixture(),app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});try{const web=game(31),wx=app.game;wx.setMode('endless');wx.journal.seed=31;wx.physics.setSeed(31);wx.physics.reset();wx.start();
+ const f=wxFixture(),app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});try{const web=game(31),wx=app.game;wx.setMode('endless');wx.physics.endless!.variant=ENDLESS_V5;wx.journal.seed=31;wx.physics.setSeed(31);wx.physics.reset();wx.start();
   expect(wx.rulesVersion).toBe(web.rulesVersion);for(let n=0;n<900;n++){web.update(C.step);wx.update(C.step);}expect(wx.physics.balls).toEqual(web.physics.balls);expect(wx.score.total).toBe(web.score.total);expect(wx.journal.events).toEqual(web.journal.events);expect(wx.physics.endless!.descents).toBe(web.physics.endless!.descents);
   wx.physics.collect('wide');const time=wx.physics.wideRemaining,since=wx.physics.endless!.sinceDescent;f.events.hide();wx.update(1000);f.events.show();expect(wx.physics.wideRemaining).toBe(time);expect(wx.physics.endless!.sinceDescent).toBe(since);
   expect(cloudKey('endless')).toBe('qqcj_endless_'+ENDLESS_V4_RULES_VERSION);

@@ -21,12 +21,14 @@ export const ENDLESS_V2_RULES_VERSION = 'endless-1.1.0-3l-sink-v2';
 export const ENDLESS_V3_RULES_VERSION = 'endless-1.2.0-3l-sink-v3';
 /** Frozen endless 1.3: 10s on the death line costs a life (then 5-row relief plus an effect ball); +100 per power caught. */
 export const ENDLESS_V4_RULES_VERSION = 'endless-1.3.0-3l-sink-v4';
-/** Frozen V1.4: denser drops, larger skills, faster descent. */
+/** V1.4 changes verification rules only; every endless version shares one permanent board. */
 export const ENDLESS_V5_RULES_VERSION = 'endless-1.4.0-3l-sink-v5';
-/** V1.5: losing a life restarts the 10s pressure timer, and the relief lightning bonus scores its bricks. Every endless version shares one permanent board. */
-export const ENDLESS_RULES_VERSION = 'endless-1.5.0-3l-sink-v6';
+/** Frozen V1.5: balance and initial rows only; ranking remains permanently mode-wide. */
+export const ENDLESS_V6_RULES_VERSION = 'endless-1.5.0-3l-sink-v6';
+/** V1.6: V1.5 balance; a lost life restarts the 10s pressure timer, and the relief lightning bonus scores its bricks. */
+export const ENDLESS_RULES_VERSION = 'endless-1.6.0-3l-sink-v7';
 /** Verification compatibility list only. Ranking must never use this version list. */
-export const ENDLESS_BOARD_RULES_VERSIONS=[ENDLESS_V1_RULES_VERSION,ENDLESS_V2_RULES_VERSION,ENDLESS_V3_RULES_VERSION,ENDLESS_V4_RULES_VERSION,ENDLESS_V5_RULES_VERSION,ENDLESS_RULES_VERSION] as const;
+export const ENDLESS_BOARD_RULES_VERSIONS=[ENDLESS_V1_RULES_VERSION,ENDLESS_V2_RULES_VERSION,ENDLESS_V3_RULES_VERSION,ENDLESS_V4_RULES_VERSION,ENDLESS_V5_RULES_VERSION,ENDLESS_V6_RULES_VERSION,ENDLESS_RULES_VERSION] as const;
 /** Most events one challenge may record (long endless runs log about one event per brick). Client and server share it. */
 export const MAX_CHALLENGE_EVENTS=200000;
 export const ENDLESS_BOARD='endless';
@@ -34,7 +36,7 @@ export const ENDLESS_RANKING_SCOPE='all-endless-versions';
 /** Classification for supported challenge versions, not a leaderboard season filter. */
 export function isEndlessRules(rules:string){return rules.startsWith('endless-');}
 export function assertEndlessBoard(data:LeaderboardMetadata){if(data.board!==ENDLESS_BOARD||data.rankingScope!==ENDLESS_RANKING_SCOPE)throw Error('排行榜后端需更新为永久统一无尽榜；历史成绩仍保留');}
-export const SUPPORTED_RULES_VERSIONS=[LEGACY_RULES_VERSION,PREVIOUS_RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,V17_RULES_VERSION,RULES_VERSION,ENDLESS_V1_RULES_VERSION,ENDLESS_V2_RULES_VERSION,ENDLESS_V3_RULES_VERSION,ENDLESS_V4_RULES_VERSION,ENDLESS_V5_RULES_VERSION,ENDLESS_RULES_VERSION] as const;
+export const SUPPORTED_RULES_VERSIONS=[LEGACY_RULES_VERSION,PREVIOUS_RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,V17_RULES_VERSION,RULES_VERSION,ENDLESS_V1_RULES_VERSION,ENDLESS_V2_RULES_VERSION,ENDLESS_V3_RULES_VERSION,ENDLESS_V4_RULES_VERSION,ENDLESS_V5_RULES_VERSION,ENDLESS_V6_RULES_VERSION,ENDLESS_RULES_VERSION] as const;
 /**
  * Seasons whose verified scores share the global board: every twelve-level ruleset. A rules update must
  * never empty the board, so each player's best across these seasons ranks. Ten-level scores stay history only.

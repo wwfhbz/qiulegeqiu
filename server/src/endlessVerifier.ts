@@ -39,7 +39,7 @@ export function verifyEndlessTrace(events:ChallengeEvent[],wallMs:number,seed:nu
       case 'bonus':{
         if(!expectBonus||e.kind!==endlessBonus(bonusRandom))throw new ApiError(422,'压线补偿奖励无效');expectBonus=false;
         if(e.kind==='plus3')balls=Math.min(C.maxBalls,balls+ENDLESS.plusBalls);
-        else if(e.kind==='fire')fireUntil=e.tick+Math.ceil(ENDLESS.fireSeconds/C.step);
+        else if(e.kind==='fire')fireUntil=e.tick+Math.ceil(skills.fireSeconds/C.step);
         else if(e.kind==='lightning'){if(lightningTick!==e.tick){lightningTick=e.tick;lightnings=0;}lightnings++;}
         break;}
       case 'hit':{
@@ -59,7 +59,7 @@ export function verifyEndlessTrace(events:ChallengeEvent[],wallMs:number,seed:nu
         if(e.kind==='plus3')balls=Math.min(C.maxBalls,balls+ENDLESS.plusBalls);
         else if(e.kind==='halve')balls=Math.max(1,Math.ceil(balls/2));
         else if(e.kind==='life')lives=Math.min(ENDLESS.lives,lives+1);
-        else if(e.kind==='fire')fireUntil=e.tick+Math.ceil(ENDLESS.fireSeconds/C.step);
+        else if(e.kind==='fire')fireUntil=e.tick+Math.ceil(skills.fireSeconds/C.step);
         else if(e.kind==='lightning'){if(lightningTick!==e.tick){lightningTick=e.tick;lightnings=0;}lightnings++;}
         if(variant.powerPoints)score.addPowerPoints();
         break;
