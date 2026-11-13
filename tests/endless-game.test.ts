@@ -56,3 +56,12 @@ it('道具特效事件：火焰每次接触发出燃烧事件，穿透每块砖�
  const g2=endless();g2.start();const q=g2.physics;q.pierceRemaining=5;Object.assign(q.balls[0],{x,y,vx:0,vy:-440,outsideArena:false});for(let n=0;n<30;n++)q.update(C.step);
  expect(q.effects.events.filter(e=>e.kind==='slash').length).toBeGreaterThan(2);
 });
+
+it('修复：砖墙压到底线后，球仍能从出口掉出并扣命（1.1版砖墙会封住出口）',()=>{
+ const g=endless();g.start();const f=g.physics.endless!;let guard=0;while(!f.blocked&&guard++<400000)f.tick();expect(f.blocked).toBe(true);
+ // A ball in the open band above the exit, heading straight down through it.
+ Object.assign(g.physics.balls[0],{x:C.arena.x,y:C.arena.y+C.arena.radius-30,vx:0,vy:500,outsideArena:false});
+ g.physics.setTarget(120);g.physics.paddleX=g.physics.targetX;// paddle away so it cannot save the ball
+ for(let n=0;n<360&&g.state==='running';n++){g.physics.setTarget(120);g.update(C.step);}
+ expect(g.lives).toBe(2);expect(g.state).toBe('ready');
+});

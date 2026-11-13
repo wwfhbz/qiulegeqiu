@@ -33,7 +33,7 @@ export class EndlessField extends Blocks {
     this.cols=this.rows=Math.ceil(C.arena.radius*2/this.step);
     if(this.cols*this.rows>this.alive.length)throw Error('无尽网格超过固定存储容量');
     // 'bowl': bricks may sink right to the bottom of the circle; 'legacy' kept the campaign's 80% floor.
-    const {x:cx,y:cy,radius:r}=C.arena,floorY=variant.floor==='bowl'?cy+r:this.top+2*r*(1-C.grid.emptyFraction);
+    const {x:cx,y:cy,radius:r}=C.arena,floorY=variant.floor==='bowl'?cy+r:variant.floor==='raised'?cy+r-ENDLESS.floorGap:this.top+2*r*(1-C.grid.emptyFraction);
     this.maskStart=new Int16Array(this.rows).fill(-1);this.maskEnd=new Int16Array(this.rows).fill(-2);this.rowCount=new Int32Array(this.rows);this.floorRow=0;
     for(let row=0;row<this.rows;row++){
       const y=this.top+row*this.step;if(y+this.size>floorY)continue;
