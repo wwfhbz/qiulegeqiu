@@ -58,7 +58,7 @@ it('1.1版底线在圆形最底部：可下沉行数远多于1.0版；底线仍�
 });
 
 it('1.2版底线抬高：砖墙压到底时与圆底出口之间始终留出空隙，球能从出口掉出',()=>{
- expect(ENDLESS_CURRENT).toBe(ENDLESS_V3);
+ expect(ENDLESS_CURRENT.floor).toBe('raised');
  const f=new EndlessField();f.start(7,ENDLESS_V3);let guard=0;while(!f.blocked&&guard++<400000)f.tick();expect(f.blocked).toBe(true);
  let lowest=0;for(let i=0;i<f.cols*f.rows;i++)if(f.alive[i])lowest=Math.max(lowest,f.top+Math.floor(i/f.cols)*f.step+f.size);
  // Exit endpoints sit ~843px; the wall must stop well above them.

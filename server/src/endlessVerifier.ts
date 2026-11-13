@@ -1,5 +1,5 @@
 import {EndlessField} from '../../src/endless/EndlessField.js';
-import {ENDLESS,ENDLESS_CURRENT,dropEvery,endlessPower,endlessStage,type EndlessVariant} from '../../src/endless/EndlessRules.js';
+import {ENDLESS,ENDLESS_CURRENT,dropEvery,endlessPower,endlessBonus,endlessStage,DROP_SALT,BONUS_SALT,type EndlessVariant} from '../../src/endless/EndlessRules.js';
 import {ScoreSystem} from '../../src/ScoreSystem.js';
 import {C} from '../../src/GameConfig.js';
 import {seededRandom,type PowerKind} from '../../src/PowerRules.js';
@@ -15,18 +15,31 @@ import {ApiError} from './moderation.js';
 export function verifyEndlessTrace(events:ChallengeEvent[],wallMs:number,seed:number,variant:EndlessVariant=ENDLESS_CURRENT):{summary:ChallengeSummary;suspicious:string[]}{
   const field=new EndlessField();field.start(seed,variant);
   const score=new ScoreSystem('unbounded'),drops:{id:number;kind:PowerKind;tick:number;y:number}[]=[],suspicious=new Set<string>();
-  const dropRandom=seededRandom((seed>>>0^0x5bd1e995)>>>0);let nextDropAt=dropEvery(0,variant),dropSequence=0;
+  const dropRandom=seededRandom((seed>>>0^DROP_SALT)>>>0),bonusRandom=seededRandom((seed>>>0^BONUS_SALT)>>>0);let pendingRelief=false,expectBonus=false;let nextDropAt=dropEvery(0,variant),dropSequence=0;
   let lives:number=ENDLESS.lives,phase:'ready'|'running'|'gameOver'='ready',balls=0,peakBalls=1,lastTick=0,fieldTick=0,bricks=0,finished=false;
   let fireUntil=-1,lightningTick=-1,lightnings=0,hitTick=-1,tickHits=0,tickBallMax=0;
   for(const e of events){
     if(finished||!Number.isSafeInteger(e.tick)||e.tick<lastTick||e.tick>6*3600/C.step||e.level!==1)throw new ApiError(422,'挑战事件顺序或关卡无效');
     // The wall moves at the start of each simulated tick, before any contact in that tick.
-    while(fieldTick<e.tick){fieldTick++;field.tick();}
+    while(fieldTick<e.tick){fieldTick++;field.tick();
+      // Pressure death is mandatory: a run may not keep playing with the wall on the line past the limit (one frame of slack).
+      if(variant.crush&&phase==='running'&&field.pressure>ENDLESS.crushTicks+12)throw new ApiError(422,'砖墙压线超时未扣命');}
+    if(expectBonus&&e.type!=='bonus')throw new ApiError(422,'缺少压线补偿奖励');
     score.update((e.tick-lastTick)*C.step);lastTick=e.tick;
     for(let i=drops.length-1;i>=0;i--)if((e.tick-drops[i].tick)*C.step*C.power.fallSpeed>C.height+C.power.radius-drops[i].y+.02)drops.splice(i,1);
     if(e.tick!==hitTick){hitTick=e.tick;tickHits=0;tickBallMax=balls;}tickBallMax=Math.max(tickBallMax,balls);
     switch(e.type){
-      case 'launch':if(phase!=='ready')throw new ApiError(422,'重复发射或无效回合');if(e.tripleRuleVersion!==undefined||e.brickPowerVersion!==undefined)throw new ApiError(422,'无尽模式不使用闯关规则标记');phase='running';balls=1;break;
+      case 'launch':if(phase!=='ready')throw new ApiError(422,'重复发射或无效回合');if(e.tripleRuleVersion!==undefined||e.brickPowerVersion!==undefined)throw new ApiError(422,'无尽模式不使用闯关规则标记');phase='running';balls=1;
+        if(pendingRelief){pendingRelief=false;field.relief(ENDLESS.reliefRows);expectBonus=true;}break;
+      case 'crushed':
+        if(!variant.crush||phase!=='running'||field.pressure<ENDLESS.crushTicks)throw new ApiError(422,'压线扣命无效');
+        lives--;phase=lives>0?'ready':'gameOver';balls=0;drops.length=0;dropSequence=0;score.resetCombo();pendingRelief=lives>0;fireUntil=-1;break;
+      case 'bonus':{
+        if(!expectBonus||e.kind!==endlessBonus(bonusRandom))throw new ApiError(422,'压线补偿奖励无效');expectBonus=false;
+        if(e.kind==='plus3')balls=Math.min(C.maxBalls,balls+ENDLESS.plusBalls);
+        else if(e.kind==='fire')fireUntil=e.tick+Math.ceil(ENDLESS.fireSeconds/C.step);
+        else if(e.kind==='lightning'){if(lightningTick!==e.tick){lightningTick=e.tick;lightnings=0;}lightnings++;}
+        break;}
       case 'hit':{
         if(phase!=='running'||!balls)throw new ApiError(422,'重复或不可能的方块事件');
         const index=field.indexOfWorld(e.index);if(index<0)throw new ApiError(422,'方块不存在或已被击碎');
@@ -46,6 +59,7 @@ export function verifyEndlessTrace(events:ChallengeEvent[],wallMs:number,seed:nu
         else if(e.kind==='life')lives=Math.min(ENDLESS.lives,lives+1);
         else if(e.kind==='fire')fireUntil=e.tick+Math.ceil(ENDLESS.fireSeconds/C.step);
         else if(e.kind==='lightning'){if(lightningTick!==e.tick){lightningTick=e.tick;lightnings=0;}lightnings++;}
+        if(variant.powerPoints)score.addPowerPoints();
         break;
       }
       case 'ballLost':if(phase!=='running'||balls<=0)throw new ApiError(422,'重复弹球死亡');balls--;break;

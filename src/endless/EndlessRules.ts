@@ -22,6 +22,8 @@ export const ENDLESS={
  rowsPerStage:10,
  /** 'raised' floor: clear band kept above the bowl bottom; the exit endpoints sit ~9px above the bottom. */
  floorGap:64,
+ /** Pressure death (1.3+): 10s with the wall on the floor costs a life; the next launch clears 5 rows and grants a bonus. */
+ crushTicks:1200,reliefRows:5,
 } as const;
 
 /** Endless drop table (weights sum to 1000): +1 life stays rare at 0.3%; no ×3 and no bomb. */
@@ -47,6 +49,10 @@ export interface EndlessVariant {
   * circle (1.1 — bricks could seal the exit so balls never fell out); 'raised' = `ENDLESS.floorGap` above it.
   */
  readonly floor:'legacy'|'bowl'|'raised';
+ /** 1.3+: pressing the floor for `ENDLESS.crushTicks` costs a life (earlier versions just paused the wall). */
+ readonly crush?:boolean;
+ /** 1.3+: +100 points for every power-up caught. */
+ readonly powerPoints?:boolean;
 }
 /** endless-1.0.0: drops every 8 → 30 bricks; the wall stopped 80% down the bowl. */
 export const ENDLESS_V1:EndlessVariant={drops:{start:8,growEvery:250,max:30},floor:'legacy'};
@@ -54,7 +60,15 @@ export const ENDLESS_V1:EndlessVariant={drops:{start:8,growEvery:250,max:30},flo
 export const ENDLESS_V2:EndlessVariant={drops:{start:16,growEvery:125,max:60},floor:'bowl'};
 /** endless-1.2.0: same drops; the floor sits 64px above the bowl bottom so the exit always stays open. */
 export const ENDLESS_V3:EndlessVariant={drops:{start:16,growEvery:125,max:60},floor:'raised'};
-export const ENDLESS_CURRENT=ENDLESS_V3;
+/** endless-1.3.0: same field; 10s on the death line costs a life, then 5-row relief plus a random effect ball. */
+export const ENDLESS_V4:EndlessVariant={drops:{start:16,growEvery:125,max:60},floor:'raised',crush:true,powerPoints:true};
+export const ENDLESS_CURRENT=ENDLESS_V4;
+/** Relief reward: one of the four ball effects, equally likely, from its own seeded stream. */
+export const BONUS_KINDS=['plus3','pierce','fire','lightning'] as const;
+export type BonusKind=typeof BONUS_KINDS[number];
+export function endlessBonus(random:()=>number):BonusKind{return BONUS_KINDS[Math.min(BONUS_KINDS.length-1,Math.floor(random()*BONUS_KINDS.length))];}
+/** Seed salts for the independent drop and bonus streams (shared by client and verifier). */
+export const DROP_SALT=0x5bd1e995,BONUS_SALT=0x2545f491;
 export function dropEvery(destroyed:number,variant:EndlessVariant=ENDLESS_CURRENT){const d=variant.drops;return Math.min(d.max,d.start+Math.floor(destroyed/d.growEvery));}
 export function endlessStage(descents:number){return Math.min(100,1+Math.floor(descents/ENDLESS.rowsPerStage));}
 

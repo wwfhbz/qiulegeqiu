@@ -27,7 +27,7 @@ it('Web适配器保留指针/可见性，dispose取消RAF并释放监听器',()=
 });
 it('Web帧更新回调中销毁也不会残留下一帧',()=>{const b=browserHost();let dispose=false;const g=new Game(b.host,game=>{if(dispose)game.dispose();});dispose=true;b.tick(100);expect(b.frames.size).toBe(0);});
 it('真实两套宿主的12关、触屏/鼠标输入、物理/五道具/积分日志一致',()=>{
- const b=browserHost(),web=new Game(b.host),f=wxFixture(),app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false}),wx=app.game;
+ const b=browserHost(),web=new Game(b.host),f=wxFixture(),app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false}),wx=app.game;(app as unknown as {chooseMode(m:string):void}).chooseMode('campaign');
  for(const g of [web,wx]){g.journal.seed=12345;g.physics.setSeed(12345);}let now=1000;
  const advance=()=>{now+=1000*C.step;b.tick(now);app.frame(now);};b.tick(now);app.frame(now);
  for(let level=1;level<=12;level++){
@@ -81,7 +81,7 @@ it('Web外部交互锁明确阻止球场开局',()=>{
  const g=new Game(createWebHost(surface,()=>allowed));const down=()=>listeners.get('pointerdown')!({pointerType:'mouse',button:0,clientX:200,pointerId:1});down();expect(g.state).toBe('ready');allowed=true;down();expect(g.state).toBe('running');g.dispose();
 });
 it.each([.15,.5,.85])('微信球场横向比例%s触摸开局，提示无交互矩形，单机选择不被绕过',async ratio=>{
- const f=wxFixture(),modal=vi.fn(f.wx.showModal);f.wx.showModal=modal;const app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});app.frame(100);
+ const f=wxFixture(),modal=vi.fn(f.wx.showModal);f.wx.showModal=modal;const app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});(app as unknown as {chooseMode(m:string):void}).chooseMode('campaign');app.frame(100);
  expect(f.texts).toContain(START_HINT);const v=(app as unknown as {view:{arena:{x:number;y:number;width:number;height:number}}}).view;
  const touch=f.touch(1,v.arena.x+v.arena.width*ratio,v.arena.y+v.arena.height*.45);
  f.events.down(touch);f.events.down(f.touch(2,200,300));f.events.up(touch);await vi.waitFor(()=>expect(app.game.state).toBe('running'));

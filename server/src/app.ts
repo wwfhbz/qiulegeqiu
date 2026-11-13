@@ -9,7 +9,7 @@ import { seedRegions, region, regionView, searchRegions } from './regions.js';
 import { ApiError, moderateNickname } from './moderation.js';
 import { leaderboard, personalBest, refreshBest,globalLeaderboard,globalPersonalBest,historicalBests,endlessLeaderboard,endlessPersonalBest } from './leaderboard.js';
 import { verifyTrace } from './verifier.js';
-import { CHALLENGE_PROTOCOL_VERSION,CHALLENGE_FEATURES,RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,PREVIOUS_RULES_VERSION,LEGACY_RULES_VERSION,SUPPORTED_RULES_VERSIONS,GLOBAL_BOARD,ENDLESS_BOARD,ENDLESS_RULES_VERSION,ENDLESS_V1_RULES_VERSION,ENDLESS_V2_RULES_VERSION, type ChallengeEvent } from '../../shared/Challenge.js';
+import { CHALLENGE_PROTOCOL_VERSION,CHALLENGE_FEATURES,RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,V17_RULES_VERSION,PREVIOUS_RULES_VERSION,LEGACY_RULES_VERSION,SUPPORTED_RULES_VERSIONS,GLOBAL_BOARD,ENDLESS_BOARD,ENDLESS_RULES_VERSION,ENDLESS_V1_RULES_VERSION,ENDLESS_V2_RULES_VERSION,ENDLESS_V3_RULES_VERSION, type ChallengeEvent } from '../../shared/Challenge.js';
 const ruleSchema=z.enum(SUPPORTED_RULES_VERSIONS);
 const selection=(req:FastifyRequest)=>{const q=z.object({board:z.enum([GLOBAL_BOARD,ENDLESS_BOARD]).optional(),rulesVersion:ruleSchema.optional()}).parse(req.query);
  const boardRules=q.board===ENDLESS_BOARD?ENDLESS_RULES_VERSION:RULES_VERSION;
@@ -28,7 +28,9 @@ export const challengeEvent=z.discriminatedUnion('type',[
  z.object({...base,type:z.enum(['ballLost','lost','clear','next','finish'])}).strict(),
  z.object({...base,type:z.literal('hit'),index:integer}).strict(),
  z.object({...base,type:z.literal('power'),kind:z.enum(['halve','triple','wide','life','bomb','plus3','pierce','fire','lightning']),dropId:z.number().int().positive().max(50000).optional()}).strict(),
- z.object({...base,type:z.literal('bomb'),target:z.string().max(50).nullable()}).strict()
+ z.object({...base,type:z.literal('bomb'),target:z.string().max(50).nullable()}).strict(),
+ z.object({...base,type:z.literal('crushed')}).strict(),
+ z.object({...base,type:z.literal('bonus'),kind:z.enum(['plus3','pierce','fire','lightning'])}).strict()
 ]);
 type Session={id:string;player_id:string|null;csrf_token:string};
 type Challenge={id:string;session_id:string;rules_version:string;created_at:number;expires_at:number;finished_at:number|null;next_sequence:number;event_count:number;state:string;unranked:number;seed:number};
@@ -36,7 +38,7 @@ export interface AppOptions { db?:Db; dbPath?:string; origin?:string; secure?:bo
 export async function createApp(options:AppOptions={}) {
  const db=options.db||openDb(options.dbPath||process.env.DB_PATH||'../work/leaderboard.sqlite'); seedRegions(db);
  const freshDatabase=!!db.prepare("SELECT 1 FROM sqlite_schema WHERE type='table' AND name='deployment_reset_epoch'").get();
- const activeRules:readonly string[]=freshDatabase?[PREVIOUS_RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,RULES_VERSION,ENDLESS_V1_RULES_VERSION,ENDLESS_V2_RULES_VERSION,ENDLESS_RULES_VERSION]:SUPPORTED_RULES_VERSIONS;
+ const activeRules:readonly string[]=freshDatabase?[PREVIOUS_RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,V17_RULES_VERSION,RULES_VERSION,ENDLESS_V1_RULES_VERSION,ENDLESS_V2_RULES_VERSION,ENDLESS_V3_RULES_VERSION,ENDLESS_RULES_VERSION]:SUPPORTED_RULES_VERSIONS;
  const bestFor=(selected:ReturnType<typeof selection>,playerId:string)=>selected.global?globalPersonalBest(db,playerId):selected.endless?endlessPersonalBest(db,playerId):personalBest(db,playerId,selected.rules);
  const historyFields=(playerId:string|null)=>{const records=playerId?historicalBests(db,playerId):[];return {historicalBest:records[0]??null,historicalBests:records};};
  const now=options.now||Date.now, origin=options.origin||process.env.PUBLIC_ORIGIN||'http://127.0.0.1:5173', secure=options.secure??process.env.NODE_ENV==='production';

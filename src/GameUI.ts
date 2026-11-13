@@ -4,6 +4,7 @@ import {AudioSystem} from './Audio';
 import { LeaderboardUI } from './online/LeaderboardUI';
 import { GAME_NAME } from '../shared/Brand';
 import { Game, type GameMode } from './Game';
+import { ENDLESS } from './endless/EndlessRules';
 import { C } from './GameConfig';
 import { activateCentralAction, centralActionFor } from './CentralAction';
 import { START_HINT } from './PlayfieldStart';
@@ -17,7 +18,7 @@ export function mountGame(root: HTMLElement) {
   document.querySelector('meta[name=theme-color]')?.setAttribute('content',OCEAN.colors.background);
   root.innerHTML = `
   <main class="shell">
-    <header><div class="mode-switch" role="group" aria-label="游戏模式"><button type="button" data-mode="campaign" aria-pressed="true">闯关</button><button type="button" data-mode="endless" aria-pressed="false">无尽</button></div><h1><span class="brand-mark" aria-hidden="true">◉</span>${GAME_NAME}</h1></header>
+    <header><h1><span class="brand-mark" aria-hidden="true">◉</span>${GAME_NAME}</h1><div class="top-actions"><button id="pause" type="button" aria-label="暂停">⏸</button><button id="reset" type="button" aria-label="重新开始">↻</button></div></header>
     <div class="stage-room"><section class="game-panel" aria-label="游戏区域">
       <div class="hud" aria-label="游戏状态">
         <div class="hud-item"><span class="label" id="level-label">关卡</span><strong id="level"></strong></div>
@@ -33,16 +34,23 @@ export function mountGame(root: HTMLElement) {
           <h2 id="result-title"></h2><p id="result-tip"></p>
           <div class="result-total"><span id="result-label"></span><strong id="result-score">0</strong></div><p id="score-details"></p>
         </section>
+        <section id="mode-picker" class="mode-picker" aria-label="选择游戏模式">
+          <h2>选择游戏模式</h2>
+          <button type="button" data-pick="campaign"><strong>闯关模式</strong><span>12 关逐关突破 · 5 条命 · 闯关榜</span></button>
+          <button type="button" data-pick="endless"><strong>无尽模式</strong><span>砖墙不断下沉 · 3 条命 · 无尽榜</span></button>
+          <p>每局结束后可重新选择模式</p>
+        </section>
         <div id="central-layer" class="central-layer" hidden><button id="start" class="central-start" type="button" aria-controls="arena-canvas">▶ 开始游戏</button></div>
       </div>
       <div class="power-info"><span id="wide"></span><span id="combo"></span><button id="mute" aria-pressed="false">静音</button></div>
-      <div class="bottom-controls" aria-label="游戏操作"><button id="pause">暂停</button><button id="reset">重新开始</button></div>
+      <div class="touch-pad" id="touch-pad" role="presentation"><span>⟵ 在此左右滑动控制挡板 ⟶</span></div>
     </section></div>
     <button id="stress" class="debug" hidden>百球压力测试</button>
   </main>`;
   const el = (id: string) => root.querySelector<HTMLElement>(`#${id}`)!;
   const button = (id: string) => el(id) as HTMLButtonElement;
   let online: LeaderboardUI | undefined;
+  let picking = true;
   const update = (g: Game) => {
     online?.observe(g);
     const blocks = g.physics.blocks, level = g.levels.current;
@@ -57,26 +65,32 @@ export function mountGame(root: HTMLElement) {
     el('removed').textContent = String(blocks.removed); el('total').textContent = String(blocks.total);
     el('balls').textContent = String(g.physics.balls.length);
     // Endless shows the countdown to the next descent instead of a clear percentage.
-    el('progress-label').textContent = field ? (field.blocked ? '压到底线' : '下沉') : '进度';
+    const pressed = field && field.variant.crush && field.pressure > 0 ? Math.max(0, (ENDLESS.crushTicks - field.pressure) * C.step) : undefined;
+    el('progress-label').textContent = field ? (pressed !== undefined ? `压线 ${pressed.toFixed(1)}秒` : field.blocked ? '压到底线' : '下沉') : '进度';
     const percent=field?Math.round(field.descentProgress*100):Math.round(blocks.removed/Math.max(1,blocks.total)*100);el('progress-value').textContent=field?`已下沉${field.descents}行`:percent+'%';el('progress-meter').setAttribute('aria-valuenow',String(percent));el('progress-meter').style.setProperty('--fill',percent+'%');
     wrap.dataset.state=g.state;
+    // The mode picker owns the screen before the first run and after every finished run.
+    const ended = g.state === 'gameOver' || g.state === 'victory';
+    el('mode-picker').hidden = !(picking || ended);
+    for(const b of Array.from(root.querySelectorAll<HTMLElement>('[data-pick]')))b.classList.toggle('last',b.dataset.pick===g.mode);
     el('status').textContent = STATE_LABELS[g.state];
     const timers=[[g.physics.wideRemaining,'加宽'],[g.physics.pierceRemaining,'穿透'],[g.physics.fireRemaining,'火焰']] as const;
     el('wide').textContent = timers.filter(([t])=>t>0).map(([t,name])=>`${name} ${t.toFixed(1)}秒`).join(' · ');
     el('combo').textContent = g.score.combo > 1 ? `${g.score.combo} 连击 ×${g.score.multiplier}` : '';
     const action = centralActionFor(g);
-    el('central-layer').hidden = action === null;
+    const showAction = action !== null && !picking && !ended;
+    el('central-layer').hidden = !showAction;
     button('start').classList.toggle('sr-only',g.state==='ready');
-    button('start').hidden = action === null;
+    button('start').hidden = !showAction;
     button('start').disabled = action === null;
     if (action) button('start').textContent = g.state==='ready'?START_HINT:action.label;
     button('pause').disabled = g.state !== 'running' && g.state !== 'paused';
-    button('pause').textContent = g.state === 'paused' ? '继续' : '暂停';
+    button('pause').textContent = g.state === 'paused' ? '▶' : '⏸'; button('pause').setAttribute('aria-label', g.state === 'paused' ? '继续' : '暂停');
     const completed = g.state === 'levelComplete' || g.state === 'victory';
     el('settlement').hidden = !completed && g.state !== 'gameOver';
     if (completed || g.state === 'gameOver') {
       el('result-title').textContent = GAME_NAME+' · '+(g.state === 'gameOver' ? '游戏结束' : g.state === 'victory' ? '全部关卡突破！' : `第${level.number}关突破成功`);
-      el('result-tip').textContent = g.state === 'gameOver' ? (field ? `坚持到第${g.reachedLevel}阶段，砖墙共下沉${field.descents}行。` : '生命已耗尽。重新开始，再挑战一次。') : g.state === 'victory' ? '最终核心已击碎，你完成了这次挑战。' : `保留 ${g.lives} 条生命和累计分数，迎接下一关。`;
+      el('result-tip').textContent = g.state === 'gameOver' ? (field ? `坚持到第${g.reachedLevel}阶段，砖墙共下沉${field.descents}行。` : '生命已耗尽。在下方选择模式，开始新一局。') : g.state === 'victory' ? '最终核心已击碎，你完成了这次挑战。可在下方选择模式再来一局。' : `保留 ${g.lives} 条生命和累计分数，迎接下一关。`;
       el('result-label').textContent = g.state === 'levelComplete' ? '本关得分' : '最终分数';
       el('result-score').textContent = String(g.state === 'levelComplete' ? g.result!.levelTotal : g.score.total);
       el('score-details').textContent = completed ? `本关得分 ${g.result!.blockScore} + 通关 ${g.result!.clearBonus} + 生命 ${g.result!.lifeBonus}　累计 ${g.score.total}` : (field ? `无尽模式 · 第${g.reachedLevel}阶段 · 消除 ${g.journal.bricksDestroyed} 块` : `本次到达第${level.number}关 · 累计 ${g.score.total} 分`);
@@ -89,7 +103,8 @@ export function mountGame(root: HTMLElement) {
   wrap.style.setProperty('--arena-x', `${C.arena.x / C.width * 100}%`);
   wrap.style.setProperty('--arena-y', `${C.arena.y / C.height * 100}%`);
   fitGamePanel(root.querySelector('.stage-room')!, root.querySelector('.game-panel')!, wrap);
-  const game = new Game(createWebHost(root.querySelector('canvas')!,()=>!document.hidden&&!online?.submitting&&!root.querySelector('dialog[open]')),update,undefined,new AudioSystem(createWebAudio));
+  // The strip under the arena steers the paddle too, so a thumb never has to cover it.
+  const game = new Game(createWebHost(root.querySelector('canvas')!,()=>!picking&&!document.hidden&&!online?.submitting&&!root.querySelector('dialog[open]'),[el('touch-pad')]),update,undefined,new AudioSystem(createWebAudio));
   button('start').onclick = () => activateCentralAction(game);
   button('pause').onclick = () => game.state === 'paused' ? game.start() : game.pause();
   button('reset').onclick = () => game.reset();
@@ -99,19 +114,16 @@ export function mountGame(root: HTMLElement) {
   };
   button('stress').hidden = new URLSearchParams(location.search).get('debug') !== '1';
   button('stress').onclick = () => game.stress();
-  // Mode switch: always starts a fresh run, so ask first if a run is in progress.
+  // Mode is chosen once when the game opens, and again only after a run ends (game over or victory).
   const MODE_KEY='qiulegeqiu:mode';
-  const modeButtons=Array.from(root.querySelectorAll<HTMLButtonElement>('[data-mode]'));
-  const showMode=()=>{for(const b of modeButtons)b.setAttribute('aria-pressed',String(b.dataset.mode===game.mode));};
-  for(const b of modeButtons)b.onclick=()=>{
-    const mode=b.dataset.mode as GameMode;if(mode===game.mode)return;
-    const inProgress=game.journal.events.length>0&&game.state!=='gameOver'&&game.state!=='victory';
-    if(game.state==='running')game.pause();
-    if(inProgress&&!window.confirm('切换模式会结束当前这一局，确定切换吗？'))return;
-    game.setMode(mode);showMode();try{localStorage.setItem(MODE_KEY,mode);}catch{/* Preference only. */}
+  for(const b of Array.from(root.querySelectorAll<HTMLButtonElement>('[data-pick]')))b.onclick=()=>{
+    const mode=b.dataset.pick as GameMode;picking=false;
+    if(mode===game.mode)game.reset();else game.setMode(mode);
+    try{localStorage.setItem(MODE_KEY,mode);}catch{/* Preference only. */}
+    update(game);
   };
+  // Pre-select the last mode played so it is highlighted in the picker.
   try{if(localStorage.getItem(MODE_KEY)==='endless')game.setMode('endless');}catch{/* Preference only. */}
-  showMode();
   online = new LeaderboardUI(root,game);
   update(game); return game;
 }

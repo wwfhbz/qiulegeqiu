@@ -19,6 +19,8 @@ import {ENDLESS,ENDLESS_CURRENT,descentInterval,type EndlessVariant} from './End
 export class EndlessField extends Blocks {
   readonly endless=true;
   descents=0;sinceDescent=0;destroyedTotal=0;
+  /** Consecutive running ticks with a brick on the floor row (pressure-death timer). */
+  pressure=0;
   private seed=1;
   private readonly base=ENDLESS.initialRows-1;
   private patterns=new Map<number,Uint8Array>();
@@ -44,7 +46,7 @@ export class EndlessField extends Blocks {
         if(this.maskStart[row]<0)this.maskStart[row]=col;this.maskEnd[row]=col;this.floorRow=row;
       }
     }
-    this.patterns.clear();this.descents=0;this.sinceDescent=0;this.destroyedTotal=0;
+    this.patterns.clear();this.descents=0;this.sinceDescent=0;this.destroyedTotal=0;this.pressure=0;
     for(let w=0;w<=this.base;w++)this.patterns.set(w,this.spawnRow(w));
     this.destroyed.length=0;this.generation++;this.rebuild();
   }
@@ -67,12 +69,24 @@ export class EndlessField extends Blocks {
   get blocked(){return this.rowCount[this.floorRow]>0;}
   /** Advance one simulation tick; returns true when the wall descended this tick. */
   tick(){
+    // The pressure timer reads the state left by the previous tick's contacts, like the descent check.
+    if(this.blocked)this.pressure++;else this.pressure=0;
     this.sinceDescent++;
     if(this.sinceDescent<descentInterval(this.descents)||this.blocked)return false;
     this.descend();this.sinceDescent=0;return true;
   }
   /** Seconds-equivalent progress toward the next descent, for the HUD (0–1). */
   get descentProgress(){return Math.min(1,this.sinceDescent/descentInterval(this.descents));}
+  /**
+   * Relief after a pressure death: remove every brick in the `rows` rows nearest the floor. These are not
+   * player hits — no score, no drops, no destroyed count — and the pressure timer restarts.
+   */
+  relief(rows:number){
+    let cleared=0;
+    for(let row=Math.max(0,this.floorRow-rows+1);row<=this.floorRow;row++){const pattern=this.patterns.get(this.worldRow(row));if(!pattern)continue;
+      for(let col=0;col<this.cols;col++){const i=row*this.cols+col;if(this.alive[i]){pattern[col]=0;cleared++;}}}
+    this.pressure=0;this.destroyed.length=0;this.generation++;this.rebuild();return cleared;
+  }
   private descend(){
     this.descents++;const top=this.base+this.descents;this.patterns.set(top,this.spawnRow(top));
     // Rows that slid past the floor can never be hit again.

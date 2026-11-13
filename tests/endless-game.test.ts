@@ -1,6 +1,7 @@
 import {expect,it} from 'vitest';
 import {Game} from '../src/Game';
 import {C} from '../src/GameConfig';
+import type {PowerKind} from '../src/PowerRules';
 import {ENDLESS,descentInterval} from '../src/endless/EndlessRules';
 import {ENDLESS_RULES_VERSION,RULES_VERSION} from '../shared/Challenge';
 
@@ -64,4 +65,45 @@ it('修复：砖墙压到底线后，球仍能从出口掉出并扣命（1.1版�
  g.physics.setTarget(120);g.physics.paddleX=g.physics.targetX;// paddle away so it cannot save the ball
  for(let n=0;n<360&&g.state==='running';n++){g.physics.setTarget(120);g.update(C.step);}
  expect(g.lives).toBe(2);expect(g.state).toBe('ready');
+});
+it('1.3压线死亡：砖墙压线满10秒扣1条命；下次发射清掉底线附近5行（不计分）并立即奖励一个效果球',()=>{
+ const g=endless(21);g.start();const f=g.physics.endless!;let guard=0;while(!f.blocked&&guard++<400000)f.tick();expect(f.blocked).toBe(true);
+ const keep=()=>{for(const b of g.physics.balls)Object.assign(b,{x:C.arena.x,y:C.arena.y+C.arena.radius+40,vx:0,vy:-1,outsideArena:true});};
+ // 9.9 running seconds on the line: no penalty yet.
+ for(let n=0;n<1188;n++){keep();g.update(C.step);}expect(g.lives).toBe(3);expect(g.state).toBe('running');
+ for(let n=0;n<20&&g.state==='running';n++){keep();g.update(C.step);}
+ expect(g.lives).toBe(2);expect(g.state).toBe('ready');expect(g.pendingRelief).toBe(true);expect(g.journal.events.at(-1)?.type).toBe('crushed');
+ const score=g.score.total,before=f.remaining,bottom=Array.from({length:ENDLESS.reliefRows},(_,k)=>f.floorRow-k);
+ g.start();expect(g.pendingRelief).toBe(false);expect(f.blocked).toBe(false);expect(f.pressure).toBe(0);
+ for(const row of bottom)for(let c=0;c<f.cols;c++)expect(f.alive[row*f.cols+c]).toBe(0);
+ const events=g.journal.events,launch=events.map(e=>e.type).lastIndexOf('launch'),tail=events.slice(launch);expect(tail[1]?.type).toBe('bonus');
+ const bonus=tail[1] as {kind:string};expect(['plus3','pierce','fire','lightning']).toContain(bonus.kind);
+ // Relief itself scores nothing; only a lightning bonus may add real hits.
+ if(bonus.kind!=='lightning')expect(g.score.total).toBe(score);expect(f.remaining).toBeLessThan(before);
+});
+it('压线计时只在游戏进行中累计，清掉底线砖块后归零；普通漏球扣命不触发补偿',()=>{
+ const g=endless(22);g.start();const f=g.physics.endless!;let guard=0;while(!f.blocked&&guard++<400000)f.tick();
+ for(let n=0;n<600;n++){for(const b of g.physics.balls)Object.assign(b,{x:400,y:900,vx:0,vy:-1,outsideArena:true});g.update(C.step);}expect(f.pressure).toBeGreaterThan(500);
+ g.pause();for(let n=0;n<2000;n++)g.update(C.step);expect(f.pressure).toBeLessThan(700);g.start();
+ for(let i=f.floorRow*f.cols;i<(f.floorRow+1)*f.cols;i++)f.hit(i);g.update(C.step);expect(f.pressure).toBe(0);
+ loseRound(g);expect(g.lives).toBe(2);expect(g.pendingRelief).toBe(false);
+});
+it('吃道具加分：闯关与无尽每接住一个道具+100分（不乘连击），旧赛季回放不加',()=>{
+ for(const mode of ['campaign','endless'] as const){
+  const g=new Game();if(mode==='endless')g.setMode('endless');g.start();const before=g.score.total;
+  const kinds:PowerKind[]=mode==='endless'?['plus3','wide','halve','pierce','fire','life']:['triple','wide','halve','life'];for(const kind of kinds)g.physics.collect(kind);
+  expect(g.score.total-before).toBe(mode==='endless'?600:400);
+  const old=new Game();old.powerPointsEnabled=false;old.start();old.physics.collect('wide');expect(old.score.total).toBe(0);
+ }
+});
+it('闪电链：击碎最靠近死亡线的12块砖（最低的行优先），不再按离球远近',()=>{
+ const g=endless(17);g.start();const p=g.physics,f=p.endless!;let guard=0;while(f.descents<6&&guard++<100000)f.tick();
+ // Ball high above the wall: the old rule would have struck the top rows.
+ Object.assign(p.balls[0],{x:C.arena.x,y:f.top+20,vx:0,vy:-440,outsideArena:false});
+ const before=new Set(Array.from(f.alive.keys()).filter(i=>f.alive[i]));p.collect('lightning');
+ const struck=[...before].filter(i=>!f.alive[i]),rows=struck.map(i=>Math.floor(i/f.cols));
+ expect(struck).toHaveLength(ENDLESS.lightningBricks);
+ const highestStruck=Math.min(...rows),lowestLeft=Math.max(...[...before].filter(i=>f.alive[i]).map(i=>Math.floor(i/f.cols)));
+ expect(lowestLeft).toBeLessThanOrEqual(highestStruck);
+ const lowestBefore=Math.max(...[...before].map(i=>Math.floor(i/f.cols)));expect(rows).toContain(lowestBefore);
 });

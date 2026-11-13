@@ -5,7 +5,8 @@ import { C } from './GameConfig';
  * the renderer only reads `events` by sequence number and never mutates this object.
  */
 /** 'burn': a fire contact (value = cell size); 'slash': a brick cut by a piercing ball; 'poof': a ball removed by ÷2. */
-export type FxKind = 'paddle'|'lost'|'power'|'bomb'|'clear'|'combo'|'hit'|'descend'|'zap'|'burn'|'slash'|'poof';
+/** 'crush': a life lost to the wall pressing the death line; 'relief': the 5 rows cleared at the next launch. */
+export type FxKind = 'paddle'|'lost'|'power'|'bomb'|'clear'|'combo'|'hit'|'descend'|'zap'|'burn'|'slash'|'poof'|'crush'|'relief';
 /** `sx`/`sy`: source point for 'zap' (lightning) bolts. */
 export interface FxEvent { seq:number; kind:FxKind; x:number; y:number; value:number; power?:PowerKind; sx?:number; sy?:number }
 // Fire, pierce and lightning can emit dozens of events in one frame; keep enough history for the renderer.

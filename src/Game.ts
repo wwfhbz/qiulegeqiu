@@ -28,6 +28,8 @@ export class Game {
   result?: Readonly<LevelScore>;
   private stopHost?:()=>void;
   private roundActive = false;
+  /** Endless: the last life was lost to wall pressure, so the next launch clears rows and grants a bonus. */
+  pendingRelief = false;
 
   // The same coordinator runs headlessly or under either platform host.
   constructor(private readonly host?:GameHost, private onChange: (game: Game) => void = () => {}, public levels = new LevelManager(), audio = new AudioSystem()) {
@@ -38,10 +40,14 @@ export class Game {
     // Endless bricks move, so the journal stores their stable world id instead of the grid slot.
     this.physics.onBlockDestroyed = index => { const id=this.physics.endless?.worldId(index)??index; if (this.state === 'running' && this.score.hit(id)>0) this.journal.record({type:'hit',level:this.levels.current.number,index:id}); };
     this.physics.onBallLost = () => { if(this.state==='running')this.journal.record({type:'ballLost',level:this.levels.current.number}); };
-    this.physics.onPowerCollected = (kind,dropId) => { if(this.state==='running'&&this.roundActive&&this.physics.balls.some(ball=>ball.alive)){if(kind==='life')this.remainingLives=Math.min(this.maxLives,this.remainingLives+1);this.journal.record({type:'power',level:this.levels.current.number,kind,...(dropId===undefined?{}:{dropId})});} };
+    this.physics.onPowerCollected = (kind,dropId) => { if(this.state==='running'&&this.roundActive&&this.physics.balls.some(ball=>ball.alive)){if(kind==='life')this.remainingLives=Math.min(this.maxLives,this.remainingLives+1);if(this.powerPoints)this.score.addPowerPoints();this.journal.record({type:'power',level:this.levels.current.number,kind,...(dropId===undefined?{}:{dropId})});} };
     this.physics.onBomb = target => { if(this.state==='running'){if(target===null)this.score.addBombCompensation();this.journal.record({type:'bomb',level:this.levels.current.number,target});} };
     if(host)this.stopHost=host.mount(this);
   }
+  /** +100 per caught power applies to the current campaign table and to endless variants that enable it. */
+  /** Replays of seasons before +100-per-power turn this off, like the other per-season flags. */
+  powerPointsEnabled = true;
+  get powerPoints(){if(!this.powerPointsEnabled)return false;const field=this.physics.endless;return field?!!field.variant.powerPoints:this.levels.isStandard;}
   get rulesVersion(){return this.mode==='endless'?ENDLESS_RULES_VERSION:RULES_VERSION;}
   get maxLives():number{return this.mode==='endless'?ENDLESS.lives:ARCADE.maxLives;}
   /** Level for campaign; stage (+1 per 10 descended rows) for endless. Stored as the score's reached level. */
@@ -61,6 +67,13 @@ export class Game {
   start() {
     if (this.lives <= 0 || (this.state !== 'ready' && this.state !== 'paused')) return;
     if (this.state === 'ready') { this.journal.record({type:'launch',level:this.levels.current.number,...(this.journal.events.length===0&&this.mode==='campaign'?{...(this.physics.tripleRuleVersion===2?{tripleRuleVersion:2 as const}:{}),...(this.physics.brickPowerVersion===2&&this.levels.current.brickPowers?{brickPowerVersion:2 as const}:{})}:{})}); this.roundActive = true; for (const b of this.physics.balls) this.physics.aimLaunch(b); }
+    // Endless relief after a pressure death: clear the rows nearest the line, then a random effect ball.
+    const field=this.physics.endless;
+    if(this.pendingRelief&&field&&this.state==='ready'){
+      this.pendingRelief=false;const cleared=field.relief(ENDLESS.reliefRows);
+      this.physics.effects.emit('relief',C.arena.x,field.top+(field.floorRow+.5)*field.step,cleared);
+      const kind=this.physics.drawBonus();this.journal.record({type:'bonus',level:this.levels.current.number,kind});this.physics.applyBonus(kind);
+    }
     this.audio.unlock(); this.physics.paused = false; this.physics.accumulator = 0;
     this.state = 'running'; this.onChange(this);
   }
@@ -71,6 +84,7 @@ export class Game {
   reset() {
     this.roundActive = false;
     this.journal.reset();this.physics.setSeed(this.journal.seed);
+    this.pendingRelief = false;
     this.levels.reset(); this.remainingLives = this.mode==='endless'?ENDLESS.lives:ARCADE.initialLives; this.score.reset(); this.result = undefined;
     this.configureLevel();
     this.physics.reset(); this.state = 'ready'; this.readyReason = 'initial'; this.onChange(this);
@@ -93,6 +107,7 @@ export class Game {
     this.start();
   }
   update(dt: number) {
+    this.physics.powerPointsShown = this.powerPoints ? ARCADE.powerPoints : 0;
     if (this.state === 'running') {
       this.physics.advance(dt);
       // Clear is checked first, including when the final ball leaves on the same tick.
@@ -112,6 +127,19 @@ export class Game {
         this.score.resetCombo(); this.physics.resetRound(this.lives > 0);
         this.state = this.lives > 0 ? 'ready' : 'gameOver';
         this.readyReason = 'lifeLost';
+        this.physics.paused = this.lives === 0;
+        if(this.lives===0)this.journal.record({type:'finish',level:this.levels.current.number});
+      } else if (this.roundActive && this.physics.endless?.variant.crush && this.physics.endless.pressure >= ENDLESS.crushTicks) {
+        // Pressure death: the wall sat on the death line for 10 running seconds.
+        const field=this.physics.endless;
+        this.roundActive = false;
+        this.journal.record({type:'crushed',level:this.levels.current.number});
+        this.remainingLives = Math.max(0, this.remainingLives - 1);
+        this.physics.effects.emit('crush',C.arena.x,field.top+(field.floorRow+.5)*field.step);
+        this.audio.play('lost');
+        this.score.resetCombo(); this.physics.resetRound(this.lives > 0);
+        this.state = this.lives > 0 ? 'ready' : 'gameOver';
+        this.readyReason = 'lifeLost'; this.pendingRelief = this.lives > 0;
         this.physics.paused = this.lives === 0;
         if(this.lives===0)this.journal.record({type:'finish',level:this.levels.current.number});
       }

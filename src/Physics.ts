@@ -11,7 +11,7 @@ import { FRAME, isBallInDeathZone } from './WorldGeometry';
 import { Effects } from './Effects';
 import { PowerUps, type PowerKind } from './PowerUps';
 import { EndlessField } from './endless/EndlessField';
-import { ENDLESS,ENDLESS_CURRENT,endlessPower,dropEvery,endlessSpeed } from './endless/EndlessRules';
+import { ENDLESS,ENDLESS_CURRENT,endlessPower,endlessBonus,dropEvery,endlessSpeed,DROP_SALT,BONUS_SALT,type BonusKind } from './endless/EndlessRules';
 export interface Ball { x: number; y: number; vx: number; vy: number; radius: number; alive: boolean; previousX?: number; previousY?: number; outsideArena?: boolean }
 export function reflect(b: Ball, nx: number, ny: number) {
   const dot = b.vx * nx + b.vy * ny;
@@ -109,7 +109,9 @@ export class Physics {
   useField(field:Blocks){this.blocks=field;field.onHit=this.destroyed;}
   // Endless-only timed powers and drop schedule (own seeded stream, mirrored by the server verifier).
   pierceRemaining=0;fireRemaining=0;
-  private endlessDrops=seededRandom(1);private nextDropAt:number=ENDLESS_CURRENT.drops.start;
+  /** Visual only: points shown with a pickup popup (the Game sets this from its rules). */
+  powerPointsShown=0;
+  private endlessDrops=seededRandom(1);private endlessBonuses=seededRandom(1);private nextDropAt:number=ENDLESS_CURRENT.drops.start;
 
   paddleX: number = C.arena.x; targetX: number = C.arena.x;
   accumulator = 0; ticks = 0; paused = false;
@@ -169,7 +171,7 @@ export class Physics {
     // Lightning strikes after the pickup is journaled, so its brick hits follow the power event.
     else if(kind==='halve')this.halve();
     else if(kind==='bomb'){const target=this.obstacles.destroyNearest(C.arena.x,C.arena.y);this.effects.explode(target?.x??C.arena.x,target?.y??C.arena.y);bombTarget=target?.config.id??null;}
-    this.effects.power(kind);this.effects.emit('power',this.paddleX,C.paddle.y,0,kind);
+    this.effects.power(kind);this.effects.emit('power',this.paddleX,C.paddle.y,this.powerPointsShown,kind);
     this.onPowerCollected?.(kind,dropId);
     if(kind==='bomb')this.onBomb?.(bombTarget);
     if(kind==='lightning')this.lightning();
@@ -188,6 +190,17 @@ export class Physics {
     this.recycleDead(); // Administrative removal deliberately emits no death event.
   }
   tripleRuleVersion:TripleRuleVersion=TRIPLE_RULE_VERSION;
+  /** Next relief reward from the seeded bonus stream (the verifier draws the same sequence). */
+  drawBonus():BonusKind{return endlessBonus(this.endlessBonuses);}
+  /** Apply a relief reward directly: no falling drop and no pickup event (the caller journals a 'bonus'). */
+  applyBonus(kind:BonusKind){
+    if(!this.balls.some(ball=>ball.alive))return;
+    if(kind==='plus3')this.addBalls(ENDLESS.plusBalls);
+    else if(kind==='pierce')this.pierceRemaining=ENDLESS.pierceSeconds;
+    else if(kind==='fire')this.fireRemaining=ENDLESS.fireSeconds;
+    this.effects.power(kind);this.effects.emit('power',this.paddleX,C.paddle.y,0,kind);this.onSound?.('power');
+    if(kind==='lightning')this.lightning();
+  }
   /** +3: three extra balls fanned out from the first live ball (capped at the 100-ball limit). */
   addBalls(count:number){
     this.recycleDead();const source=this.balls[0];if(!source)return;
@@ -195,10 +208,14 @@ export class Physics {
     for(let i=0;i<count&&this.balls.length<C.maxBalls;i++)this.balls.push(this.child(source,angles[i%angles.length],i%2?1:-1));
   }
   /** Lightning: instantly break the bricks nearest the first live ball (or arena centre). */
+  /**
+   * Lightning relieves the pressure: it strikes the bricks closest to the death line — the lowest rows
+   * first, and within a row those horizontally nearest the ball, so the bolts read naturally.
+   */
   lightning(){
-    const g=this.blocks,ball=this.balls.find(b=>b.alive),fx=ball?.x??C.arena.x,fy=ball?.y??C.arena.y,picked:{index:number;d:number}[]=[];
-    for(let i=0;i<g.cols*g.rows;i++)if(g.alive[i]){const x=g.left+i%g.cols*g.step+g.size/2,y=g.top+Math.floor(i/g.cols)*g.step+g.size/2;picked.push({index:i,d:(x-fx)**2+(y-fy)**2});}
-    picked.sort((a,b)=>a.d-b.d||a.index-b.index);const targets=picked.slice(0,ENDLESS.lightningBricks).map(p=>p.index);
+    const g=this.blocks,ball=this.balls.find(b=>b.alive),fx=ball?.x??C.arena.x,fy=ball?.y??C.arena.y,picked:{index:number;row:number;dx:number}[]=[];
+    for(let i=0;i<g.cols*g.rows;i++)if(g.alive[i]){const row=Math.floor(i/g.cols),x=g.left+i%g.cols*g.step+g.size/2;picked.push({index:i,row,dx:Math.abs(x-fx)});}
+    picked.sort((a,b)=>b.row-a.row||a.dx-b.dx||a.index-b.index);const targets=picked.slice(0,ENDLESS.lightningBricks).map(p=>p.index);
     for(const index of targets){this.effects.emit('zap',g.left+index%g.cols*g.step+g.size/2,g.top+Math.floor(index/g.cols)*g.step+g.size/2,0,undefined,fx,fy);g.hit(index);}
   }
   /** Fire: a brick hit by a burning ball also burns its eight neighbours (no chain reaction). */
@@ -265,7 +282,7 @@ export class Physics {
     if(field){
       this.obstacles.load([]);field.start(this.seed,field.variant);this.powers.setCapacity(C.power.maxDrops);
       // Separate stream from the field's row patterns; the verifier derives both from the run seed.
-      this.endlessDrops=seededRandom((this.seed^0x5bd1e995)>>>0);this.nextDropAt=dropEvery(0,field.variant);this.speedScale=endlessSpeed(0);
+      this.endlessDrops=seededRandom((this.seed^DROP_SALT)>>>0);this.endlessBonuses=seededRandom((this.seed^BONUS_SALT)>>>0);this.nextDropAt=dropEvery(0,field.variant);this.speedScale=endlessSpeed(0);
       this.resetRound();return;
     }
     this.obstacles.load(this.level.obstacles??[]);this.blocks.reset(this.level.obstacles??[],this.level);this.allocatePowers();
