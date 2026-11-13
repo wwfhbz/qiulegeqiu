@@ -1,6 +1,6 @@
 import {expect,it} from 'vitest';
 import {EndlessField} from '../src/endless/EndlessField';
-import {ENDLESS,descentInterval,dropEvery,endlessSpeed,endlessStage,endlessPower,ENDLESS_POWER_WEIGHTS} from '../src/endless/EndlessRules';
+import {ENDLESS,ENDLESS_V1,ENDLESS_V2,descentInterval,dropEvery,endlessSpeed,endlessStage,endlessPower,ENDLESS_POWER_WEIGHTS} from '../src/endless/EndlessRules';
 import {C} from '../src/GameConfig';
 import {seededRandom} from '../src/Random';
 
@@ -35,9 +35,12 @@ it('击碎只记一次；被击碎的砖下沉后不会复活；编号失效后�
  while(!f.tick());expect(f.indexOfWorld(id)).toBe(-1);expect(f.alive[index+f.cols]).toBe(0);
  expect(f.indexOfWorld(-1)).toBe(-1);expect(f.indexOfWorld(1e12)).toBe(-1);
 });
-it('数值曲线：球速0.9起逐行加快封顶1.25；掉落从每8块到每30块；阶段每10行+1',()=>{
+it('数值曲线：球速0.9起逐行加快封顶1.25；1.1版掉落减半（每16块到每60块），1.0版冻结为每8到30块；阶段每10行+1',()=>{
  expect(endlessSpeed(0)).toBeCloseTo(.9);expect(endlessSpeed(1000)).toBe(1.25);
- expect(dropEvery(0)).toBe(8);expect(dropEvery(250)).toBe(9);expect(dropEvery(1e6)).toBe(30);
+ expect(dropEvery(0)).toBe(16);expect(dropEvery(125)).toBe(17);expect(dropEvery(1e6)).toBe(60);
+ expect(dropEvery(0,ENDLESS_V1)).toBe(8);expect(dropEvery(250,ENDLESS_V1)).toBe(9);expect(dropEvery(1e6,ENDLESS_V1)).toBe(30);
+ // Halved at every point of the curve.
+ for(const n of [0,500,2000,5000,20000])expect(dropEvery(n,ENDLESS_V2)).toBe(Math.min(60,2*dropEvery(n,ENDLESS_V1)));
  expect(endlessStage(0)).toBe(1);expect(endlessStage(10)).toBe(2);expect(endlessStage(1e6)).toBe(100);
 });
 it('无尽道具表：没有×3和炸弹；+1生命0.3%；权重合计1000；抽样分布符合',()=>{
@@ -45,4 +48,11 @@ it('无尽道具表：没有×3和炸弹；+1生命0.3%；权重合计1000；抽
  expect(kinds).not.toContain('triple');expect(kinds).not.toContain('bomb');expect(ENDLESS_POWER_WEIGHTS.find(r=>r.kind==='life')!.weight).toBe(3);
  const random=seededRandom(1),counts:Record<string,number>={};for(let i=0;i<100000;i++){const k=endlessPower(random);counts[k]=(counts[k]??0)+1;}
  expect(counts.life/100000).toBeGreaterThan(.001);expect(counts.life/100000).toBeLessThan(.005);expect(counts.plus3/100000).toBeGreaterThan(.25);
+});
+
+it('1.1版底线在圆形最底部：可下沉行数远多于1.0版；底线仍是圆内最低一行可放砖的位置',()=>{
+ const now=new EndlessField(),old=new EndlessField();now.start(7,ENDLESS_V2);old.start(7,ENDLESS_V1);
+ expect(now.floorRow).toBeGreaterThanOrEqual(old.floorRow+8);
+ const floorBottom=now.top+(now.floorRow+1)*now.step;expect(floorBottom).toBeGreaterThan(C.arena.y+C.arena.radius-now.step*2);expect(floorBottom).toBeLessThanOrEqual(C.arena.y+C.arena.radius+now.step);
+ let guard=0;while(!now.blocked&&guard++<400000)now.tick();expect(now.blocked).toBe(true);expect(now.descents).toBeGreaterThan(old.floorRow-ENDLESS.initialRows+8);
 });

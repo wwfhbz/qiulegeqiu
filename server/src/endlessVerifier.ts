@@ -1,5 +1,5 @@
 import {EndlessField} from '../../src/endless/EndlessField.js';
-import {ENDLESS,dropEvery,endlessPower,endlessStage} from '../../src/endless/EndlessRules.js';
+import {ENDLESS,ENDLESS_CURRENT,dropEvery,endlessPower,endlessStage,type EndlessVariant} from '../../src/endless/EndlessRules.js';
 import {ScoreSystem} from '../../src/ScoreSystem.js';
 import {C} from '../../src/GameConfig.js';
 import {seededRandom,type PowerKind} from '../../src/PowerRules.js';
@@ -12,10 +12,10 @@ import {ApiError} from './moderation.js';
  * moment, drops follow the same seeded schedule, and the score is recomputed. Like the campaign
  * verifier this is a rule replay, not a physical trajectory replay.
  */
-export function verifyEndlessTrace(events:ChallengeEvent[],wallMs:number,seed:number):{summary:ChallengeSummary;suspicious:string[]}{
-  const field=new EndlessField();field.start(seed);
+export function verifyEndlessTrace(events:ChallengeEvent[],wallMs:number,seed:number,variant:EndlessVariant=ENDLESS_CURRENT):{summary:ChallengeSummary;suspicious:string[]}{
+  const field=new EndlessField();field.start(seed,variant);
   const score=new ScoreSystem('unbounded'),drops:{id:number;kind:PowerKind;tick:number;y:number}[]=[],suspicious=new Set<string>();
-  const dropRandom=seededRandom((seed>>>0^0x5bd1e995)>>>0);let nextDropAt=dropEvery(0),dropSequence=0;
+  const dropRandom=seededRandom((seed>>>0^0x5bd1e995)>>>0);let nextDropAt=dropEvery(0,variant),dropSequence=0;
   let lives:number=ENDLESS.lives,phase:'ready'|'running'|'gameOver'='ready',balls=0,peakBalls=1,lastTick=0,fieldTick=0,bricks=0,finished=false;
   let fireUntil=-1,lightningTick=-1,lightnings=0,hitTick=-1,tickHits=0,tickBallMax=0;
   for(const e of events){
@@ -34,7 +34,7 @@ export function verifyEndlessTrace(events:ChallengeEvent[],wallMs:number,seed:nu
         // Fire burns 8 neighbours per contact, lightning breaks a fixed batch: widen the per-tick budget accordingly.
         const allowance=Math.max(tickBallMax,balls)*12*(e.tick<=fireUntil?9:1)+(e.tick===lightningTick?lightnings*ENDLESS.lightningBricks:0);
         if(++tickHits>allowance)suspicious.add('单步击碎数量异常');
-        if(field.destroyedTotal>=nextDropAt){nextDropAt+=dropEvery(field.destroyedTotal);const kind=endlessPower(dropRandom),id=++dropSequence;if(drops.length<C.power.maxDrops)drops.push({id,kind,tick:e.tick,y});}
+        if(field.destroyedTotal>=nextDropAt){nextDropAt+=dropEvery(field.destroyedTotal,variant);const kind=endlessPower(dropRandom),id=++dropSequence;if(drops.length<C.power.maxDrops)drops.push({id,kind,tick:e.tick,y});}
         break;
       }
       case 'power':{

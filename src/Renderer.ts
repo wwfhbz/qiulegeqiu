@@ -69,19 +69,35 @@ export class Renderer {
     this.canvas.width = Math.max(1, Math.round(C.width * this.ratio)); this.canvas.height = Math.max(1, Math.round(C.height * this.ratio));
     this.arenaFill=this.paddleFill=undefined;this.backdropKey=this.brickKey='';
     this.cache.width = this.canvas.width; this.cache.height = this.canvas.height; this.cachedRevision = -1;
-    if(this.badges){const a=OCEAN.powerBadge;this.badges.width=a.cellWidth*this.badgeKinds.length*a.pixelRatio;this.badges.height=a.cellHeight*a.pixelRatio;const c=this.badges.getContext('2d')!;c.setTransform(a.pixelRatio,0,0,a.pixelRatio,0,0);c.clearRect(0,0,a.cellWidth*this.badgeKinds.length,a.cellHeight);this.badgeKinds.forEach((kind,i)=>this.badge(c,i*a.cellWidth+a.cellWidth/2,a.cellHeight/2,kind));}
+    if(this.badges){const a=OCEAN.powerBadge;this.badges.width=a.cellWidth*this.badgeKinds.length*a.pixelRatio;this.badges.height=a.cellHeight*a.pixelRatio;const c=this.badges.getContext('2d')!;c.setTransform(a.pixelRatio,0,0,a.pixelRatio,0,0);c.clearRect(0,0,a.cellWidth*this.badgeKinds.length,a.cellHeight);this.badgeKinds.forEach((kind,i)=>this.badge(c,i*a.cellWidth+a.cellWidth/2,a.orbY,kind));}
   }
 
   /** Orb-style power capsule: harmful ÷2 gets a warning ring so players learn to dodge it. */
+  /** Orb with a symbol plus a name pill underneath; (x,y) is the orb centre. Drawn once into the atlas. */
   private badge(c:Ctx,x:number,y:number,kind:PowerKind){
     const a=OCEAN.powerBadge,style=OCEAN.powers[kind],r=a.radius;
+    c.font='800 15px '+OCEAN.fonts.body;const pillW=Math.max(44,c.measureText(style.name).width+16),pillY=y+r+5;
+    c.fillStyle='rgba(6,16,29,.88)';c.beginPath();c.roundRect(x-pillW/2,pillY,pillW,22,11);c.fill();
+    c.lineWidth=1.5;c.strokeStyle=style.color;c.stroke();
+    c.fillStyle=style.good?'#FFFFFF':'#FFD0D6';c.textAlign='center';c.textBaseline='middle';c.fillText(style.name,x,pillY+11.5);c.textBaseline='alphabetic';
     const g=c.createRadialGradient?.(x-r*.35,y-r*.4,r*.1,x,y,r);
     if(g){g.addColorStop(0,shade(style.color,.55));g.addColorStop(.55,style.color);g.addColorStop(1,shade(style.color,-.35));}
     c.fillStyle=g||style.color;c.beginPath();c.arc(x,y,r,0,Math.PI*2);c.fill();
     c.lineWidth=style.good?1.5:2.5;c.strokeStyle=style.good?'rgba(255,255,255,.75)':'#FFE3E7';
     if(!style.good)c.setLineDash?.([4,3]);c.beginPath();c.arc(x,y,r-.8,0,Math.PI*2);c.stroke();c.setLineDash?.([]);
     c.fillStyle='rgba(255,255,255,.45)';c.beginPath();c.ellipse?.(x-r*.3,y-r*.45,r*.38,r*.2,-.5,0,Math.PI*2);c.fill();
-    c.fillStyle='#FFFFFF';c.textAlign='center';c.textBaseline='middle';c.font='800 15px '+OCEAN.fonts.numbers;c.fillText(style.label,x,y+1);c.textBaseline='alphabetic';
+    if(style.label==='icon')this.icon(c,x,y,kind,r);
+    else{c.fillStyle='#FFFFFF';c.textAlign='center';c.textBaseline='middle';c.font=`900 ${style.label.length>1?18:22}px `+OCEAN.fonts.numbers;c.lineWidth=3;c.strokeStyle='rgba(0,0,0,.25)';c.strokeText(style.label,x,y+1);c.fillText(style.label,x,y+1);c.textBaseline='alphabetic';}
+  }
+  /** Vector icons read better than a single small character on phones. */
+  private icon(c:Ctx,x:number,y:number,kind:PowerKind,r:number){
+    c.save();c.translate(x,y);c.fillStyle='#FFFFFF';c.strokeStyle='#FFFFFF';c.lineJoin='round';c.lineCap='round';const s=r/21;c.scale(s,s);
+    if(kind==='lightning'){c.beginPath();c.moveTo(3,-14);c.lineTo(-8,2);c.lineTo(-1,2);c.lineTo(-4,14);c.lineTo(8,-3);c.lineTo(1,-3);c.closePath();c.fill();}
+    else if(kind==='fire'){c.beginPath();c.moveTo(0,-14);c.bezierCurveTo(9,-4,11,3,8,9);c.bezierCurveTo(5,15,-5,15,-8,9);c.bezierCurveTo(-11,2,-6,-2,-3,-6);c.bezierCurveTo(-2,-1,1,0,2,-3);c.bezierCurveTo(3,-7,1,-11,0,-14);c.fill();
+      c.fillStyle=OCEAN.powers.fire.color;c.beginPath();c.moveTo(0,0);c.bezierCurveTo(5,5,4,11,0,11);c.bezierCurveTo(-4,11,-5,6,0,0);c.fill();}
+    else if(kind==='pierce'){c.lineWidth=3.2;c.beginPath();c.moveTo(-12,0);c.lineTo(9,0);c.stroke();c.beginPath();c.moveTo(13,0);c.lineTo(5,-6);c.lineTo(5,6);c.closePath();c.fill();
+      c.lineWidth=2;c.globalAlpha=.85;for(const bx of [-5,1]){c.strokeRect(bx-2.5,-8,5,16);}}
+    c.restore();
   }
 
   /** One soft radial sprite per colour, reused for ball, paddle, power and danger glows. */
@@ -236,7 +252,10 @@ export class Renderer {
     // Endless floor: the line the wall cannot cross. It pulses red while bricks press against it.
     const floorField=p.endless;
     if(floorField){const y=floorField.top+(floorField.floorRow+1)*floorField.step-1,half=Math.sqrt(Math.max(0,a.radius**2-(y-a.y)**2))-6,pressed=floorField.blocked,pulse=.5+.5*Math.sin(now/140);
-      c.setLineDash?.([10,8]);c.lineWidth=pressed?3:1.5;c.strokeStyle=pressed?rgba(OCEAN.colors.danger,.55+.4*pulse):rgba(OCEAN.colors.warning,.45);c.beginPath();c.moveTo(a.x-half,y);c.lineTo(a.x+half,y);c.stroke();c.setLineDash?.([]);}
+      c.setLineDash?.([10,8]);c.lineWidth=pressed?4:2;c.strokeStyle=pressed?rgba(OCEAN.colors.danger,.55+.4*pulse):rgba(OCEAN.colors.warning,.5);c.beginPath();
+      // At the bottom of the bowl a chord would be a short stub: trace the lower rim instead, so the death line reads clearly.
+      if(floorField.variant.floor==='bowl'){const span=.62;c.arc(a.x,a.y,a.radius-7,Math.PI/2-span,Math.PI/2+span);}else{c.moveTo(a.x-half,y);c.lineTo(a.x+half,y);}
+      c.stroke();c.setLineDash?.([]);}
     if(!p.endless&&b.remaining>0&&b.remaining<=OCEAN.motion.lastBricks&&b.removed>0){
       if(this.lastBricksRevision!==b.revision){this.lastBricks.length=0;for(let i=0;i<b.alive.length&&this.lastBricks.length<b.remaining;i++)if(b.alive[i])this.lastBricks.push(i);this.lastBricksRevision=b.revision;}
       const pulse=.5+.5*Math.sin(now/180);c.lineWidth=2;c.strokeStyle=rgba(OCEAN.colors.warning,.35+.45*pulse);
@@ -280,8 +299,8 @@ export class Renderer {
     let orbs=0;for(const item of p.powers.items)if(item.alive)orbs++;const halos=budget.highlights&&orbs<=40;
     for(const item of p.powers.items)if(item.alive){
       const bob=Math.sin(now/220+item.dropId)*2,style=OCEAN.powers[item.kind];
-      if(halos){const hg=this.glow(style.color);if(hg){c.globalAlpha=.45;c.drawImage(hg as CanvasImageSource,item.x-26,item.y-26+bob,52,52);c.globalAlpha=1;}}
-      if(this.badges){const ab=OCEAN.powerBadge;c.drawImage(this.badges as CanvasImageSource,this.badgeKinds.indexOf(item.kind)*ab.cellWidth*ab.pixelRatio,0,ab.cellWidth*ab.pixelRatio,ab.cellHeight*ab.pixelRatio,item.x-ab.cellWidth/2,item.y-ab.cellHeight/2+bob,ab.cellWidth,ab.cellHeight);}else this.badge(c,item.x,item.y+bob,item.kind);
+      if(halos){const hg=this.glow(style.color);if(hg){c.globalAlpha=.5;c.drawImage(hg as CanvasImageSource,item.x-32,item.y-32+bob,64,64);c.globalAlpha=1;}}
+      if(this.badges){const ab=OCEAN.powerBadge;c.drawImage(this.badges as CanvasImageSource,this.badgeKinds.indexOf(item.kind)*ab.cellWidth*ab.pixelRatio,0,ab.cellWidth*ab.pixelRatio,ab.cellHeight*ab.pixelRatio,item.x-ab.cellWidth/2,item.y-ab.orbY+bob,ab.cellWidth,ab.cellHeight);}else this.badge(c,item.x,item.y+bob,item.kind);
     }
 
     // Live combo meter in the clear band under the bricks.

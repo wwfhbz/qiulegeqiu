@@ -43,7 +43,7 @@ it('火焰：一次碰撞烧掉周围8格；穿透：穿过砖块不反弹',()=>
  const g2=endless();g2.start();const q=g2.physics,f2=q.endless!;q.pierceRemaining=5;Object.assign(q.balls[0],{x,y,vx:0,vy:-440,outsideArena:false});
  for(let n=0;n<30;n++)q.update(C.step);expect(q.balls[0].vy).toBeLessThan(0);expect(f2.total-f2.remaining).toBeGreaterThan(3);
 });
-it('随机掉落按无尽道具表从同一种子复现，起始每8块一个',()=>{
+it('随机掉落按无尽道具表从同一种子复现，起始每16块一个（1.1版减半）',()=>{
  const run=()=>{const g=endless(5);g.start();const f=g.physics.endless!;let n=0;for(let i=0;i<f.alive.length&&n<40;i++)if(f.alive[i]){f.hit(i);n++;}return g.physics.powers.items.filter(d=>d.alive).map(d=>d.kind);};
- const a=run();expect(a).toEqual(run());expect(a).toHaveLength(5);for(const k of a)expect(['plus3','wide','halve','pierce','fire','lightning','life']).toContain(k);
+ const a=run();expect(a).toEqual(run());expect(a).toHaveLength(2);for(const k of a)expect(['plus3','wide','halve','pierce','fire','lightning','life']).toContain(k);
 });
