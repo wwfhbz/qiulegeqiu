@@ -1,5 +1,7 @@
 import {C} from './GameConfig';
-export type PowerKind='halve'|'triple'|'wide'|'life'|'bomb';
+/** Classic kinds plus endless-only +3 balls, pierce, fire and lightning. */
+export type PowerKind='halve'|'triple'|'wide'|'life'|'bomb'|'plus3'|'pierce'|'fire'|'lightning';
+export const POWER_KINDS=['halve','triple','wide','life','bomb','plus3','pierce','fire','lightning'] as const satisfies readonly PowerKind[];
 export const POWER_WEIGHTS={
   first:[{kind:'triple',weight:50},{kind:'wide',weight:50}],
   /** Frozen for 1.6.0 and earlier: +1 life and bomb are each 5% of random drops. */
@@ -12,8 +14,8 @@ export function weightedPower(level:number|PowerProfile,random:()=>number=Math.r
 export {seededRandom} from './Random';
 export function newSeed(){if(typeof crypto!=='undefined'&&crypto.getRandomValues)return crypto.getRandomValues(new Uint32Array(1))[0];return Math.floor(Math.random()*4294967296);}
 
-export const POWER_LABELS:Record<PowerKind,string>={halve:'÷2',triple:'×3',wide:'加宽',life:'生命＋1',bomb:'爆炸炸弹'};
-export const POWER_COLORS:Record<PowerKind,string>={halve:'#ff7880',triple:'#ffc28b',wide:'#91e9d4',life:'#f4a1bc',bomb:'#ffb365'};
+export const POWER_LABELS:Record<PowerKind,string>={halve:'÷2',triple:'×3',wide:'加宽',life:'生命＋1',bomb:'爆炸炸弹',plus3:'+3球',pierce:'穿透球',fire:'火焰球',lightning:'闪电链'};
+export const POWER_COLORS:Record<PowerKind,string>={halve:'#ff7880',triple:'#ffc28b',wide:'#91e9d4',life:'#f4a1bc',bomb:'#ffb365',plus3:'#ffc28b',pierce:'#7fe8ff',fire:'#ff8a4c',lightning:'#ffe45c'};
 
 /** Version 1 is retained only for replaying pre-threshold clients. */
 export type TripleRuleVersion=1|2;

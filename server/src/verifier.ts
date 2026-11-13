@@ -1,6 +1,7 @@
 import {allocateBrickPowers,brickPowerCounts,brickPowerKind,type BrickPowerVersion} from '../../src/BrickPowerRules.js';
 import {LEGACY_LEVELS} from '../../src/LegacyLevels.js';
-import {RULES_VERSION,V16_RULES_VERSION,V15_RULES_VERSION,V13_RULES_VERSION,PREVIOUS_RULES_VERSION,LEGACY_RULES_VERSION,usesBrickPowers} from '../../shared/Challenge.js';
+import {verifyEndlessTrace} from './endlessVerifier.js';
+import {ENDLESS_RULES_VERSION,RULES_VERSION,V16_RULES_VERSION,V15_RULES_VERSION,V13_RULES_VERSION,PREVIOUS_RULES_VERSION,LEGACY_RULES_VERSION,usesBrickPowers} from '../../shared/Challenge.js';
 import { Blocks } from '../../src/Blocks.js';
 import { ScoreSystem } from '../../src/ScoreSystem.js';
 import { ARCADE } from '../../src/ArcadeRules.js';
@@ -12,6 +13,7 @@ import type { ChallengeEvent, ChallengeSummary } from '../../shared/Challenge.js
 import { ApiError } from './moderation.js';
 /** Event/rule replay, not authoritative physical replay. Client seed is a declared run parameter, not a secret. */
 export function verifyTrace(events: ChallengeEvent[], wallMs: number,seed=1,rulesVersion:string=LEGACY_RULES_VERSION): { summary: ChallengeSummary; suspicious: string[] } {
+  if(rulesVersion===ENDLESS_RULES_VERSION)return verifyEndlessTrace(events,wallMs,seed);
   const levels=rulesVersion===RULES_VERSION?LEVELS:rulesVersion===V16_RULES_VERSION?V16_LEVELS:rulesVersion===V15_RULES_VERSION?V15_LEVELS:rulesVersion===V13_RULES_VERSION?V13_LEVELS:rulesVersion===PREVIOUS_RULES_VERSION?PREVIOUS_LEVELS:rulesVersion===LEGACY_RULES_VERSION?LEGACY_LEVELS:undefined;if(!levels)throw new ApiError(422,'不支持的规则版本');
   const blocks=new Blocks(),score=new ScoreSystem(blocks.alive.length),obstacles=new Obstacles(),random=seededRandom(seed);
   blocks.reset(levels[0].obstacles??[],levels[0]);obstacles.load(levels[0].obstacles??[]);

@@ -6,7 +6,8 @@ export function numberText(value:number|undefined){return value!==undefined&&Num
 /** Keep milliseconds visible when otherwise tied scores differ only by duration. */
 export function timeText(ms:number|undefined){if(ms===undefined||!Number.isFinite(ms)||ms<0)return '—';const value=Math.trunc(ms);return `${Math.floor(value/60000)}:${String(Math.floor(value/1000)%60).padStart(2,'0')}.${String(value%1000).padStart(3,'0')}`;}
 
-export function rankingCard(row:RankingScore){return {rank:row.rank,rankLabel:`第${numberText(row.rank)}名`,name:row.display_name,honor:row.rank>=1&&row.rank<=5,champion:row.rank===1,score:numberText(row.score),level:`第${numberText(row.reached_level)}关`,bricks:numberText(row.bricks_destroyed),time:timeText(row.duration_ms)};}
+/** `endless`: the reached level is an endless stage, shown as 第N阶段. */
+export function rankingCard(row:RankingScore,endless=false){return {rank:row.rank,rankLabel:`第${numberText(row.rank)}名`,name:row.display_name,honor:row.rank>=1&&row.rank<=5,champion:row.rank===1,score:numberText(row.score),level:endless?`第${numberText(row.reached_level)}阶段`:`第${numberText(row.reached_level)}关`,bricks:numberText(row.bricks_destroyed),time:timeText(row.duration_ms)};}
 export function personalRanking(best:RankingScore|null|undefined,available=true,signedOut=false){
  if(best)return {title:`我的排名：${numberText(best.rank)}`,card:rankingCard(best),message:''};
  return {title:!available?'我的排名：暂不可用':signedOut?'我的排名：未登录':'我的排名：未上榜',card:null,message:!available?'个人记录读取失败，请稍后刷新':signedOut?'完成微信登录后查看个人记录':'完成挑战并提交有效成绩后上榜'};

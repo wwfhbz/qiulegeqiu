@@ -1,5 +1,5 @@
 import type { Db } from './db.js';
-import {LEGACY_RULES_VERSION,PREVIOUS_RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,SUPPORTED_RULES_VERSIONS,GLOBAL_BOARD_RULES_VERSIONS} from '../../shared/Challenge.js';
+import {LEGACY_RULES_VERSION,PREVIOUS_RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,SUPPORTED_RULES_VERSIONS,GLOBAL_BOARD_RULES_VERSIONS,ENDLESS_RULES_VERSION} from '../../shared/Challenge.js';
 const fields='s.id,s.score,s.reached_level,s.bricks_destroyed,s.duration_ms,s.completed_all_levels,s.achieved_at,p.id AS player_id,p.nickname,r.prefix AS region_label,r.code AS region_code';
 const ordering='s.score DESC,s.reached_level DESC,s.duration_ms ASC,s.achieved_at ASC,s.id ASC';
 function board(rules:string){
@@ -38,6 +38,11 @@ function globalRow(row:Record<string,unknown>){const {choice,...value}=row;retur
 const globalRanking=ranking(GLOBAL_BOARD_RULES_VERSIONS);
 export function globalLeaderboard(db:Db,offset:number,limit:number){return db.prepare(globalRanking+'SELECT * FROM ranked ORDER BY rank LIMIT ? OFFSET ?').all(...GLOBAL_BOARD_RULES_VERSIONS,limit,offset).map(globalRow);}
 export function globalPersonalBest(db:Db,playerId:string){const row=db.prepare(globalRanking+'SELECT * FROM ranked WHERE player_id=?').get(...GLOBAL_BOARD_RULES_VERSIONS,playerId);return row?globalRow(row):null;}
+
+/** Endless board: its own season only, never mixed with campaign scores. Ordered by score, then stage, then time. */
+const endlessRanking=ranking([ENDLESS_RULES_VERSION]);
+export function endlessLeaderboard(db:Db,offset:number,limit:number){return db.prepare(endlessRanking+'SELECT * FROM ranked ORDER BY rank LIMIT ? OFFSET ?').all(ENDLESS_RULES_VERSION,limit,offset).map(globalRow);}
+export function endlessPersonalBest(db:Db,playerId:string){const row=db.prepare(endlessRanking+'SELECT * FROM ranked WHERE player_id=?').get(ENDLESS_RULES_VERSION,playerId);return row?globalRow(row):null;}
 
 /** Each old rule keeps its own personal record and rank; never compare or convert old scores. */
 export function historicalBests(db:Db,playerId:string){

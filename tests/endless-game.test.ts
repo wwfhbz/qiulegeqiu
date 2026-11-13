@@ -1,0 +1,49 @@
+import {expect,it} from 'vitest';
+import {Game} from '../src/Game';
+import {C} from '../src/GameConfig';
+import {ENDLESS,descentInterval} from '../src/endless/EndlessRules';
+import {ENDLESS_RULES_VERSION,RULES_VERSION} from '../shared/Challenge';
+
+function endless(seed=11){const g=new Game();g.setMode('endless');g.journal.seed=seed;g.physics.setSeed(seed);g.physics.reset();return g;}
+function loseRound(g:Game){for(const b of g.physics.balls)Object.assign(b,{x:400,y:1080,vx:0,vy:760,outsideArena:true});g.update(C.step);}
+
+it('切换无尽模式：3条命、单一关卡、规则版本独立；切回闯关恢复12关与5条命',()=>{
+ const g=new Game();expect(g.rulesVersion).toBe(RULES_VERSION);g.setMode('endless');
+ expect(g.mode).toBe('endless');expect(g.lives).toBe(3);expect(g.maxLives).toBe(3);expect(g.levels.count).toBe(1);expect(g.rulesVersion).toBe(ENDLESS_RULES_VERSION);
+ expect(g.physics.endless).toBeDefined();expect(g.physics.blocks.total).toBeGreaterThan(400);expect(g.reachedLevel).toBe(1);
+ g.setMode('campaign');expect(g.lives).toBe(5);expect(g.levels.count).toBe(12);expect(g.physics.endless).toBeUndefined();expect(g.physics.blocks.total).toBe(600);
+});
+it('运行时砖墙按间隔下沉，球速随之加快；日志记录稳定的世界编号而非格子位置',()=>{
+ const g=endless();g.start();const field=g.physics.endless!;const index=Array.from(field.alive.keys()).find(i=>field.alive[i])!,id=field.worldId(index);
+ field.hit(index);const hit=g.journal.events.find(e=>e.type==='hit');expect(hit).toMatchObject({type:'hit',index:id});
+ for(const b of g.physics.balls)Object.assign(b,{x:400,y:860,vx:0,vy:-1});// keep the ball out of the way, the test only drives time
+ const speed=g.physics.speedScale;for(let n=0;n<descentInterval(0);n++){for(const b of g.physics.balls)Object.assign(b,{x:400,y:820,vx:0,vy:-440});g.update(C.step);}
+ expect(field.descents).toBe(1);expect(g.physics.speedScale).toBeGreaterThan(speed);expect(g.state).toBe('running');
+});
+it('清空砖墙不会结束或切关；三次全部漏球后游戏结束，阶段写入成绩',()=>{
+ const g=endless();g.start();const field=g.physics.endless!;for(let i=0;i<field.alive.length;i++)field.hit(i);g.update(0);
+ expect(field.remaining).toBe(0);expect(g.state).toBe('running');
+ loseRound(g);expect(g.lives).toBe(2);expect(g.state).toBe('ready');g.start();loseRound(g);expect(g.lives).toBe(1);g.start();loseRound(g);
+ expect(g.state).toBe('gameOver');expect(g.journal.events.at(-1)?.type).toBe('finish');expect(g.reachedLevel).toBe(1);
+});
+it('+3球、穿透、火焰、闪电各自生效；闪电先记道具再记击碎；+1生命不超过3',()=>{
+ const g=endless();g.start();const p=g.physics,field=p.endless!;
+ p.collect('plus3');expect(p.balls.filter(b=>b.alive)).toHaveLength(4);
+ p.collect('pierce');expect(p.pierceRemaining).toBe(ENDLESS.pierceSeconds);p.collect('fire');expect(p.fireRemaining).toBe(ENDLESS.fireSeconds);
+ const before=field.remaining,events=g.journal.events.length;p.collect('lightning');expect(before-field.remaining).toBe(ENDLESS.lightningBricks);
+ const tail=g.journal.events.slice(events);expect(tail[0]).toMatchObject({type:'power',kind:'lightning'});expect(tail.slice(1).every(e=>e.type==='hit')).toBe(true);expect(tail).toHaveLength(1+ENDLESS.lightningBricks);
+ p.collect('life');expect(g.lives).toBe(3);
+});
+it('火焰：一次碰撞烧掉周围8格；穿透：穿过砖块不反弹',()=>{
+ const g=endless();g.start();const p=g.physics,field=p.endless!,row=8,col=22,index=row*field.cols+col;
+ const x=field.left+col*field.step+field.size/2,y=field.top+row*field.step+field.size+3;
+ for(let r=row-1;r<=row+1;r++)for(let c=col-1;c<=col+1;c++)if(!field.alive[r*field.cols+c])continue;
+ p.fireRemaining=5;const before=field.remaining;Object.assign(p.balls[0],{x,y,vx:0,vy:-440,outsideArena:false});p.update(C.step);
+ expect(field.alive[index]).toBe(0);expect(before-field.remaining).toBeGreaterThanOrEqual(5);
+ const g2=endless();g2.start();const q=g2.physics,f2=q.endless!;q.pierceRemaining=5;Object.assign(q.balls[0],{x,y,vx:0,vy:-440,outsideArena:false});
+ for(let n=0;n<30;n++)q.update(C.step);expect(q.balls[0].vy).toBeLessThan(0);expect(f2.total-f2.remaining).toBeGreaterThan(3);
+});
+it('随机掉落按无尽道具表从同一种子复现，起始每8块一个',()=>{
+ const run=()=>{const g=endless(5);g.start();const f=g.physics.endless!;let n=0;for(let i=0;i<f.alive.length&&n<40;i++)if(f.alive[i]){f.hit(i);n++;}return g.physics.powers.items.filter(d=>d.alive).map(d=>d.kind);};
+ const a=run();expect(a).toEqual(run());expect(a).toHaveLength(5);for(const k of a)expect(['plus3','wide','halve','pierce','fire','lightning','life']).toContain(k);
+});

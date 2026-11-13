@@ -1,4 +1,4 @@
-export type ChallengeEvent = {type:'launch';tick:number;level:number;tripleRuleVersion?:2;brickPowerVersion?:2} | { type: 'ballLost' | 'lost' | 'clear' | 'next' | 'finish'; tick: number; level: number } | { type: 'hit'; tick: number; level: number; index: number } | { type: 'power'; tick: number; level: number; kind: 'halve'|'triple'|'wide'|'life'|'bomb'; dropId?:number } | { type:'bomb'; tick:number; level:number; target:string|null };
+export type ChallengeEvent = {type:'launch';tick:number;level:number;tripleRuleVersion?:2;brickPowerVersion?:2} | { type: 'ballLost' | 'lost' | 'clear' | 'next' | 'finish'; tick: number; level: number } | { type: 'hit'; tick: number; level: number; index: number } | { type: 'power'; tick: number; level: number; kind: 'halve'|'triple'|'wide'|'life'|'bomb'|'plus3'|'pierce'|'fire'|'lightning'; dropId?:number } | { type:'bomb'; tick:number; level:number; target:string|null };
 export interface ChallengeSummary { score: number; reachedLevel: number; bricksDestroyed: number; durationMs: number; completedAllLevels: boolean }
 export const LEGACY_RULES_VERSION = '0.8.0-arcade-5l-10lv-v1';
 export const PREVIOUS_RULES_VERSION = '1.2.0-arcade-5l-12lv-v1';
@@ -10,7 +10,10 @@ export const V15_RULES_VERSION = '1.5.0-arcade-5l-12lv-short-v3';
 export const V16_RULES_VERSION = '1.6.0-arcade-5l-12lv-full-v4';
 /** V1.7 season: same layouts; random drops thin out per level (1/14 → 1/50), +1 life and bomb 0.3% each. Only this season ranks globally. */
 export const RULES_VERSION = '1.7.0-arcade-5l-12lv-scarce-v5';
-export const SUPPORTED_RULES_VERSIONS=[LEGACY_RULES_VERSION,PREVIOUS_RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,RULES_VERSION] as const;
+/** Endless mode ("压迫下沉"): its own ruleset and its own board; never mixed into the campaign board. */
+export const ENDLESS_RULES_VERSION = 'endless-1.0.0-3l-sink-v1';
+export const ENDLESS_BOARD='endless';
+export const SUPPORTED_RULES_VERSIONS=[LEGACY_RULES_VERSION,PREVIOUS_RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,RULES_VERSION,ENDLESS_RULES_VERSION] as const;
 /**
  * Seasons whose verified scores share the global board: every twelve-level ruleset. A rules update must
  * never empty the board, so each player's best across these seasons ranks. Ten-level scores stay history only.

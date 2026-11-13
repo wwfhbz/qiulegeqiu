@@ -16,8 +16,8 @@ export class ChallengeSync {
   constructor(private api:ApiTransport,private game:Game,private clock:()=>number=()=>performance.now(),private clientId:()=>string=()=>crypto.randomUUID()){}
   observe(){const journal=this.game.journal;if(!journal.events.length)return;
     if(!this.run||this.run.generation!==journal.generation){
-      const run:Run={generation:journal.generation,id:Promise.resolve(''),sequence:0,acknowledged:0,key:this.clientId()};
-      run.id=this.request<Parameters<typeof assertChallengeSupport>[0]&Parameters<typeof assertChallengeProtocol>[0]&Parameters<typeof assertTripleRuleSupport>[0]>('/health').then(health=>{assertChallengeSupport(health);assertChallengeProtocol(health);assertTripleRuleSupport(health);assertBrickPowerSupport(health);return this.request<{id:string;rulesVersion:string;challengeProtocolVersion?:number;challengeFeatures?:unknown}>('/challenges',{rulesVersion:RULES_VERSION,unranked:journal.unranked,seed:journal.seed});}).then(r=>{if(r.rulesVersion!==RULES_VERSION||typeof r.id!=='string'||!r.id)throw Error('挑战接口返回的规则版本或标识无效，本次不能登记成绩');assertChallengeProtocol(r);assertTripleRuleSupport(r);assertBrickPowerSupport(r);return r.id;}).catch(error=>{run.error=String(error.message);run.fatal=true;return '';});this.run=run;
+      const rulesVersion=this.game.rulesVersion,run:Run={generation:journal.generation,id:Promise.resolve(''),sequence:0,acknowledged:0,key:this.clientId()};
+      run.id=this.request<Parameters<typeof assertChallengeSupport>[0]&Parameters<typeof assertChallengeProtocol>[0]&Parameters<typeof assertTripleRuleSupport>[0]>('/health').then(health=>{assertChallengeSupport(health);assertChallengeProtocol(health);assertTripleRuleSupport(health);assertBrickPowerSupport(health);if(rulesVersion!==RULES_VERSION&&!(health as {supportedRulesVersions?:string[]}).supportedRulesVersions?.includes(rulesVersion))throw Error('排行榜服务尚未支持无尽模式，本局仍可单机游玩');return this.request<{id:string;rulesVersion:string;challengeProtocolVersion?:number;challengeFeatures?:unknown}>('/challenges',{rulesVersion,unranked:journal.unranked,seed:journal.seed});}).then(r=>{if(r.rulesVersion!==rulesVersion||typeof r.id!=='string'||!r.id)throw Error('挑战接口返回的规则版本或标识无效，本次不能登记成绩');assertChallengeProtocol(r);assertTripleRuleSupport(r);assertBrickPowerSupport(r);return r.id;}).catch(error=>{run.error=String(error.message);run.fatal=true;return '';});this.run=run;
     }
     if(this.run.fatal||this.run.blocked||this.clock()<(this.run.retryAt??0))return;
     if(this.clock()-this.lastPump>1500||journal.events.length-this.run.acknowledged>=128){this.lastPump=this.clock();void this.flush().catch(()=>{});}
@@ -44,6 +44,6 @@ export class ChallengeSync {
     if(this.game.state!=='gameOver'&&this.game.state!=='victory')throw new Error('本次挑战尚未结束');
     if(this.game.journal.truncated)throw new Error('记录数量超限，本次仅保留本机成绩');
     await this.flush(true);if(this.run!==run||run.generation!==this.game.journal.generation)throw new Error('挑战已重新开始');const id=await run.id;
-    return this.request<{verificationStatus:string}>(`/challenges/${id}/submit`,{idempotencyKey:run.key,summary:this.game.journal.summary(this.game.score.total,this.game.levels.current.number,this.game.state==='victory')});
+    return this.request<{verificationStatus:string}>(`/challenges/${id}/submit`,{idempotencyKey:run.key,summary:this.game.journal.summary(this.game.score.total,this.game.reachedLevel,this.game.state==='victory')});
   }
 }

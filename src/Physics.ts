@@ -10,6 +10,8 @@ import { ARENA_WALL, inExitSector,wallForLevel } from './ArenaGeometry';
 import { FRAME, isBallInDeathZone } from './WorldGeometry';
 import { Effects } from './Effects';
 import { PowerUps, type PowerKind } from './PowerUps';
+import { EndlessField } from './endless/EndlessField';
+import { ENDLESS,endlessPower,dropEvery,endlessSpeed } from './endless/EndlessRules';
 export interface Ball { x: number; y: number; vx: number; vy: number; radius: number; alive: boolean; previousX?: number; previousY?: number; outsideArena?: boolean }
 export function reflect(b: Ball, nx: number, ny: number) {
   const dot = b.vx * nx + b.vy * ny;
@@ -101,7 +103,14 @@ export function blockCollision(b: Ball, blocks: Blocks) {
   return false;
 }
 export class Physics {
-  blocks = new Blocks(); balls: Ball[] = [];
+  blocks:Blocks = new Blocks(); balls: Ball[] = [];
+  /** Endless mode swaps in a descending field; everything else reads it through the Blocks interface. */
+  get endless(){return this.blocks instanceof EndlessField?this.blocks:undefined;}
+  useField(field:Blocks){this.blocks=field;field.onHit=this.destroyed;}
+  // Endless-only timed powers and drop schedule (own seeded stream, mirrored by the server verifier).
+  pierceRemaining=0;fireRemaining=0;
+  private endlessDrops=seededRandom(1);private nextDropAt:number=ENDLESS.drops.start;
+
   paddleX: number = C.arena.x; targetX: number = C.arena.x;
   accumulator = 0; ticks = 0; paused = false;
   wideRemaining = 0;
@@ -135,6 +144,12 @@ export class Physics {
     if (b.remaining === 0) this.effects.emit('clear', x, y);
     this.onBlockDestroyed?.(index);
     this.onSound?.(this.effects.combo > 1 ? 'combo' : 'break', this.effects.combo);
+    const field=this.endless;
+    if(field){
+      // Endless: one random drop each time the destroyed count reaches the next threshold.
+      if(field.destroyedTotal>=this.nextDropAt){this.nextDropAt+=dropEvery(field.destroyedTotal);this.powers.spawn(x,y,endlessPower(this.endlessDrops));}
+      return;
+    }
     const interval = this.powerDropEvery;
     // Preserve the original random stream for unchanged later levels.
     const legacyKind=b.removed%interval===0?weightedPower(powerProfile(this.level),this.random):undefined;
@@ -148,11 +163,16 @@ export class Physics {
     let bombTarget:string|null=null;
     if (kind === 'wide') { this.wideRemaining = C.power.duration; this.clampPaddle(); }
     else if(kind==='triple')this.triple();
+    else if(kind==='plus3')this.addBalls(ENDLESS.plusBalls);
+    else if(kind==='pierce')this.pierceRemaining=ENDLESS.pierceSeconds;
+    else if(kind==='fire')this.fireRemaining=ENDLESS.fireSeconds;
+    // Lightning strikes after the pickup is journaled, so its brick hits follow the power event.
     else if(kind==='halve')this.halve();
     else if(kind==='bomb'){const target=this.obstacles.destroyNearest(C.arena.x,C.arena.y);this.effects.explode(target?.x??C.arena.x,target?.y??C.arena.y);bombTarget=target?.config.id??null;}
     this.effects.power(kind);this.effects.emit('power',this.paddleX,C.paddle.y,0,kind);
     this.onPowerCollected?.(kind,dropId);
     if(kind==='bomb')this.onBomb?.(bombTarget);
+    if(kind==='lightning')this.lightning();
     this.onSound?.(kind==='bomb'?'bomb':kind==='halve'?'halve':kind==='life'?'life':'power');
   }
   private clampPaddle() { this.setTarget(this.targetX); const target = this.targetX; this.setTarget(this.paddleX); this.paddleX = this.targetX; this.targetX = target; }
@@ -167,6 +187,45 @@ export class Physics {
     this.recycleDead(); // Administrative removal deliberately emits no death event.
   }
   tripleRuleVersion:TripleRuleVersion=TRIPLE_RULE_VERSION;
+  /** +3: three extra balls fanned out from the first live ball (capped at the 100-ball limit). */
+  addBalls(count:number){
+    this.recycleDead();const source=this.balls[0];if(!source)return;
+    const angles=[-.32,.32,.12];
+    for(let i=0;i<count&&this.balls.length<C.maxBalls;i++)this.balls.push(this.child(source,angles[i%angles.length],i%2?1:-1));
+  }
+  /** Lightning: instantly break the bricks nearest the first live ball (or arena centre). */
+  lightning(){
+    const g=this.blocks,ball=this.balls.find(b=>b.alive),fx=ball?.x??C.arena.x,fy=ball?.y??C.arena.y,picked:{index:number;d:number}[]=[];
+    for(let i=0;i<g.cols*g.rows;i++)if(g.alive[i]){const x=g.left+i%g.cols*g.step+g.size/2,y=g.top+Math.floor(i/g.cols)*g.step+g.size/2;picked.push({index:i,d:(x-fx)**2+(y-fy)**2});}
+    picked.sort((a,b)=>a.d-b.d||a.index-b.index);const targets=picked.slice(0,ENDLESS.lightningBricks).map(p=>p.index);
+    for(const index of targets){this.effects.emit('zap',g.left+index%g.cols*g.step+g.size/2,g.top+Math.floor(index/g.cols)*g.step+g.size/2,0,undefined,fx,fy);g.hit(index);}
+  }
+  /** Fire: a brick hit by a burning ball also burns its eight neighbours (no chain reaction). */
+  private burn(index:number){
+    const g=this.blocks,row=Math.floor(index/g.cols),col=index%g.cols;
+    for(let r=row-1;r<=row+1;r++)for(let c=col-1;c<=col+1;c++)if(r>=0&&c>=0&&r<g.rows&&c<g.cols&&(r!==row||c!==col))g.hit(r*g.cols+c);
+  }
+  /** Pierce: break every brick the ball overlaps without bouncing. */
+  private pierce(b:Ball){
+    const g=this.blocks,s=g.step;
+    for(let r=Math.max(0,Math.floor((b.y-b.radius-g.top)/s));r<=Math.min(g.rows-1,Math.floor((b.y+b.radius-g.top)/s));r++)
+      for(let c=Math.max(0,Math.floor((b.x-b.radius-g.left)/s));c<=Math.min(g.cols-1,Math.floor((b.x+b.radius-g.left)/s));c++){
+        const i=r*g.cols+c;if(!g.alive[i])continue;const x=g.left+c*s,y=g.top+r*s;
+        if(Math.hypot(b.x-Math.max(x,Math.min(x+g.size,b.x)),b.y-Math.max(y,Math.min(y+g.size,b.y)))<b.radius){g.hit(i);if(this.fireRemaining>0)this.burn(i);}
+      }
+  }
+  private child(source:Ball,angle:number,sign:number){
+    const b = this.newBall();
+    b.vx = source.vx * Math.cos(angle) - source.vy * Math.sin(angle);
+    b.vy = source.vx * Math.sin(angle) + source.vy * Math.cos(angle);
+    b.x = source.x + sign * (source.radius * 2 + 1); b.y = source.y;
+    const dx = b.x - C.arena.x, dy = b.y - C.arena.y, d = Math.hypot(dx, dy), limit = C.arena.radius - b.radius - .05;
+    if (!source.outsideArena && d > limit) { b.x = C.arena.x + dx / d * limit; b.y = C.arena.y + dy / d * limit; }
+    if (this.overlapsBlocks(b)) { b.x = source.x; b.y = source.y + sign * .1; }
+    if(this.obstacles.overlaps(b)){b.x=source.x;b.y=source.y;}
+    b.outsideArena = source.outsideArena; boundary(b,this.wall); frameCollision(b); b.previousX = b.x; b.previousY = b.y;
+    return b;
+  }
   triple() {
     this.recycleDead(); const count = this.balls.length,target=tripleTarget(count,this.tripleRuleVersion);
     for (let i = 0; i < count && this.balls.length < target; i++) {
@@ -200,6 +259,13 @@ export class Physics {
   }
   constructor() { this.blocks.onHit = this.destroyed; this.reset(); }
   reset() {
+    const field=this.endless;
+    if(field){
+      this.obstacles.load([]);field.start(this.seed);this.powers.setCapacity(C.power.maxDrops);
+      // Separate stream from the field's row patterns; the verifier derives both from the run seed.
+      this.endlessDrops=seededRandom((this.seed^0x5bd1e995)>>>0);this.nextDropAt=dropEvery(0);this.speedScale=endlessSpeed(0);
+      this.resetRound();return;
+    }
     this.obstacles.load(this.level.obstacles??[]);this.blocks.reset(this.level.obstacles??[],this.level);this.allocatePowers();
     this.powers.setCapacity(this.brickPowerVersion===2&&this.level.brickPowers?brickPowerCounts(this.blocks.total,this.level.brickPowers).drops:C.power.maxDrops);this.resetRound();
   }
@@ -209,7 +275,7 @@ export class Physics {
     for (const b of this.balls) b.alive = false;
     this.recycleDead();
     this.paddleX = this.targetX = C.arena.x;
-    this.wideRemaining = 0; this.effects.reset(); this.powers.reset();
+    this.wideRemaining = 0; this.pierceRemaining = 0; this.fireRemaining = 0; this.effects.reset(); this.powers.reset();
     if (spawn) this.balls.push(this.newBall());
     this.accumulator = 0; this.ticks = 0; this.paused = false;
   }
@@ -237,6 +303,10 @@ export class Physics {
     if (this.paused) return;
     this.onStep?.(dt);
     const obstacleStart=this.obstacles.time;
+    // Endless wall moves first in each tick, before any ball contact (the verifier uses the same order).
+    const field=this.endless;if(field&&field.tick()){this.speedScale=endlessSpeed(field.descents);this.effects.emit('descend',C.arena.x,field.top,field.descents);}
+    this.pierceRemaining=Math.max(0,this.pierceRemaining-dt);if(this.pierceRemaining<1e-9)this.pierceRemaining=0;
+    this.fireRemaining=Math.max(0,this.fireRemaining-dt);if(this.fireRemaining<1e-9)this.fireRemaining=0;
     this.wideRemaining = Math.max(0, this.wideRemaining - dt);
     if (this.wideRemaining < 1e-9) this.wideRemaining = 0;
     this.clampPaddle();
@@ -255,7 +325,8 @@ export class Physics {
         boundary(b,this.wall); frameCollision(b);
         if (paddleCollision(b, this.paddleX, this.paddleWidth)) { this.effects.emit('paddle', b.x, C.paddle.y); this.onSound?.('paddle'); }
         // Resolve a bounded number of simultaneous contacts before the next movement.
-        for (let contact = 0; contact < 3; contact++) if (!blockCollision(b, this.blocks)) break;
+        if(this.pierceRemaining>0)this.pierce(b);
+        else for (let contact = 0; contact < 3; contact++) {const before=this.blocks.destroyed.length;if (!blockCollision(b, this.blocks)) break;if(this.fireRemaining>0&&this.blocks.destroyed.length>before)this.burn(this.blocks.destroyed[before]);}
         for(let contact=0;contact<3;contact++)if(!this.obstacles.collide(b,obstacleStart+(i+1)*h))break;
         boundary(b,this.wall); frameCollision(b);
         // The only gameplay removal condition, evaluated after all contact corrections.

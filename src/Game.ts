@@ -7,13 +7,20 @@ import { ARCADE } from './ArcadeRules';
 import { LevelManager } from './LevelManager';
 import { ScoreSystem, type LevelScore } from './ScoreSystem';
 import type { GameState, ReadyReason } from './GameState';
+import { Blocks } from './Blocks';
+import { EndlessField } from './endless/EndlessField';
+import { ENDLESS, ENDLESS_LEVEL, endlessStage } from './endless/EndlessRules';
+import { RULES_VERSION, ENDLESS_RULES_VERSION } from '../shared/Challenge';
+export type GameMode = 'campaign' | 'endless';
 
 /** Coordinates the arcade session; physics and rendering remain independent. */
 export class Game {
   readonly physics = new Physics();
   readonly journal = new ChallengeJournal();
   readonly audio:AudioSystem;
-  readonly score = new ScoreSystem(this.physics.blocks.alive.length);
+  score = new ScoreSystem(this.physics.blocks.alive.length);
+  mode: GameMode = 'campaign';
+  private campaignLevels?: LevelManager;
   private remainingLives: number = ARCADE.initialLives;
   get lives() { return this.remainingLives; }
   state: GameState = 'ready';
@@ -23,16 +30,29 @@ export class Game {
   private roundActive = false;
 
   // The same coordinator runs headlessly or under either platform host.
-  constructor(private readonly host?:GameHost, private onChange: (game: Game) => void = () => {}, readonly levels = new LevelManager(), audio = new AudioSystem()) {
+  constructor(private readonly host?:GameHost, private onChange: (game: Game) => void = () => {}, public levels = new LevelManager(), audio = new AudioSystem()) {
     this.audio=audio;
     this.configureLevel();this.physics.setSeed(this.journal.seed);this.physics.reset();
     this.physics.onSound = this.audio.play;
     this.physics.onStep = dt => { if (this.state === 'running') { this.score.update(dt); this.journal.tick++; } };
-    this.physics.onBlockDestroyed = index => { if (this.state === 'running' && this.score.hit(index)>0) this.journal.record({type:'hit',level:this.levels.current.number,index}); };
+    // Endless bricks move, so the journal stores their stable world id instead of the grid slot.
+    this.physics.onBlockDestroyed = index => { const id=this.physics.endless?.worldId(index)??index; if (this.state === 'running' && this.score.hit(id)>0) this.journal.record({type:'hit',level:this.levels.current.number,index:id}); };
     this.physics.onBallLost = () => { if(this.state==='running')this.journal.record({type:'ballLost',level:this.levels.current.number}); };
-    this.physics.onPowerCollected = (kind,dropId) => { if(this.state==='running'&&this.roundActive&&this.physics.balls.some(ball=>ball.alive)){if(kind==='life')this.remainingLives=Math.min(ARCADE.maxLives,this.remainingLives+1);this.journal.record({type:'power',level:this.levels.current.number,kind,...(dropId===undefined?{}:{dropId})});} };
+    this.physics.onPowerCollected = (kind,dropId) => { if(this.state==='running'&&this.roundActive&&this.physics.balls.some(ball=>ball.alive)){if(kind==='life')this.remainingLives=Math.min(this.maxLives,this.remainingLives+1);this.journal.record({type:'power',level:this.levels.current.number,kind,...(dropId===undefined?{}:{dropId})});} };
     this.physics.onBomb = target => { if(this.state==='running'){if(target===null)this.score.addBombCompensation();this.journal.record({type:'bomb',level:this.levels.current.number,target});} };
     if(host)this.stopHost=host.mount(this);
+  }
+  get rulesVersion(){return this.mode==='endless'?ENDLESS_RULES_VERSION:RULES_VERSION;}
+  get maxLives():number{return this.mode==='endless'?ENDLESS.lives:ARCADE.maxLives;}
+  /** Level for campaign; stage (+1 per 10 descended rows) for endless. Stored as the score's reached level. */
+  get reachedLevel(){const field=this.physics.endless;return field?endlessStage(field.descents):this.levels.current.number;}
+  /** Switch between the twelve-level campaign and endless mode; always starts a fresh run. */
+  setMode(mode:GameMode){
+    if(mode===this.mode)return;
+    this.mode=mode;
+    if(mode==='endless'){this.campaignLevels=this.levels;this.levels=new LevelManager([ENDLESS_LEVEL]);this.physics.useField(new EndlessField());this.score=new ScoreSystem('unbounded');}
+    else{this.levels=this.campaignLevels??new LevelManager();this.physics.useField(new Blocks());this.score=new ScoreSystem(this.physics.blocks.alive.length);}
+    this.reset();
   }
   // Keep the old developer performance hook without importing a browser renderer.
   get renderer(){return this.host?.renderer;}
@@ -40,7 +60,7 @@ export class Game {
 
   start() {
     if (this.lives <= 0 || (this.state !== 'ready' && this.state !== 'paused')) return;
-    if (this.state === 'ready') { this.journal.record({type:'launch',level:this.levels.current.number,...(this.journal.events.length===0?{...(this.physics.tripleRuleVersion===2?{tripleRuleVersion:2 as const}:{}),...(this.physics.brickPowerVersion===2&&this.levels.current.brickPowers?{brickPowerVersion:2 as const}:{})}:{})}); this.roundActive = true; for (const b of this.physics.balls) this.physics.aimLaunch(b); }
+    if (this.state === 'ready') { this.journal.record({type:'launch',level:this.levels.current.number,...(this.journal.events.length===0&&this.mode==='campaign'?{...(this.physics.tripleRuleVersion===2?{tripleRuleVersion:2 as const}:{}),...(this.physics.brickPowerVersion===2&&this.levels.current.brickPowers?{brickPowerVersion:2 as const}:{})}:{})}); this.roundActive = true; for (const b of this.physics.balls) this.physics.aimLaunch(b); }
     this.audio.unlock(); this.physics.paused = false; this.physics.accumulator = 0;
     this.state = 'running'; this.onChange(this);
   }
@@ -51,7 +71,7 @@ export class Game {
   reset() {
     this.roundActive = false;
     this.journal.reset();this.physics.setSeed(this.journal.seed);
-    this.levels.reset(); this.remainingLives = ARCADE.initialLives; this.score.reset(); this.result = undefined;
+    this.levels.reset(); this.remainingLives = this.mode==='endless'?ENDLESS.lives:ARCADE.initialLives; this.score.reset(); this.result = undefined;
     this.configureLevel();
     this.physics.reset(); this.state = 'ready'; this.readyReason = 'initial'; this.onChange(this);
   }
@@ -76,7 +96,7 @@ export class Game {
     if (this.state === 'running') {
       this.physics.advance(dt);
       // Clear is checked first, including when the final ball leaves on the same tick.
-      if (this.physics.blocks.remaining === 0) {
+      if (this.physics.blocks.remaining === 0 && this.mode === 'campaign') {
         this.roundActive = false;
         this.result = this.score.complete(this.lives);
         this.journal.record({type:'clear',level:this.levels.current.number});
