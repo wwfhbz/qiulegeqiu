@@ -1,5 +1,7 @@
 # 球球出击：腾讯云静态部署
 
+> 日常更新：在服务器上以 ubuntu 用户运行 `bash /home/ubuntu/qiulegeqiu/deploy/update.sh`（拉取main、测试、打包校验、规则兼容检查、发布、线上验证；不重置数据库）。规则版本变化的处理见 [V1.5说明](docs/V1_5_SEASON.md)。
+
 目标：https://ball.gmgnclaw.com/；SSH：ubuntu@101.32.209.249；唯一允许发布的目录：/var/www/qiulegeqiu。
 
 本项目目前为 V0.2，涵盖所有 V0.1 上线要求。Vite 的 base 明确设为 `/`。生产仅需要 dist/index.html 和 dist/assets/ 中的 JS、CSS，不需要 Node.js 进程或开发服务器。
