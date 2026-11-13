@@ -208,10 +208,14 @@ export class Physics {
     for(let i=0;i<count&&this.balls.length<C.maxBalls;i++)this.balls.push(this.child(source,angles[i%angles.length],i%2?1:-1));
   }
   /** Lightning: instantly break the bricks nearest the first live ball (or arena centre). */
+  /**
+   * Lightning relieves the pressure: it strikes the bricks closest to the death line — the lowest rows
+   * first, and within a row those horizontally nearest the ball, so the bolts read naturally.
+   */
   lightning(){
-    const g=this.blocks,ball=this.balls.find(b=>b.alive),fx=ball?.x??C.arena.x,fy=ball?.y??C.arena.y,picked:{index:number;d:number}[]=[];
-    for(let i=0;i<g.cols*g.rows;i++)if(g.alive[i]){const x=g.left+i%g.cols*g.step+g.size/2,y=g.top+Math.floor(i/g.cols)*g.step+g.size/2;picked.push({index:i,d:(x-fx)**2+(y-fy)**2});}
-    picked.sort((a,b)=>a.d-b.d||a.index-b.index);const targets=picked.slice(0,ENDLESS.lightningBricks).map(p=>p.index);
+    const g=this.blocks,ball=this.balls.find(b=>b.alive),fx=ball?.x??C.arena.x,fy=ball?.y??C.arena.y,picked:{index:number;row:number;dx:number}[]=[];
+    for(let i=0;i<g.cols*g.rows;i++)if(g.alive[i]){const row=Math.floor(i/g.cols),x=g.left+i%g.cols*g.step+g.size/2;picked.push({index:i,row,dx:Math.abs(x-fx)});}
+    picked.sort((a,b)=>b.row-a.row||a.dx-b.dx||a.index-b.index);const targets=picked.slice(0,ENDLESS.lightningBricks).map(p=>p.index);
     for(const index of targets){this.effects.emit('zap',g.left+index%g.cols*g.step+g.size/2,g.top+Math.floor(index/g.cols)*g.step+g.size/2,0,undefined,fx,fy);g.hit(index);}
   }
   /** Fire: a brick hit by a burning ball also burns its eight neighbours (no chain reaction). */

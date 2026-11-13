@@ -96,3 +96,14 @@ it('吃道具加分：闯关与无尽每接住一个道具+100分（不乘连击
   const old=new Game();old.powerPointsEnabled=false;old.start();old.physics.collect('wide');expect(old.score.total).toBe(0);
  }
 });
+it('闪电链：击碎最靠近死亡线的12块砖（最低的行优先），不再按离球远近',()=>{
+ const g=endless(17);g.start();const p=g.physics,f=p.endless!;let guard=0;while(f.descents<6&&guard++<100000)f.tick();
+ // Ball high above the wall: the old rule would have struck the top rows.
+ Object.assign(p.balls[0],{x:C.arena.x,y:f.top+20,vx:0,vy:-440,outsideArena:false});
+ const before=new Set(Array.from(f.alive.keys()).filter(i=>f.alive[i]));p.collect('lightning');
+ const struck=[...before].filter(i=>!f.alive[i]),rows=struck.map(i=>Math.floor(i/f.cols));
+ expect(struck).toHaveLength(ENDLESS.lightningBricks);
+ const highestStruck=Math.min(...rows),lowestLeft=Math.max(...[...before].filter(i=>f.alive[i]).map(i=>Math.floor(i/f.cols)));
+ expect(lowestLeft).toBeLessThanOrEqual(highestStruck);
+ const lowestBefore=Math.max(...[...before].map(i=>Math.floor(i/f.cols)));expect(rows).toContain(lowestBefore);
+});
