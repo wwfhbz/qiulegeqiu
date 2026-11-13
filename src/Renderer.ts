@@ -171,7 +171,8 @@ export class Renderer {
         if(!style.good){this.shake(6,now);this.flash(OCEAN.colors.danger,.18,now,260);}else this.flash(style.color,.10,now,200);break;}
       case 'bomb':this.shake(12,now);this.ring(e.x,e.y,now,520,10,220,OCEAN.colors.warning,5);this.flash('#FFFFFF',.22,now,180);break;
       case 'combo':{const mult=ARCADE.multipliers.find(t=>e.value>=t.combo)?.value??1,color=e.value>=20?OCEAN.colors.heart:e.value>=10?OCEAN.colors.warning:OCEAN.colors.accent;
-        this.popup('combo',`${e.value} 连击`,mult>1?`得分 ×${mult}`:'',a.x,a.y+70,now,color,e.value>=20?48:40,1100);this.ring(a.x,a.y+80,now,500,20,140,color,3);if(e.value>=20)this.shake(4,now);break;}
+        this.popup('combo',`${e.value} 连击`,mult>1?`得分 ×${mult}`:'',a.x,a.y+70,now,color,e.value>=20?48:40,1100);this.ring(a.x,a.y+80,now,500,20,140,color,3);// Screen shake only on every 100th combo; smaller milestones get the popup alone.
+        if(e.value%100===0)this.shake(6,now);break;}
       case 'clear':this.flash('#FFFFFF',.35,now,420);this.shake(10,now);this.ring(e.x,e.y,now,700,10,420,OCEAN.colors.positive,6);this.ring(a.x,a.y,now,900,a.radius*.2,a.radius*1.2,OCEAN.colors.accent,4);this.popup('clear','清台！','',a.x,a.y-170,now,OCEAN.colors.positive,58,1300);break;
       case 'hit':break;
     }

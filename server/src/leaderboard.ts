@@ -1,5 +1,5 @@
 import type { Db } from './db.js';
-import {LEGACY_RULES_VERSION,PREVIOUS_RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,RULES_VERSION,SUPPORTED_RULES_VERSIONS} from '../../shared/Challenge.js';
+import {LEGACY_RULES_VERSION,PREVIOUS_RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,SUPPORTED_RULES_VERSIONS,GLOBAL_BOARD_RULES_VERSIONS} from '../../shared/Challenge.js';
 const fields='s.id,s.score,s.reached_level,s.bricks_destroyed,s.duration_ms,s.completed_all_levels,s.achieved_at,p.id AS player_id,p.nickname,r.prefix AS region_label,r.code AS region_code';
 const ordering='s.score DESC,s.reached_level DESC,s.duration_ms ASC,s.achieved_at ASC,s.id ASC';
 function board(rules:string){
@@ -22,22 +22,26 @@ export function refreshBest(db:Db,playerId:string,rules:string=LEGACY_RULES_VERS
  else db.prepare('DELETE FROM season_player_bests WHERE rules_version=? AND player_id=?').run(rules,playerId);
 }
 
-/** Unified fair ranking: requalify under the shared twelve-level rules; never convert legacy scores.
+/** Ranking over the given seasons: each player's single best verified score; scores are never converted.
  * Derive from verified records so stale per-season pointers cannot hide a valid personal best. */
-const globalRanking=`WITH candidates AS (
+const ranking=(seasons:readonly string[])=>`WITH candidates AS (
  SELECT ${fields},c.rules_version,
  ROW_NUMBER() OVER(PARTITION BY s.player_id ORDER BY ${ordering}) AS choice
  FROM scores s JOIN challenges c ON c.id=s.challenge_id JOIN players p ON p.id=s.player_id JOIN regions r ON r.code=p.region_code
- WHERE p.status='active' AND s.verification_status='verified' AND c.unranked=0 AND c.rules_version=?
+ WHERE p.status='active' AND s.verification_status='verified' AND c.unranked=0 AND c.rules_version IN (${seasons.map(()=>'?').join(',')})
 ), ranked AS (
  SELECT *,ROW_NUMBER() OVER(ORDER BY score DESC,reached_level DESC,duration_ms ASC,achieved_at ASC,id ASC) AS rank
  FROM candidates WHERE choice=1
 ) `;
 function globalRow(row:Record<string,unknown>){const {choice,...value}=row;return {...value,display_name:`${row.region_label}·${row.nickname}`};}
-export function globalLeaderboard(db:Db,offset:number,limit:number){return db.prepare(globalRanking+'SELECT * FROM ranked ORDER BY rank LIMIT ? OFFSET ?').all(RULES_VERSION,limit,offset).map(globalRow);}
-export function globalPersonalBest(db:Db,playerId:string){const row=db.prepare(globalRanking+'SELECT * FROM ranked WHERE player_id=?').get(RULES_VERSION,playerId);return row?globalRow(row):null;}
+/** The global board keeps every twelve-level season, so rule updates never wipe players' standings. */
+const globalRanking=ranking(GLOBAL_BOARD_RULES_VERSIONS);
+export function globalLeaderboard(db:Db,offset:number,limit:number){return db.prepare(globalRanking+'SELECT * FROM ranked ORDER BY rank LIMIT ? OFFSET ?').all(...GLOBAL_BOARD_RULES_VERSIONS,limit,offset).map(globalRow);}
+export function globalPersonalBest(db:Db,playerId:string){const row=db.prepare(globalRanking+'SELECT * FROM ranked WHERE player_id=?').get(...GLOBAL_BOARD_RULES_VERSIONS,playerId);return row?globalRow(row):null;}
 
 /** Each old rule keeps its own personal record and rank; never compare or convert old scores. */
 export function historicalBests(db:Db,playerId:string){
- return [V16_RULES_VERSION,V15_RULES_VERSION,V13_RULES_VERSION,PREVIOUS_RULES_VERSION,LEGACY_RULES_VERSION].flatMap(rules=>{const row=db.prepare(globalRanking+'SELECT * FROM ranked WHERE player_id=?').get(rules,playerId);return row?[globalRow(row)]:[];});
+ // One placeholder: each old season is ranked on its own here as a personal history line.
+ const single=ranking(['season']);
+ return [V16_RULES_VERSION,V15_RULES_VERSION,V13_RULES_VERSION,PREVIOUS_RULES_VERSION,LEGACY_RULES_VERSION].flatMap(rules=>{const row=db.prepare(single+'SELECT * FROM ranked WHERE player_id=?').get(rules,playerId);return row?[globalRow(row)]:[];});
 }

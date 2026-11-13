@@ -4,7 +4,7 @@ import {C} from '../../src/GameConfig';
 import {LevelManager} from '../../src/LevelManager';
 import {LEVELS,V13_LEVELS,V15_LEVELS,V16_LEVELS,LATER_DROP_EVERY,type LevelConfig} from '../../src/Levels';
 import {POWER_WEIGHTS,weightedPower,seededRandom} from '../../src/PowerRules';
-import {RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,SUPPORTED_RULES_VERSIONS} from '../../shared/Challenge';
+import {RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,SUPPORTED_RULES_VERSIONS,GLOBAL_BOARD_RULES_VERSIONS,LEGACY_RULES_VERSION} from '../../shared/Challenge';
 import {verifyTrace} from '../src/verifier';
 
 /** Clear the two tutorial levels, then the first later level, and lose all lives on level 4. */
@@ -41,4 +41,9 @@ it('V1.7道具：随机掉落间隔逐关增加，第4～12关生命与炸弹各
  // Empirical draw over a fixed stream stays inside the requested 0.1%–0.5% band.
  const random=seededRandom(2026),counts:Record<string,number>={};for(let i=0;i<200000;i++){const k=weightedPower('scarce',random);counts[k]=(counts[k]??0)+1;}
  for(const kind of ['life','bomb']){const rate=(counts[kind]??0)/200000;expect(rate).toBeGreaterThan(.001);expect(rate).toBeLessThan(.005);}
+});
+
+it('规则更新不清空全球榜：所有十二关赛季（含将来新增的）都参与全球排名，只排除旧十关',()=>{
+ expect([...GLOBAL_BOARD_RULES_VERSIONS]).toEqual(SUPPORTED_RULES_VERSIONS.filter(v=>v!==LEGACY_RULES_VERSION));
+ expect(GLOBAL_BOARD_RULES_VERSIONS).toContain(RULES_VERSION);
 });

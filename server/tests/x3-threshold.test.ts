@@ -42,7 +42,8 @@ it('新旧客户端真实规则日志均可提交同一API，伪分拒绝，安�
  const accepted=await post(payload);expect(accepted.statusCode,accepted.body).toBe(200);expect(accepted.json().verificationStatus).toBe('verified');expect((await post(payload)).json().id).toBe(accepted.json().id);
  }
  expect(s.db.prepare('SELECT COUNT(*) n FROM players').get()!.n).toBe(1);expect(s.db.prepare('SELECT COUNT(*) n FROM scores').get()!.n).toBe(2);
- expect((await s.app.inject({url:'/api/leaderboard?board=global'})).json().items).toHaveLength(0);
+ // One player: the global board keeps a single best row across twelve-level seasons, never empties on update.
+ expect((await s.app.inject({url:'/api/leaderboard?board=global'})).json().items).toHaveLength(1);
  expect((await s.app.inject({url:'/api/leaderboard?rulesVersion='+RULES_VERSION})).json().items).toHaveLength(1);
  expect((await s.app.inject({url:'/api/me?board=global',headers})).json().historicalBests[0].rules_version).toBe(RULES_VERSION);
  }finally{await s.app.close();}

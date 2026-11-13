@@ -3,6 +3,7 @@ type Note={f:number;to?:number;at:number;len:number;type:OscillatorType;gain:num
 /** Major pentatonic steps: consecutive combo hits climb a pleasant scale instead of repeating one tone. */
 const PENTATONIC=[0,2,4,7,9];
 function scale(step:number,base=392){const octave=Math.floor(step/5),degree=PENTATONIC[step%5];return base*2**(octave+degree/12);}
+const VOLUME=.32;
 /** Short synthesized cues; voices and event frequency stay bounded for hundred-ball play. */
 export class AudioSystem {
   constructor(private createContext:()=>AudioContext=()=>{throw Error('未提供音频适配器');}){}
@@ -13,13 +14,26 @@ export class AudioSystem {
   private master?: GainNode;
   private voices = 0;
   private last: Partial<Record<SoundKind, number>> = {};
+  private primed=false;
+  /**
+   * Call from user gestures. Mobile Safari only lets audio start on touchend/click (not pointerdown),
+   * and can later move a running context to 'interrupted' (calls, backgrounding), so any non-running
+   * state is resumed and repeated calls are cheap.
+   */
   unlock() {
     try {
-      if(!this.context){this.context=this.createContext();this.master=this.context.createGain();this.master.gain.value=this.muted?0:.14;this.master.connect(this.context.destination);}
-      if(this.context.state==='suspended')void Promise.resolve(this.context.resume()).catch(()=>{});
+      if(!this.context){
+        this.context=this.createContext();this.master=this.context.createGain();this.master.gain.value=this.muted?0:VOLUME;
+        // Phone speakers are small: run louder, and let a compressor keep stacked combo notes from clipping.
+        const limiter=typeof this.context.createDynamicsCompressor==='function'?this.context.createDynamicsCompressor():undefined;
+        if(limiter){limiter.threshold.value=-14;limiter.ratio.value=6;this.master.connect(limiter);limiter.connect(this.context.destination);}else this.master.connect(this.context.destination);
+      }
+      if(this.context.state!=='running')void Promise.resolve(this.context.resume()).catch(()=>{});
+      // Older iOS only fully unlocks once a buffer actually starts inside the gesture.
+      if(!this.primed&&typeof this.context.createBuffer==='function'){const source=this.context.createBufferSource();source.buffer=this.context.createBuffer(1,1,22050);source.connect(this.context.destination);source.start(0);this.primed=true;}
     } catch { /* Audio unavailable: gameplay remains usable. */ }
   }
-  toggle(){this.muted=!this.muted;if(this.master&&this.context){this.master.gain.cancelScheduledValues(this.context.currentTime);this.master.gain.value=this.muted?0:.14;}return this.muted;}
+  toggle(){this.muted=!this.muted;if(this.master&&this.context){this.master.gain.cancelScheduledValues(this.context.currentTime);this.master.gain.value=this.muted?0:VOLUME;}return this.muted;}
   /** The note sequence for each cue; exported shape kept internal so callers only name the event. */
   private notes(kind:SoundKind,combo:number):Note[]{
     const step=Math.min(Math.max(combo,1)-1,14);
