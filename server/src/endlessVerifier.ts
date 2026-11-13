@@ -65,7 +65,7 @@ export function verifyEndlessTrace(events:ChallengeEvent[],wallMs:number,seed:nu
         break;
       }
       case 'ballLost':if(phase!=='running'||balls<=0)throw new ApiError(422,'重复弹球死亡');balls--;break;
-      case 'lost':if(phase!=='running'||balls!==0)throw new ApiError(422,'回合扣命无效');lives--;phase=lives>0?'ready':'gameOver';drops.length=0;dropSequence=0;score.resetCombo();break;
+      case 'lost':if(phase!=='running'||balls!==0)throw new ApiError(422,'回合扣命无效');lives--;if(variant.pressureReset)field.pressure=0;phase=lives>0?'ready':'gameOver';drops.length=0;dropSequence=0;score.resetCombo();break;
       case 'finish':if(phase!=='gameOver')throw new ApiError(422,'挑战尚未结束');finished=true;break;
       default:throw new ApiError(422,'无尽模式不支持该事件');
     }

@@ -6,6 +6,8 @@ interface Run { generation:number; id:Promise<string>; sequence:number; acknowle
 export class ChallengeSync {
   private run?:Run; private lastPump=0;
   get canRetry(){return !!this.run&&!this.run.fatal;}
+  /** This run has a live server challenge (not failed): only then is the submit card worth popping up. */
+  get connected(){return !!this.run&&this.run.generation===this.game.journal.generation&&!this.run.fatal&&!this.game.journal.truncated;}
   onProgress?: (uploaded:number,total:number)=>void;
   /** A stalled transport must release the UI; retries reuse the same batch/key. */
   private async request<T>(path:string,body?:unknown):Promise<T>{

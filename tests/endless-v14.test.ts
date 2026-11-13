@@ -40,7 +40,7 @@ it('旧main黄金样本：V1.3的三组随机道具和10000tick砖墙逐字节�
  }
 });
 it('规则注册表同时保留V1.0–V1.4；未知配置不能冒充当前规则',()=>{
- expect(Object.keys(ENDLESS_VARIANTS)).toHaveLength(6);expect(endlessVersion(ENDLESS_V4)).toBe(ENDLESS_V4_RULES_VERSION);expect(endlessVersion(ENDLESS_V5)).toBe(ENDLESS_RULES_VERSION);expect(()=>endlessVersion({...ENDLESS_V5})).toThrow('未知');
+ expect(Object.keys(ENDLESS_VARIANTS)).toHaveLength(7);expect(endlessVersion(ENDLESS_V4)).toBe(ENDLESS_V4_RULES_VERSION);expect(endlessVersion(ENDLESS_V5)).toBe(ENDLESS_RULES_VERSION);expect(()=>endlessVersion({...ENDLESS_V5})).toThrow('未知');
  const g=game(7,ENDLESS_V4);expect(g.rulesVersion).toBe(ENDLESS_V4_RULES_VERSION);g.setMode('campaign');expect(g.rulesVersion).toBe(RULES_VERSION);
 });
 it('新加宽2倍8秒、刷新不叠加、边缘合法；闯关和旧版仍1.8倍5秒',()=>{
