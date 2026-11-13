@@ -12,7 +12,7 @@ import { FRAME, isBallInDeathZone } from './WorldGeometry';
 import { Effects } from './Effects';
 import { PowerUps, type PowerKind } from './PowerUps';
 import { EndlessField } from './endless/EndlessField';
-import { ENDLESS,ENDLESS_CURRENT,endlessPower,endlessBonus,dropEvery,endlessSpeed,DROP_SALT,BONUS_SALT,type BonusKind } from './endless/EndlessRules';
+import { ENDLESS,ENDLESS_CURRENT,endlessSettings,FIRE_OFFSETS_LEGACY,endlessPower,endlessBonus,dropEvery,endlessSpeed,DROP_SALT,BONUS_SALT,type BonusKind } from './endless/EndlessRules';
 export interface Ball { x: number; y: number; vx: number; vy: number; radius: number; alive: boolean; previousX?: number; previousY?: number; outsideArena?: boolean; motion?:MotionState }
 export function reflect(b: Ball, nx: number, ny: number) {
   const dot = b.vx * nx + b.vy * ny;
@@ -143,7 +143,9 @@ export class Physics {
   private pool: Ball[] = [];
   onSound?: (kind: SoundKind, combo?: number) => void;
   get wall(){return wallForLevel(this.level);}
-  get paddleWidth() { return C.paddle.width * (this.level.paddleScale??1) * (this.wideRemaining > 0 ? C.power.wideScale : 1); }
+  get wideDuration(){return this.endless?endlessSettings(this.endless.variant).wideSeconds:C.power.duration;}
+  private get wideScale(){return this.endless?endlessSettings(this.endless.variant).wideScale:C.power.wideScale;}
+  get paddleWidth() { return C.paddle.width * (this.level.paddleScale??1) * (this.wideRemaining > 0 ? this.wideScale : 1); }
   private destroyed = (index: number) => {
     const b = this.blocks;
     const x = b.left + index % b.cols * b.step + b.size / 2;
@@ -155,7 +157,7 @@ export class Physics {
     const field=this.endless;
     if(field){
       // Endless: one random drop each time the destroyed count reaches the next threshold.
-      if(field.destroyedTotal>=this.nextDropAt){this.nextDropAt+=dropEvery(field.destroyedTotal,field.variant);this.powers.spawn(x,y,endlessPower(this.endlessDrops));}
+      if(field.destroyedTotal>=this.nextDropAt){this.nextDropAt+=dropEvery(field.destroyedTotal,field.variant);this.powers.spawn(x,y,endlessPower(this.endlessDrops,field.variant));}
       return;
     }
     const interval = this.powerDropEvery;
@@ -169,7 +171,7 @@ export class Physics {
     // No pickup is valid after the final effective ball dies, even before Game settles the round.
     if (!this.balls.some(ball => ball.alive)) return;
     let bombTarget:string|null=null;
-    if (kind === 'wide') { this.wideRemaining = C.power.duration; this.clampPaddle(); }
+    if (kind === 'wide') { this.wideRemaining = this.wideDuration; this.clampPaddle(); }
     else if(kind==='triple')this.triple();
     else if(kind==='plus3')this.addBalls(ENDLESS.plusBalls);
     else if(kind==='pierce')this.pierceRemaining=ENDLESS.pierceSeconds;
@@ -221,14 +223,15 @@ export class Physics {
   lightning(){
     const g=this.blocks,ball=this.balls.find(b=>b.alive),fx=ball?.x??C.arena.x,fy=ball?.y??C.arena.y,picked:{index:number;row:number;dx:number}[]=[];
     for(let i=0;i<g.cols*g.rows;i++)if(g.alive[i]){const row=Math.floor(i/g.cols),x=g.left+i%g.cols*g.step+g.size/2;picked.push({index:i,row,dx:Math.abs(x-fx)});}
-    picked.sort((a,b)=>b.row-a.row||a.dx-b.dx||a.index-b.index);const targets=picked.slice(0,ENDLESS.lightningBricks).map(p=>p.index);
+    picked.sort((a,b)=>b.row-a.row||a.dx-b.dx||a.index-b.index);const targets=picked.slice(0,this.endless?endlessSettings(this.endless.variant).lightningBricks:ENDLESS.lightningBricks).map(p=>p.index);
     for(const index of targets){this.effects.emit('zap',g.left+index%g.cols*g.step+g.size/2,g.top+Math.floor(index/g.cols)*g.step+g.size/2,0,undefined,fx,fy);g.hit(index);}
   }
-  /** Fire: a brick hit by a burning ball also burns its eight neighbours (no chain reaction). */
+  /** Fire uses the versioned fixed offsets; collateral hits never recursively burn neighbours. */
   private burn(index:number){
     const g=this.blocks,row=Math.floor(index/g.cols),col=index%g.cols;
     this.effects.emit('burn',g.left+col*g.step+g.size/2,g.top+row*g.step+g.size/2,g.step);
-    for(let r=row-1;r<=row+1;r++)for(let c=col-1;c<=col+1;c++)if(r>=0&&c>=0&&r<g.rows&&c<g.cols&&(r!==row||c!==col))g.hit(r*g.cols+c);
+    const offsets=this.endless?endlessSettings(this.endless.variant).fireOffsets:FIRE_OFFSETS_LEGACY;
+    for(const [dx,dy] of offsets){const r=row+dy,c=col+dx;if(r>=0&&c>=0&&r<g.rows&&c<g.cols)g.hit(r*g.cols+c);}
   }
   /** Pierce: break every brick the ball overlaps without bouncing. */
   private pierce(b:Ball){

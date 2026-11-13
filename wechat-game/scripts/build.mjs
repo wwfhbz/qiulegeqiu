@@ -1,6 +1,6 @@
 import {build} from 'esbuild';
 import {GAME_NAME,MINIGAME_VERSION} from '../../shared/Brand.ts';
-import {RULES_VERSION} from '../../shared/Challenge.ts';
+import {RULES_VERSION,ENDLESS_RULES_VERSION} from '../../shared/Challenge.ts';
 import * as fs from 'node:fs';
 import {resolve,join,dirname} from 'node:path';
 import {fileURLToPath,pathToFileURL} from 'node:url';
@@ -42,7 +42,7 @@ export async function buildWechatGame({configRoot=CLIENT_ROOT,development=false,
   fs.writeFileSync(join(stage,'game.json'),JSON.stringify(gameConfig,null,2)+'\n');
   const project=JSON.parse(fs.readFileSync(join(CLIENT_ROOT,'project.config.json'),'utf8'));Object.assign(project,{appid:config.appid,miniprogramRoot:'./',projectname:GAME_NAME,description:`${GAME_NAME} 微信小游戏 V${MINIGAME_VERSION} · 社交功能V2.1`});
   fs.writeFileSync(join(stage,'project.config.json'),JSON.stringify(project,null,2)+'\n');
-  fs.writeFileSync(join(stage,'build-info.json'),JSON.stringify({openDataEntry:openEntry,socialFeatureVersion:'2.1.0-social',clientVersion:MINIGAME_VERSION,rulesVersion:RULES_VERSION,apiBase:config.runtime.apiBase,development,inputs},null,2)+'\n');
+  fs.writeFileSync(join(stage,'build-info.json'),JSON.stringify({openDataEntry:openEntry,socialFeatureVersion:'2.1.0-social',clientVersion:MINIGAME_VERSION,rulesVersion:RULES_VERSION,endlessRulesVersion:ENDLESS_RULES_VERSION,apiBase:config.runtime.apiBase,development,inputs},null,2)+'\n');
   const entryStat=fs.statSync(join(stage,getOpenDataEntry(JSON.parse(fs.readFileSync(join(stage,'game.json'),'utf8')))));
   if(!entryStat.isFile()||entryStat.size===0)throw Error('开放数据域index.js产物缺失，停止替换旧包');
   fs.rmSync(out,{recursive:true,force:true});fs.renameSync(stage,out);

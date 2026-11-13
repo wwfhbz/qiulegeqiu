@@ -1,10 +1,11 @@
 import {expect,it} from 'vitest';
 import {EndlessField} from '../src/endless/EndlessField';
-import {ENDLESS,ENDLESS_V1,ENDLESS_V2,ENDLESS_V3,ENDLESS_CURRENT,descentInterval,dropEvery,endlessSpeed,endlessStage,endlessPower,ENDLESS_POWER_WEIGHTS} from '../src/endless/EndlessRules';
+import {ENDLESS,ENDLESS_V1,ENDLESS_V2,ENDLESS_V3,ENDLESS_V4,ENDLESS_CURRENT,descentInterval as interval,dropEvery as drops,endlessSpeed,endlessStage,endlessPower,ENDLESS_POWER_WEIGHTS} from '../src/endless/EndlessRules';
 import {C} from '../src/GameConfig';
 import {seededRandom} from '../src/Random';
 
-function field(seed=7){const f=new EndlessField();f.start(seed);return f;}
+const descentInterval=(n:number)=>interval(n,ENDLESS_V4),dropEvery=(n:number,v=ENDLESS_V4)=>drops(n,v);
+function field(seed=7){const f=new EndlessField();f.start(seed,ENDLESS_V4);return f;}
 function snapshot(f:EndlessField){return Array.from(f.alive.slice(0,f.cols*f.rows)).join('');}
 
 it('同一种子生成完全相同的砖墙；不同种子不同；所有砖都在圆内且在底线之上',()=>{

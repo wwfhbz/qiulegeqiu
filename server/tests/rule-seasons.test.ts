@@ -4,7 +4,7 @@ import {C} from '../../src/GameConfig';
 import {LevelManager} from '../../src/LevelManager';
 import {LEVELS,V13_LEVELS,V15_LEVELS,V16_LEVELS,LATER_DROP_EVERY,type LevelConfig} from '../../src/Levels';
 import {POWER_WEIGHTS,weightedPower,seededRandom} from '../../src/PowerRules';
-import {RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,V17_RULES_VERSION,SUPPORTED_RULES_VERSIONS,GLOBAL_BOARD_RULES_VERSIONS,LEGACY_RULES_VERSION,ENDLESS_RULES_VERSION,ENDLESS_BOARD_RULES_VERSIONS} from '../../shared/Challenge';
+import {RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,V17_RULES_VERSION,SUPPORTED_RULES_VERSIONS,GLOBAL_BOARD_RULES_VERSIONS,LEGACY_RULES_VERSION,ENDLESS_RULES_VERSION} from '../../shared/Challenge';
 import {verifyTrace} from '../src/verifier';
 
 /** Clear the two tutorial levels, then the first later level, and lose all lives on level 4. */
@@ -44,6 +44,6 @@ it('V1.7道具：随机掉落间隔逐关增加，第4～12关生命与炸弹各
 });
 
 it('规则更新不清空全球榜：所有十二关赛季（含将来新增的）都参与全球排名，只排除旧十关和无尽模式',()=>{
- expect([...GLOBAL_BOARD_RULES_VERSIONS]).toEqual(SUPPORTED_RULES_VERSIONS.filter(v=>v!==LEGACY_RULES_VERSION&&!(ENDLESS_BOARD_RULES_VERSIONS as readonly string[]).includes(v)));
+ expect([...GLOBAL_BOARD_RULES_VERSIONS]).toEqual(SUPPORTED_RULES_VERSIONS.filter(v=>v!==LEGACY_RULES_VERSION&&!v.startsWith('endless-')));
  expect(GLOBAL_BOARD_RULES_VERSIONS).toContain(RULES_VERSION);
 });

@@ -46,7 +46,7 @@ it('伪造：未出现的砖、重复击碎、错误种子、闯关事件、伪�
 it('API：无尽成绩进无尽榜、不进闯关全球榜；个人最佳分开记录；伪分拒绝',async()=>{
  let now=Date.now();const s=await createApp({dbPath:':memory:',secure:true,origin:'https://test.local',rateLimit:false,now:()=>now});apps.push(s);
  const health=(await s.app.inject({url:'/api/health'})).json();expect(health.supportedRulesVersions).toContain(ENDLESS_RULES_VERSION);
- const me=await s.app.inject({url:'/api/me?board=endless'}),headers={cookie:'__Secure-qlgq='+me.cookies[0].value,origin:'https://test.local','x-csrf-token':me.json().csrfToken};
+ const me=await s.app.inject({url:'/api/me?board=endless&rulesVersion='+ENDLESS_RULES_VERSION}),headers={cookie:'__Secure-qlgq='+me.cookies[0].value,origin:'https://test.local','x-csrf-token':me.json().csrfToken};
  expect(me.json()).toMatchObject({board:'endless',rankingRulesVersion:ENDLESS_RULES_VERSION,best:null});
  await s.app.inject({method:'POST',url:'/api/players',headers,payload:{nickname:'无尽测试',regionCode:'ISO:CN'}});
  const g=run(3),summary=g.journal.summary(g.score.total,g.reachedLevel,false);
@@ -54,9 +54,9 @@ it('API：无尽成绩进无尽榜、不进闯关全球榜；个人最佳分开�
  for(let offset=0;offset<g.journal.events.length;offset+=256){const up=await s.app.inject({method:'POST',url:`/api/challenges/${cid}/events`,headers,payload:{sequence:offset/256,events:g.journal.events.slice(offset,offset+256)}});expect(up.statusCode,up.body).toBe(200);}
 expect((await s.app.inject({method:'POST',url:`/api/challenges/${cid}/submit`,headers,payload:{idempotencyKey:randomUUID(),summary:{...summary,score:summary.score+10}}})).statusCode).toBe(422);
  const ok=await s.app.inject({method:'POST',url:`/api/challenges/${cid}/submit`,headers,payload:{idempotencyKey:randomUUID(),summary}});expect(ok.statusCode,ok.body).toBe(200);expect(ok.json().verificationStatus).toBe('verified');
- const endless=(await s.app.inject({url:'/api/leaderboard?board=endless'})).json();expect(endless).toMatchObject({board:'endless',rankingRulesVersion:ENDLESS_RULES_VERSION});expect(endless.items).toHaveLength(1);expect(endless.items[0]).toMatchObject({score:summary.score,rank:1,reached_level:summary.reachedLevel});
+ const endless=(await s.app.inject({url:'/api/leaderboard?board=endless&rulesVersion='+ENDLESS_RULES_VERSION})).json();expect(endless).toMatchObject({board:'endless',rankingRulesVersion:ENDLESS_RULES_VERSION});expect(endless.items).toHaveLength(1);expect(endless.items[0]).toMatchObject({score:summary.score,rank:1,reached_level:summary.reachedLevel});
  expect((await s.app.inject({url:'/api/leaderboard?board=global'})).json().items).toHaveLength(0);
- expect((await s.app.inject({url:'/api/me/best?board=endless',headers})).json().best.score).toBe(summary.score);
+ expect((await s.app.inject({url:'/api/me/best?board=endless&rulesVersion='+ENDLESS_RULES_VERSION,headers})).json().best.score).toBe(summary.score);
  expect((await s.app.inject({url:'/api/me/best?board=global',headers})).json().best).toBeNull();
  expect((await s.app.inject({url:'/api/leaderboard?board=endless&rulesVersion='+RULES_VERSION})).statusCode).toBe(400);
 });

@@ -2,15 +2,16 @@ import {expect,it} from 'vitest';
 import {Game} from '../src/Game';
 import {C} from '../src/GameConfig';
 import type {PowerKind} from '../src/PowerRules';
-import {ENDLESS,descentInterval} from '../src/endless/EndlessRules';
-import {ENDLESS_RULES_VERSION,RULES_VERSION} from '../shared/Challenge';
+import {ENDLESS,ENDLESS_V4,descentInterval as interval} from '../src/endless/EndlessRules';
+import {ENDLESS_V4_RULES_VERSION as ENDLESS_RULES_VERSION,RULES_VERSION} from '../shared/Challenge';
 
-function endless(seed=11){const g=new Game();g.setMode('endless');g.journal.seed=seed;g.physics.setSeed(seed);g.physics.reset();return g;}
+const descentInterval=(n:number)=>interval(n,ENDLESS_V4);
+function endless(seed=11){const g=new Game();g.setMode('endless');g.physics.endless!.variant=ENDLESS_V4;g.journal.seed=seed;g.physics.setSeed(seed);g.physics.reset();return g;}
 function loseRound(g:Game){for(const b of g.physics.balls)Object.assign(b,{x:400,y:1080,vx:0,vy:760,outsideArena:true});g.update(C.step);}
 
 it('切换无尽模式：3条命、单一关卡、规则版本独立；切回闯关恢复12关与5条命',()=>{
  const g=new Game();expect(g.rulesVersion).toBe(RULES_VERSION);g.setMode('endless');
- expect(g.mode).toBe('endless');expect(g.lives).toBe(3);expect(g.maxLives).toBe(3);expect(g.levels.count).toBe(1);expect(g.rulesVersion).toBe(ENDLESS_RULES_VERSION);
+ expect(g.mode).toBe('endless');expect(g.lives).toBe(3);expect(g.maxLives).toBe(3);expect(g.levels.count).toBe(1);expect(g.rulesVersion).toBe('endless-1.4.0-3l-sink-v5');
  expect(g.physics.endless).toBeDefined();expect(g.physics.blocks.total).toBeGreaterThan(400);expect(g.reachedLevel).toBe(1);
  g.setMode('campaign');expect(g.lives).toBe(5);expect(g.levels.count).toBe(12);expect(g.physics.endless).toBeUndefined();expect(g.physics.blocks.total).toBe(600);
 });

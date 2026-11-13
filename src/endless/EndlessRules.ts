@@ -1,3 +1,4 @@
+import {ENDLESS_RULES_VERSION,ENDLESS_V1_RULES_VERSION,ENDLESS_V2_RULES_VERSION,ENDLESS_V3_RULES_VERSION,ENDLESS_V4_RULES_VERSION} from '../../shared/Challenge';
 import type {LevelConfig} from '../Levels';
 import type {PowerKind} from '../PowerRules';
 /**
@@ -31,17 +32,20 @@ export const ENDLESS_POWER_WEIGHTS:readonly {kind:PowerKind;weight:number}[]=[
  {kind:'plus3',weight:270},{kind:'wide',weight:200},{kind:'halve',weight:130},
  {kind:'pierce',weight:130},{kind:'fire',weight:120},{kind:'lightning',weight:147},{kind:'life',weight:3},
 ];
-export function endlessPower(random:()=>number):PowerKind{
- let value=random()*1000;for(const row of ENDLESS_POWER_WEIGHTS){value-=row.weight;if(value<0)return row.kind;}
- return ENDLESS_POWER_WEIGHTS[ENDLESS_POWER_WEIGHTS.length-1].kind;
+export function endlessPower(random:()=>number,variant:EndlessVariant=ENDLESS_CURRENT):PowerKind{
+ const weights=endlessSettings(variant).weights;
+ let value=random()*1000;for(const row of weights){value-=row.weight;if(value<0)return row.kind;}
+ return weights[weights.length-1].kind;
 }
-export function descentInterval(descents:number){const d=ENDLESS.descent;return Math.max(d.minTicks,Math.round(d.startTicks*d.decay**descents));}
+export function descentInterval(descents:number,variant:EndlessVariant=ENDLESS_CURRENT){const d=endlessSettings(variant).descent;return Math.max(d.minTicks,Math.round(d.startTicks*d.decay**descents));}
 export function endlessSpeed(descents:number){const s=ENDLESS.speed;return Math.min(s.max,s.start+s.perRow*descents);}
 /**
  * The rules that changed between endless versions. Each released version stays frozen so its
- * scores still verify and stay on the endless board.
+ * scores still verify and stay on their original endless board.
  */
 export interface EndlessVariant {
+ /** Absent on frozen variants: use the original skill, weight and descent settings. */
+ readonly settings?:EndlessSettings;
  /** One random drop every N destroyed bricks; N starts at `start`, +1 every `growEvery` bricks, up to `max`. */
  readonly drops:{readonly start:number;readonly growEvery:number;readonly max:number};
  /**
@@ -62,7 +66,24 @@ export const ENDLESS_V2:EndlessVariant={drops:{start:16,growEvery:125,max:60},fl
 export const ENDLESS_V3:EndlessVariant={drops:{start:16,growEvery:125,max:60},floor:'raised'};
 /** endless-1.3.0: same field; 10s on the death line costs a life, then 5-row relief plus a random effect ball. */
 export const ENDLESS_V4:EndlessVariant={drops:{start:16,growEvery:125,max:60},floor:'raised',crush:true,powerPoints:true};
-export const ENDLESS_CURRENT=ENDLESS_V4;
+/** Frozen offsets keep their original row-major burn event order. */
+export const FIRE_OFFSETS_LEGACY:readonly (readonly [number,number])[]=[[-1,-1],[0,-1],[1,-1],[-1,0],[1,0],[-1,1],[0,1],[1,1]];
+export const FIRE_OFFSETS_V14:readonly (readonly [number,number])[]=[[-2,0],[-1,0],[1,0],[2,0],[0,-2],[0,-1],[0,1],[0,2],[-1,-1],[-1,1],[1,-1],[1,1]];
+export const ENDLESS_V14_POWER_WEIGHTS:readonly {kind:PowerKind;weight:number}[]=[
+ {kind:'plus3',weight:300},{kind:'wide',weight:130},{kind:'halve',weight:130},
+ {kind:'pierce',weight:130},{kind:'fire',weight:140},{kind:'lightning',weight:167},{kind:'life',weight:3},
+];
+export interface EndlessSettings {
+ readonly weights:readonly {kind:PowerKind;weight:number}[];
+ readonly descent:{readonly startTicks:number;readonly decay:number;readonly minTicks:number};
+ readonly wideScale:number;readonly wideSeconds:number;readonly lightningBricks:number;
+ readonly fireOffsets:readonly (readonly [number,number])[];
+}
+export const ENDLESS_LEGACY_SETTINGS:EndlessSettings={weights:ENDLESS_POWER_WEIGHTS,descent:ENDLESS.descent,wideScale:1.8,wideSeconds:5,lightningBricks:12,fireOffsets:FIRE_OFFSETS_LEGACY};
+export const ENDLESS_V14_SETTINGS:EndlessSettings={weights:ENDLESS_V14_POWER_WEIGHTS,descent:{startTicks:540,decay:.98,minTicks:180},wideScale:2,wideSeconds:8,lightningBricks:15,fireOffsets:FIRE_OFFSETS_V14};
+export const ENDLESS_V5:EndlessVariant={drops:{start:10,growEvery:200,max:40},floor:'raised',crush:true,powerPoints:true,settings:ENDLESS_V14_SETTINGS};
+export const ENDLESS_CURRENT=ENDLESS_V5;
+export function endlessSettings(variant:EndlessVariant=ENDLESS_CURRENT):EndlessSettings{return variant.settings??ENDLESS_LEGACY_SETTINGS;}
 /** Relief reward: one of the four ball effects, equally likely, from its own seeded stream. */
 export const BONUS_KINDS=['plus3','pierce','fire','lightning'] as const;
 export type BonusKind=typeof BONUS_KINDS[number];
@@ -74,3 +95,9 @@ export function endlessStage(descents:number){return Math.min(100,1+Math.floor(d
 
 /** The single pseudo-level used for arena geometry, paddle and exit. */
 export const ENDLESS_LEVEL:LevelConfig={number:1,name:'无尽模式',speedScale:ENDLESS.speed.start,obstacles:[],gridStep:ENDLESS.gridStep,gridSize:ENDLESS.gridSize,exitWidth:160,paddleScale:1.15,autoAdvance:false};
+
+/** One reviewed version registry shared by Game and API replay dispatch. Unknown versions never fall back. */
+export const ENDLESS_VARIANTS:Readonly<Record<string,EndlessVariant>>={
+ [ENDLESS_V1_RULES_VERSION]:ENDLESS_V1,[ENDLESS_V2_RULES_VERSION]:ENDLESS_V2,[ENDLESS_V3_RULES_VERSION]:ENDLESS_V3,[ENDLESS_V4_RULES_VERSION]:ENDLESS_V4,[ENDLESS_RULES_VERSION]:ENDLESS_V5,
+};
+export function endlessVersion(variant:EndlessVariant){const version=Object.keys(ENDLESS_VARIANTS).find(key=>ENDLESS_VARIANTS[key]===variant);if(!version)throw Error('未知无尽规则配置');return version;}

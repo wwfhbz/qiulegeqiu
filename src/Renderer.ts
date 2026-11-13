@@ -320,7 +320,7 @@ export class Renderer {
     c.fillStyle=accent;c.fillRect(p.paddleX-pw/2+6,py-pulse*1.5,pw-12,2);
     c.fillStyle='rgba(255,255,255,.7)';c.fillRect(p.paddleX-pw/2+10,py+3-pulse*1.5,pw-20,1);
     for(const side of [-1,1]){c.fillStyle=accent;c.beginPath();c.arc(p.paddleX+side*(pw/2-6),py+C.paddle.height/2-pulse*1.5,2.2,0,Math.PI*2);c.fill();}
-    if(wide){const k=p.wideRemaining/C.power.duration;c.fillStyle='rgba(255,255,255,.12)';c.fillRect(p.paddleX-pw/2,py+C.paddle.height+7,pw,3);c.fillStyle=k<.3&&Math.sin(now/70)>0?OCEAN.colors.warning:OCEAN.paddle.wide;c.fillRect(p.paddleX-pw/2,py+C.paddle.height+7,pw*k,3);}
+    if(wide){const k=p.wideRemaining/p.wideDuration;c.fillStyle='rgba(255,255,255,.12)';c.fillRect(p.paddleX-pw/2,py+C.paddle.height+7,pw,3);c.fillStyle=k<.3&&Math.sin(now/70)>0?OCEAN.colors.warning:OCEAN.paddle.wide;c.fillRect(p.paddleX-pw/2,py+C.paddle.height+7,pw*k,3);}
 
     // Ready: dotted launch guide from the waiting ball.
     if(ready){const ball=p.balls[0];if(ball){const tx=a.x-ball.x,ty=a.y+a.radius-12-ball.y,len=Math.hypot(tx,ty)||1,ux=tx/len,uy=ty/len,off=(now/40)%14;c.fillStyle=rgba(OCEAN.colors.accent,.7);for(let d=14+off;d<130;d+=14){c.globalAlpha=.75*(1-d/130);c.beginPath();c.arc(ball.x+ux*d,ball.y+uy*d,2,0,Math.PI*2);c.fill();}c.globalAlpha=1;}}
