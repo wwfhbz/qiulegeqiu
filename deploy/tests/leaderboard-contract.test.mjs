@@ -42,3 +42,11 @@ test('V1.5→V1.6及尚未上线V1.5时的V1.3→V1.6均经--api-only双验证�
  const health={ok:true,database:'ready',rulesVersion:current,supportedRulesVersions:['1.2.0-arcade-5l-12lv-v1','1.3.0-arcade-5l-12lv-drops-v2',previous,current],challengeProtocolVersion:2,challengeFeatures:['triple-threshold20-v1','tutorial-brick-powers-v1'],leaderboard:{board:'global',rankingRulesVersion:current}};
  assert.doesNotThrow(()=>verifyCompatibilityBridgeHealth(health,current));assert.throws(()=>verifyCompatibilityBridgeHealth({...health,supportedRulesVersions:['1.3.0-arcade-5l-12lv-drops-v2',current]},current),/上一赛季/);
 });
+
+test('V1.7可从线上的V1.6、V1.5或V1.3经--api-only桥接；V1.2不能直接跳到V1.7',()=>{
+ const current='1.7.0-arcade-5l-12lv-scarce-v5',all=['1.2.0-arcade-5l-12lv-v1','1.3.0-arcade-5l-12lv-drops-v2','1.5.0-arcade-5l-12lv-short-v3','1.6.0-arcade-5l-12lv-full-v4',current];
+ for(const previous of all.slice(1,4)){assert.throws(()=>verifyRollbackCompatibility(current,previous),/--api-only/);assert.doesNotThrow(()=>verifyRollbackCompatibility(current,previous,{apiOnly:true}));}
+ assert.throws(()=>verifyRollbackCompatibility(current,all[0],{apiOnly:true}));
+ const health={ok:true,database:'ready',rulesVersion:current,supportedRulesVersions:all,challengeProtocolVersion:2,challengeFeatures:['triple-threshold20-v1','tutorial-brick-powers-v1'],leaderboard:{board:'global',rankingRulesVersion:current}};
+ assert.doesNotThrow(()=>verifyCompatibilityBridgeHealth(health,current));assert.throws(()=>verifyCompatibilityBridgeHealth({...health,supportedRulesVersions:[current]},current),/上一赛季/);
+});

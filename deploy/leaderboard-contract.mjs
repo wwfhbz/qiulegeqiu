@@ -19,6 +19,10 @@ export const REVIEWED_TRANSITIONS=[
  ['1.5.0-arcade-5l-12lv-short-v3','1.6.0-arcade-5l-12lv-full-v4'],
  // V1.6 may be the first release after 1.3 if 1.5 never reached production; its API verifies 1.3, 1.5 and 1.6.
  ['1.3.0-arcade-5l-12lv-drops-v2','1.6.0-arcade-5l-12lv-full-v4'],
+ // V1.7 may follow whichever of 1.6/1.5/1.3 is live; its API verifies all of them.
+ ['1.6.0-arcade-5l-12lv-full-v4','1.7.0-arcade-5l-12lv-scarce-v5'],
+ ['1.5.0-arcade-5l-12lv-short-v3','1.7.0-arcade-5l-12lv-scarce-v5'],
+ ['1.3.0-arcade-5l-12lv-drops-v2','1.7.0-arcade-5l-12lv-scarce-v5'],
 ];
 export function verifyRollbackCompatibility(nextRules,previousRules,{apiOnly=false}={}){
  if(typeof nextRules!=='string'||!nextRules.trim()||typeof previousRules!=='string'||!previousRules.trim())throw Error('缺少规则回退来源，停止发布，不回滚数据库');

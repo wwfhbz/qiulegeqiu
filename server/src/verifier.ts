@@ -1,18 +1,18 @@
 import {allocateBrickPowers,brickPowerCounts,brickPowerKind,type BrickPowerVersion} from '../../src/BrickPowerRules.js';
 import {LEGACY_LEVELS} from '../../src/LegacyLevels.js';
-import {RULES_VERSION,V15_RULES_VERSION,V13_RULES_VERSION,PREVIOUS_RULES_VERSION,LEGACY_RULES_VERSION,usesBrickPowers} from '../../shared/Challenge.js';
+import {RULES_VERSION,V16_RULES_VERSION,V15_RULES_VERSION,V13_RULES_VERSION,PREVIOUS_RULES_VERSION,LEGACY_RULES_VERSION,usesBrickPowers} from '../../shared/Challenge.js';
 import { Blocks } from '../../src/Blocks.js';
 import { ScoreSystem } from '../../src/ScoreSystem.js';
 import { ARCADE } from '../../src/ArcadeRules.js';
 import { C } from '../../src/GameConfig.js';
-import {LEVELS,V15_LEVELS,V13_LEVELS,PREVIOUS_LEVELS,dropMultiplier,powerProfile}  from '../../src/Levels.js';
+import {LEVELS,V16_LEVELS,V15_LEVELS,V13_LEVELS,PREVIOUS_LEVELS,dropMultiplier,powerProfile}  from '../../src/Levels.js';
 import { seededRandom,weightedPower,tripleTarget,type TripleRuleVersion,type PowerKind } from '../../src/PowerRules.js';
 import { Obstacles } from '../../src/Obstacles.js';
 import type { ChallengeEvent, ChallengeSummary } from '../../shared/Challenge.js';
 import { ApiError } from './moderation.js';
 /** Event/rule replay, not authoritative physical replay. Client seed is a declared run parameter, not a secret. */
 export function verifyTrace(events: ChallengeEvent[], wallMs: number,seed=1,rulesVersion:string=LEGACY_RULES_VERSION): { summary: ChallengeSummary; suspicious: string[] } {
-  const levels=rulesVersion===RULES_VERSION?LEVELS:rulesVersion===V15_RULES_VERSION?V15_LEVELS:rulesVersion===V13_RULES_VERSION?V13_LEVELS:rulesVersion===PREVIOUS_RULES_VERSION?PREVIOUS_LEVELS:rulesVersion===LEGACY_RULES_VERSION?LEGACY_LEVELS:undefined;if(!levels)throw new ApiError(422,'不支持的规则版本');
+  const levels=rulesVersion===RULES_VERSION?LEVELS:rulesVersion===V16_RULES_VERSION?V16_LEVELS:rulesVersion===V15_RULES_VERSION?V15_LEVELS:rulesVersion===V13_RULES_VERSION?V13_LEVELS:rulesVersion===PREVIOUS_RULES_VERSION?PREVIOUS_LEVELS:rulesVersion===LEGACY_RULES_VERSION?LEGACY_LEVELS:undefined;if(!levels)throw new ApiError(422,'不支持的规则版本');
   const blocks=new Blocks(),score=new ScoreSystem(blocks.alive.length),obstacles=new Obstacles(),random=seededRandom(seed);
   blocks.reset(levels[0].obstacles??[],levels[0]);obstacles.load(levels[0].obstacles??[]);
   let valid=blocks.alive.slice(),level=1,lives:number=ARCADE.initialLives,phase='ready',balls=0,lastTick=0,bricks=0,finished=false,levelStartTick=0;

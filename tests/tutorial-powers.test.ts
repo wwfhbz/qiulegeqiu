@@ -58,9 +58,9 @@ it('第三至十二关配置、掉落间隔、类型随机序列和24格池保�
  if(level.number>=3){expect(outputs[0]).toEqual(outputs[1]);expect(current.blocks.powerKinds.every(v=>v===0)).toBe(true);expect(current.powers.items).toHaveLength(C.power.maxDrops);expect(current.level.obstacles).toEqual(old.level.obstacles);}}
 });
 import {scoreHistoryLines} from '../shared/ScoreHistory';
-import {RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,PREVIOUS_RULES_VERSION,LEGACY_RULES_VERSION} from '../shared/Challenge';
+import {RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,PREVIOUS_RULES_VERSION,LEGACY_RULES_VERSION} from '../shared/Challenge';
 it('独立新版规则与双端个人历史格式：旧记录明确标记、不换算、不显示为当前排名',()=>{
- expect(RULES_VERSION).toBe('1.6.0-arcade-5l-12lv-full-v4');expect(V15_RULES_VERSION).toBe('1.5.0-arcade-5l-12lv-short-v3');expect(scoreHistoryLines([{score:8,reached_level:4,rules_version:V15_RULES_VERSION}])).toEqual(['V1.5赛季记录：8 分 · 第4关']);expect(V13_RULES_VERSION).toBe('1.3.0-arcade-5l-12lv-drops-v2');expect(RULES_VERSION).not.toBe(PREVIOUS_RULES_VERSION);
+ expect(RULES_VERSION).toBe('1.7.0-arcade-5l-12lv-scarce-v5');expect(V16_RULES_VERSION).toBe('1.6.0-arcade-5l-12lv-full-v4');expect(scoreHistoryLines([{score:7,reached_level:5,rules_version:V16_RULES_VERSION}])).toEqual(['V1.6赛季记录：7 分 · 第5关']);expect(V15_RULES_VERSION).toBe('1.5.0-arcade-5l-12lv-short-v3');expect(scoreHistoryLines([{score:8,reached_level:4,rules_version:V15_RULES_VERSION}])).toEqual(['V1.5赛季记录：8 分 · 第4关']);expect(V13_RULES_VERSION).toBe('1.3.0-arcade-5l-12lv-drops-v2');expect(RULES_VERSION).not.toBe(PREVIOUS_RULES_VERSION);
  expect(scoreHistoryLines([{score:9,reached_level:3,rules_version:V13_RULES_VERSION}])).toEqual(['V1.3赛季记录：9 分 · 第3关']);
  expect(scoreHistoryLines([{score:314115,reached_level:5,rules_version:PREVIOUS_RULES_VERSION},{score:100,reached_level:1,rules_version:LEGACY_RULES_VERSION}])).toEqual(['旧版十二关记录：314115 分 · 第5关','旧版十关记录：100 分 · 第1关']);
  expect(scoreHistoryLines([],{score:1,reached_level:1})).toEqual([]);expect(scoreHistoryLines(undefined,{score:2,reached_level:1})).toEqual(['旧版记录：2 分 · 第1关']);
