@@ -102,3 +102,17 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 @media (pointer:fine) and (min-width:700px){.touch-pad{height:36px}.pad-hint{display:none}}
 /* Phones: drop the title; the picker carries the name */
 @media (max-width:600px){h1{display:none}}
+
+/* Phone portrait: the play panel fills the screen. The arena keeps its largest size and the touch strip
+   stretches to the bottom edge, so every pixel below the arena steers the paddle. */
+.stage-room{align-items:stretch}
+.game-panel{display:flex;flex-direction:column;height:100%}
+.touch-pad{flex:1 1 auto;min-height:56px;height:auto;justify-content:center;gap:10px}
+.touch-pad .pad-track{margin-top:0;height:3px}
+.touch-pad .pad-track i{width:48px;height:8px;border-radius:4px}
+.touch-pad .pad-hint{font-size:11px}
+@media (pointer:fine) and (min-width:700px){.touch-pad{min-height:36px}}
+/* Nothing on the play screen can be selected, long-pressed or zoomed by accident. */
+html,body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-text-size-adjust:100%;overscroll-behavior:none;touch-action:manipulation}
+body{position:fixed;inset:0;overflow:hidden}
+input,textarea,select,[contenteditable]{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default}

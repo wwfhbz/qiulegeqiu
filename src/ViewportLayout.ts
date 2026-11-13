@@ -9,8 +9,10 @@ export function fitCanvas(width: number, height: number, chrome: number) {
 
 export function fitGamePanel(room: HTMLElement, panel: HTMLElement, wrap: HTMLElement) {
   const resize = () => {
+    // A child marked data-fill (the touch strip) stretches into whatever height is left, so it counts with its
+    // minimum height here; otherwise its stretched height would shrink the arena on every resize.
     const chrome = Array.from(panel.children).filter(child => child !== wrap && !(child as HTMLElement).hidden)
-      .reduce((height, child) => height + (child as HTMLElement).offsetHeight, 0);
+      .reduce((height, child) => {const el=child as HTMLElement;return height + (el.dataset.fill!==undefined ? parseFloat(getComputedStyle(el).minHeight) || 0 : el.offsetHeight);}, 0);
     const size = fitCanvas(room.clientWidth, room.clientHeight, chrome);
     if (!size) return;
     panel.style.width = `${size.width}px`;
