@@ -6,6 +6,7 @@ import { C } from './GameConfig';
 import { Physics } from './Physics';
 import type { FxEvent } from './Effects';
 import { FRAME } from './WorldGeometry';
+import { VIEW } from './Viewport';
 import { PowerFx } from './PowerFx';
 import { ENDLESS } from './endless/EndlessRules';
 import type {CanvasSurface,RendererHost} from './platform/Contracts';
@@ -68,10 +69,11 @@ export class Renderer {
     const rect = this.host.viewport();
     // Hidden/transitional layouts can report zero size. Keep the last valid buffer.
     if (rect.width <= 0 || rect.height <= 0) return;
-    this.ratio = Math.min(this.host.pixelRatio() || 1, 3) * rect.width / C.width;
-    this.canvas.width = Math.max(1, Math.round(C.width * this.ratio)); this.canvas.height = Math.max(1, Math.round(C.height * this.ratio));
+    // The canvas shows only VIEW; the static layers keep the full logical size and are drawn through the view transform.
+    this.ratio = Math.min(this.host.pixelRatio() || 1, 3) * rect.width / VIEW.width;
+    this.canvas.width = Math.max(1, Math.round(VIEW.width * this.ratio)); this.canvas.height = Math.max(1, Math.round(VIEW.height * this.ratio));
     this.arenaFill=this.paddleFill=undefined;this.backdropKey=this.brickKey='';
-    this.cache.width = this.canvas.width; this.cache.height = this.canvas.height; this.cachedRevision = -1;
+    this.cache.width = Math.max(1, Math.round(C.width * this.ratio)); this.cache.height = Math.max(1, Math.round(C.height * this.ratio)); this.cachedRevision = -1;
     if(this.badges){const a=OCEAN.powerBadge;this.badges.width=a.cellWidth*this.badgeKinds.length*a.pixelRatio;this.badges.height=a.cellHeight*a.pixelRatio;const c=this.badges.getContext('2d')!;c.setTransform(a.pixelRatio,0,0,a.pixelRatio,0,0);c.clearRect(0,0,a.cellWidth*this.badgeKinds.length,a.cellHeight);this.badgeKinds.forEach((kind,i)=>this.badge(c,i*a.cellWidth+a.cellWidth/2,a.orbY,kind));}
   }
 
@@ -158,29 +160,37 @@ export class Renderer {
   /** Background, arena bowl, glowing rim, frame and danger zone: redrawn only on resize or level change. */
   private drawBackdrop(c:Ctx,wall:Physics['wall']){
     const a=C.arena;
+    // Deep space: near-black navy, a faint nebula and a fixed starfield (painted once, then cached).
     const bg=c.createLinearGradient?.(0,0,0,C.height);
-    if(bg){bg.addColorStop(0,'#33258A');bg.addColorStop(.55,OCEAN.colors.background);bg.addColorStop(1,'#140F38');}
+    if(bg){bg.addColorStop(0,'#060A1A');bg.addColorStop(.5,'#040713');bg.addColorStop(1,'#03050C');}
     c.fillStyle=bg||OCEAN.colors.background;c.fillRect(0,0,C.width,C.height);
-    // Soft light shafts from the surface.
-    const shaft=c.createLinearGradient?.(0,0,0,C.height*.8);if(shaft){shaft.addColorStop(0,'rgba(255,190,240,.08)');shaft.addColorStop(1,'rgba(255,190,240,0)');}
-    c.save();c.fillStyle=shaft||'rgba(255,190,240,.03)';
-    for(const [x,w,skew] of [[150,70,90],[330,40,60],[520,90,-70],[680,50,-40]] as const){c.beginPath();c.moveTo(x,0);c.lineTo(x+w,0);c.lineTo(x+w+skew,C.height*.85);c.lineTo(x+skew-w*.4,C.height*.85);c.closePath();c.fill();}
-    c.restore();
-    // Arena bowl with depth.
-    const bowl=c.createRadialGradient?.(a.x,a.y-a.radius*.35,a.radius*.1,a.x,a.y,a.radius);
-    if(bowl){bowl.addColorStop(0,'#4434A8');bowl.addColorStop(.7,OCEAN.colors.arena);bowl.addColorStop(1,'#150F3D');}
-    c.beginPath();c.arc(a.x,a.y,a.radius,0,Math.PI*2);c.fillStyle=bowl||OCEAN.colors.arena;c.fill();
-    // Fine concentric guide rings give the bowl a "sonar" texture.
-    c.strokeStyle='rgba(210,190,255,.07)';c.lineWidth=1;for(let r=60;r<a.radius;r+=60){c.beginPath();c.arc(a.x,a.y,r,0,Math.PI*2);c.stroke();}
-    // Neon rim: wide faint strokes underneath a crisp core line.
+    for(const [x,y,r,color] of [[120,180,380,'rgba(110,70,255,.16)'],[700,560,420,'rgba(40,160,255,.12)'],[300,1000,360,'rgba(255,80,170,.07)']] as const){
+      const neb=c.createRadialGradient?.(x,y,0,x,y,r);if(!neb)continue;neb.addColorStop(0,color);neb.addColorStop(1,'rgba(0,0,0,0)');c.fillStyle=neb;c.fillRect(0,0,C.width,C.height);}
+    let seed=20260213;const rnd=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
+    for(let i=0;i<220;i++){const x=rnd()*C.width,y=rnd()*C.height,r=rnd()<.9?.6+rnd()*.7:1.2+rnd()*.8,tint=rnd();
+      c.globalAlpha=.35+rnd()*.6;c.fillStyle=tint<.15?'#9FD8FF':tint<.25?'#FFD9F2':'#FFFFFF';c.beginPath();c.arc(x,y,r,0,Math.PI*2);c.fill();}
+    c.globalAlpha=1;
+    // Arena: a dark glass dome with a faint holographic grid.
+    const bowl=c.createRadialGradient?.(a.x,a.y-a.radius*.3,a.radius*.05,a.x,a.y,a.radius);
+    if(bowl){bowl.addColorStop(0,'rgba(30,52,110,.55)');bowl.addColorStop(.75,'rgba(10,18,44,.75)');bowl.addColorStop(1,'rgba(4,8,22,.9)');}
+    c.beginPath();c.arc(a.x,a.y,a.radius,0,Math.PI*2);c.fillStyle=bowl||'rgba(10,18,44,.8)';c.fill();
+    c.save();c.beginPath();c.arc(a.x,a.y,a.radius,0,Math.PI*2);c.clip();
+    c.strokeStyle='rgba(79,227,255,.05)';c.lineWidth=1;for(let r=72;r<a.radius;r+=72){c.beginPath();c.arc(a.x,a.y,r,0,Math.PI*2);c.stroke();}
+    c.beginPath();c.moveTo(a.x-a.radius,a.y);c.lineTo(a.x+a.radius,a.y);c.moveTo(a.x,a.y-a.radius);c.lineTo(a.x,a.y+a.radius);c.strokeStyle='rgba(79,227,255,.05)';c.stroke();c.restore();
+    // Holographic rim: soft cyan glow, a crisp core and fine tick marks every 6°.
     c.lineCap='round';
-    for(const [width,alpha] of [[16,.08],[9,.16],[4,.32]] as const){c.beginPath();c.arc(a.x,a.y,a.radius,wall.startAngle,wall.endAngle);c.strokeStyle=rgba('#B49CFF',alpha);c.lineWidth=width;c.stroke();}
-    c.beginPath();c.arc(a.x,a.y,a.radius,wall.startAngle,wall.endAngle);c.strokeStyle='#F3EEFF';c.lineWidth=Math.max(1.6,wall.width);c.stroke();
+    for(const [width,alpha] of [[18,.06],[9,.13],[4,.3]] as const){c.beginPath();c.arc(a.x,a.y,a.radius,wall.startAngle,wall.endAngle);c.strokeStyle=rgba(OCEAN.colors.accent,alpha);c.lineWidth=width;c.stroke();}
+    c.beginPath();c.arc(a.x,a.y,a.radius,wall.startAngle,wall.endAngle);c.strokeStyle='#D8FBFF';c.lineWidth=Math.max(1.6,wall.width);c.stroke();
+    c.lineCap='butt';c.strokeStyle='rgba(120,235,255,.35)';c.lineWidth=1;
+    // Skip ticks over the exit gap (centred straight down, at π/2).
+    const gapHalf=wall.startAngle-Math.PI/2+.04;
+    for(let deg=0;deg<360;deg+=6){const t=deg*Math.PI/180;if(Math.abs(t-Math.PI/2)<gapHalf)continue;
+      const long=deg%30===0,r0=a.radius+6,r1=a.radius+(long?16:10);c.beginPath();c.moveTo(a.x+Math.cos(t)*r0,a.y+Math.sin(t)*r0);c.lineTo(a.x+Math.cos(t)*r1,a.y+Math.sin(t)*r1);c.stroke();}
     // Exit posts glow warm so the gap reads as "the goal".
     for(const x of [wall.leftX,wall.rightX]){c.beginPath();c.arc(x,wall.endpointY,5,0,Math.PI*2);c.fillStyle=OCEAN.colors.warning;c.fill();c.beginPath();c.arc(x,wall.endpointY,10,0,Math.PI*2);c.fillStyle=rgba(OCEAN.colors.warning,.18);c.fill();}
     // U-frame.
     c.beginPath();c.moveTo(FRAME.left,FRAME.deathY);c.lineTo(FRAME.left,FRAME.top);c.lineTo(FRAME.right,FRAME.top);c.lineTo(FRAME.right,FRAME.deathY);
-    c.lineJoin='round';c.strokeStyle=rgba(OCEAN.colors.accent,.12);c.lineWidth=6;c.stroke();c.strokeStyle=OCEAN.colors.border;c.lineWidth=Math.max(1.4,FRAME.width);c.stroke();c.lineCap='butt';
+    c.lineJoin='round';c.strokeStyle=rgba(OCEAN.colors.accent,.08);c.lineWidth=5;c.stroke();c.strokeStyle=rgba(OCEAN.colors.accent,.35);c.lineWidth=Math.max(1.2,FRAME.width);c.stroke();c.lineCap='butt';
     // Danger zone: a red haze below the paddle line, not a collider.
     const danger=c.createLinearGradient?.(0,FRAME.deathY-28,0,C.height);
     if(danger){danger.addColorStop(0,rgba(OCEAN.colors.danger,0));danger.addColorStop(.4,rgba(OCEAN.colors.danger,.10));danger.addColorStop(1,rgba(OCEAN.colors.danger,.22));c.fillStyle=danger;c.fillRect(FRAME.left,FRAME.deathY-28,FRAME.right-FRAME.left,C.height-FRAME.deathY+28);}
@@ -254,15 +264,19 @@ export class Renderer {
     const c = this.ctx, a = C.arena, wall=p.wall;
     // Screen shake decays quickly; reduced on weak devices.
     let sx=0,sy=0;if(now<this.shakeUntil){const k=(this.shakeUntil-now)/(OCEAN.motion.shakeSeconds*1000),amp=this.shakePower*k*k*(low?.5:1);sx=(Math.random()*2-1)*amp;sy=(Math.random()*2-1)*amp;}
-    c.setTransform(this.ratio, 0, 0, this.ratio, 0, 0); c.clearRect(0, 0, C.width, C.height);
-    c.setTransform(this.ratio,0,0,this.ratio,sx*this.ratio,sy*this.ratio);
+    c.setTransform(this.ratio, 0, 0, this.ratio, 0, 0); c.clearRect(0, 0, VIEW.width, VIEW.height);
+    // Snap the view offset to whole device pixels: a fractional offset turns the cached-layer blits into slow resampled copies.
+    const ox=Math.round((sx-VIEW.x)*this.ratio),oy=Math.round((sy-VIEW.y)*this.ratio);
+    // Cached full-size layers are blitted 1:1 in device pixels (identity transform), never resampled.
+    const blit=(layer:CanvasSurface)=>{c.setTransform(1,0,0,1,0,0);c.drawImage(layer as CanvasImageSource,ox,oy);c.setTransform(this.ratio,0,0,this.ratio,ox,oy);};
+    c.setTransform(this.ratio,0,0,this.ratio,ox,oy);
 
     const backdropKey=wall.exitHalfWidth+':'+this.canvas.width;
     if(!this.backdrop&&this.host.createSurface)this.backdrop=this.host.createSurface();
     if(this.backdrop){
-      if(this.backdropKey!==backdropKey){this.backdrop.width=this.canvas.width;this.backdrop.height=this.canvas.height;const bc=this.backdrop.getContext('2d');if(bc){bc.setTransform(this.ratio,0,0,this.ratio,0,0);this.drawBackdrop(bc,wall);}this.backdropKey=backdropKey;}
+      if(this.backdropKey!==backdropKey){this.backdrop.width=this.cache.width;this.backdrop.height=this.cache.height;const bc=this.backdrop.getContext('2d');if(bc){bc.setTransform(this.ratio,0,0,this.ratio,0,0);this.drawBackdrop(bc,wall);}this.backdropKey=backdropKey;}
       if(sx||sy){c.fillStyle=OCEAN.colors.background;c.fillRect(-20,-20,C.width+40,C.height+40);}
-      c.drawImage(this.backdrop as CanvasImageSource,0,0,C.width,C.height);
+      blit(this.backdrop);
     } else {
       if(!this.arenaFill){const g=c.createLinearGradient(0,a.y-a.radius,0,a.y+a.radius);g?.addColorStop(0,OCEAN.colors.arena);g?.addColorStop(1,OCEAN.colors.gradientEnd);this.arenaFill=g||OCEAN.colors.arena;}
       c.beginPath(); c.arc(a.x, a.y, a.radius, 0, Math.PI * 2); c.fillStyle = this.arenaFill; c.fill();
@@ -271,7 +285,7 @@ export class Renderer {
     // Drifting bubbles: a handful of tiny circles, skipped on weak devices.
     if(!low){c.fillStyle='rgba(160,230,255,.10)';for(const q of this.bubbles){q.y-=q.speed*dt;if(q.y<-6){q.y=C.height+6;}const x=q.x+Math.sin(now/1300+q.phase)*6;c.beginPath();c.arc(x,q.y,q.r,0,Math.PI*2);c.fill();}}
 
-    c.drawImage(this.cache as CanvasImageSource, 0, 0, C.width, C.height);
+    blit(this.cache);
     // Hunting the last few bricks is tedious: pulse a beacon around each survivor.
     // Endless floor: the line the wall cannot cross. It pulses red while bricks press against it.
     const floorField=p.endless;
@@ -372,7 +386,7 @@ export class Renderer {
     const hintAlpha=this.startHint.alpha(ready,now);
     if(hintAlpha>0){
       c.save();c.globalAlpha=Math.min(1,hintAlpha/.7);c.textAlign='center';c.textBaseline='middle';
-      const fontSize=Math.max(30,Math.min(46,16*C.width/Math.max(1,this.host.viewport().width)));
+      const fontSize=Math.max(30,Math.min(46,16*VIEW.width/Math.max(1,this.host.viewport().width)));
       c.font=`700 ${fontSize}px ${OCEAN.fonts.body}`;
       const width=Math.min(C.width-80,c.measureText(START_HINT).width+56),fresh=b.removed===0,cardH=fresh?fontSize*3.9:fontSize*1.7,top=a.y-cardH/2+(fresh?fontSize*.4:0);
       c.fillStyle='rgba(40,28,112,.9)';c.beginPath();c.roundRect(a.x-width/2,top,width,cardH,18);c.fill();

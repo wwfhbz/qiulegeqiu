@@ -1,8 +1,8 @@
 /** Presentation only. Never import this module from physics, scoring or the verifier. */
 export const OCEAN={
  name:'深海蓝·现代街机',
- /** V2.1 "candy night": warm indigo sky with candy accents (casual-game look). */
- colors:{background:'#1C1548',arena:'#261C5E',gradientEnd:'#3A2B86',panel:'#2C2270',border:'#6C5CE0',line:'#3E3294',text:'#FFFFFF',secondary:'#D8D2FF',muted:'#A39BDB',number:'#FFFFFF',positive:'#3EE0B5',warning:'#FFC93C',accent:'#5CE1FF',heart:'#FF5E8A',danger:'#FF4D6A',gold:'#FFD24D',pink:'#FF6FB1'},
+ /** V2.2 "deep space": near-black navy with cyan holographic accents; the game area comes first. */
+ colors:{background:'#05070F',arena:'#0B1224',gradientEnd:'#0E1630',panel:'#0E1630',border:'#2B4C7E',line:'#1C2A48',text:'#EAF6FF',secondary:'#A9C1DE',muted:'#6F86A8',number:'#FFFFFF',positive:'#3EE0B5',warning:'#FFC93C',accent:'#4FE3FF',heart:'#FF5E8A',danger:'#FF4D6A',gold:'#FFD24D',pink:'#FF6FB1'},
  alpha:{veil:'rgba(16,29,45,.74)',backdrop:'rgba(16,29,45,.88)',brickHighlight:'rgba(255,255,255,.22)',brickShadow:'rgba(16,29,45,.20)',lineHighlight:'rgba(244,247,251,.28)',badgeEdge:'rgba(244,247,251,.35)',death:'rgba(233,130,117,.22)',shadowSoft:'rgba(0,0,0,.12)',shadowPanel:'rgba(0,0,0,.25)'},
  /** Six equal-height bands across the 576px brick region, whatever the brick size. */
  brickBands:{height:96,count:6},

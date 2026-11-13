@@ -9,7 +9,7 @@ export interface Wx {
  createImage?():{src:string;onload?:()=>void;onerror?:()=>void};
  getDeviceInfo?():{benchmarkLevel?:number};
  getWindowInfo():{windowWidth:number;windowHeight:number;pixelRatio:number;safeArea?:{top:number;bottom:number;left:number;right:number}};
- getMenuButtonBoundingClientRect?():{bottom:number;left:number};
+ getMenuButtonBoundingClientRect?():{bottom:number;left:number;top?:number};
  onTouchStart(fn:(e:TouchEvent)=>void):void;onTouchMove(fn:(e:TouchEvent)=>void):void;onTouchEnd(fn:(e:TouchEvent)=>void):void;onTouchCancel(fn:(e:TouchEvent)=>void):void;
  onHide(fn:()=>void):void;onShow(fn:()=>void):void;onWindowResize?(fn:()=>void):void;
  login(options:{success:(r:{code:string})=>void;fail:()=>void}):void;

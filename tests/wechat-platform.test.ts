@@ -1,3 +1,4 @@
+import {VIEW} from '../src/Viewport';
 import {it,expect,vi,afterEach} from 'vitest';
 import {Game} from '../src/Game';
 import {C} from '../src/GameConfig';
@@ -50,7 +51,12 @@ it('真实两套宿主的12关、触屏/鼠标输入、物理/五道具/积分�
 });
 it('微信音效偏好使用微信存储，存储异常仍可单机启动',()=>{const f=wxFixture(),p=new WechatPlatform(f.wx);p.write('mute',true);expect(p.read('mute')).toBe(true);f.wx.getStorageSync=()=>{throw Error('unavailable');};f.wx.setStorageSync=()=>{throw Error('unavailable');};expect(p.read('mute')).toBeUndefined();expect(()=>p.write('mute',false)).not.toThrow();expect(()=>new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false}).frame(100)).not.toThrow();});
 import {layout} from '../wechat-game/src/Layout';
-it.each([[320,568],[390,844],[430,932],[768,1024]])('竖屏%s×%s的44像素工具按钮不盖HUD，底部与挡板完整显示', (width,height)=>{const view=layout(width,height,44,height-34,80);expect(view.top).toBeGreaterThan(80);expect(view.hudY).toBeGreaterThanOrEqual(view.top+50);expect(view.arena.y).toBeGreaterThan(view.hudY+30);expect(view.buttonsY+44).toBeLessThanOrEqual(view.bottom);expect(view.arena.width/view.arena.height).toBeCloseTo(C.width/C.height,12);});
+it.each([[320,568],[390,844],[430,932],[768,1024]])('竖屏%s×%s：工具按钮与胶囊同排且在其左侧，不盖HUD；球场在HUD下方，底部滑动区完整', (width,height)=>{
+ const menu={top:48,bottom:80,left:width-95},view=layout(width,height,44,height-34,menu.bottom,menu.top,menu.left);
+ expect(view.top).toBeGreaterThanOrEqual(menu.top);expect(view.top+view.barHeight).toBeLessThanOrEqual(menu.bottom+1);expect(view.barRight).toBeLessThanOrEqual(menu.left-8);
+ expect(view.hudY).toBeGreaterThanOrEqual(menu.bottom);expect(view.arena.y).toBeGreaterThanOrEqual(view.hudY+view.hudHeight);
+ expect(view.pad.y+Math.min(view.pad.height,46)).toBeLessThanOrEqual(view.bottom+1);expect(view.arena.width/view.arena.height).toBeCloseTo(VIEW.width/VIEW.height,12);
+});
 it('微信触摸开始即解锁原生音效，后台暂停音频，不等待异步登录',()=>{
  const f=wxFixture();let state='suspended';const resume=vi.fn(()=>{state='running';return Promise.resolve();}),suspend=vi.fn(()=>{state='suspended';return Promise.resolve();}),close=vi.fn(()=>Promise.resolve());
  f.wx.createWebAudioContext=()=>({get state(){return state;},destination:{},createGain:()=>({gain:{value:0},connect:()=>{}}),resume,suspend,close}) as unknown as AudioContext;

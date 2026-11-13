@@ -1,8 +1,9 @@
 import {HapticTracker} from '../../src/Haptics';
+import {VIEW,viewX,viewFraction} from '../../src/Viewport';
 const MODE_KEY='qiulegeqiu:wechat-mode:v1';
 import {OCEAN,brickColor} from '../../shared/VisualTheme';
 import {drawIcon,type IconName} from '../../shared/Icons';
-import {panel,canvasText,candyButton,chunkyText,goldText,glassCard,CANDY,type CandyStyle} from '../../shared/CanvasUI';
+import {canvasText,neonButton,NEON,type NeonAccent} from '../../shared/CanvasUI';
 import {scoreHistoryLines} from '../../shared/ScoreHistory';
 import {assertGlobalBoard,ENDLESS_BOARD,ENDLESS_RULES_VERSION,type LeaderboardMetadata} from '../../shared/Challenge';
 import type {GameMode} from '../../src/Game';
@@ -51,7 +52,7 @@ export class MiniGameApp {
   wx.onHide(()=>this.hide());wx.onShow(()=>{this.active=true;this.previous=0;this.resize();this.platform.resume();});wx.onWindowResize?.(()=>this.resize());
   wx.showShareMenu({menus:['shareAppMessage']});wx.onShareAppMessage(()=>this.shareData());this.makeShareImage();
  }
- resize(){const w=this.wx.getWindowInfo();const menu=this.wx.getMenuButtonBoundingClientRect?.();this.view=layout(w.windowWidth,w.windowHeight,w.safeArea?.top,w.safeArea?.bottom,menu?.bottom);this.dpr=Math.min(w.pixelRatio||1,2);
+ resize(){const w=this.wx.getWindowInfo();const menu=this.wx.getMenuButtonBoundingClientRect?.();this.view=layout(w.windowWidth,w.windowHeight,w.safeArea?.top,w.safeArea?.bottom,menu?.bottom,menu?.top,menu?.left);this.dpr=Math.min(w.pixelRatio||1,2);
   this.canvas.width=Math.round(w.windowWidth*this.dpr);this.canvas.height=Math.round(w.windowHeight*this.dpr);this.backgroundFill=undefined;this.renderer.resize();}
  run(){this.platform.start(now=>this.frame(now));}
  dispose(){this.platform.dispose();this.renderer.dispose();this.game.dispose();}
@@ -64,51 +65,49 @@ export class MiniGameApp {
  }
  private draw(now:number){const c=this.ctx,v=this.view;c.setTransform(this.dpr,0,0,this.dpr,0,0);
   // Candy-night sky with two soft glows, like the web version.
-  // Candy-night sky: one cached linear gradient (cheap). Radial glows or a full-screen image blit every frame
+  // Deep-space backdrop: one cached linear gradient (cheap). Radial glows or a full-screen image blit every frame
   // cost up to half the frame rate on tablets, so the WeChat build keeps the plain gradient.
-  if(!this.backgroundFill){const gradient=c.createLinearGradient(0,0,0,v.height);gradient?.addColorStop(0,'#3B2A8F');gradient?.addColorStop(.45,'#231A5C');gradient?.addColorStop(1,'#130E36');this.backgroundFill=gradient||OCEAN.colors.background;
+  if(!this.backgroundFill){const gradient=c.createLinearGradient(0,0,0,v.height);gradient?.addColorStop(0,'#081028');gradient?.addColorStop(.45,'#050816');gradient?.addColorStop(1,'#03050C');this.backgroundFill=gradient||OCEAN.colors.background;
 }
   c.fillStyle=this.backgroundFill;c.fillRect(0,0,v.width,v.height);
-  // HUD card: level chip · big gold score · hearts, then balls / remaining / thick progress bar.
-  const g=this.game,b=g.physics.blocks,hud={x:8,y:v.hudY-6,width:v.width-16,height:60};glassCard(c,hud,16);
-  const field=g.physics.endless,progress=field?Math.round(field.descentProgress*100):Math.round(b.removed/Math.max(1,b.total)*100);
-  canvasText(c,field?'无尽阶段':'关卡',hud.x+12,hud.y+12,90,9,OCEAN.colors.muted);
-  chunkyText(c,field?`第${g.reachedLevel}阶段`:`${String(g.levels.current.number).padStart(2,'0')}/${g.levels.count}`,hud.x+12,hud.y+28,100,14,OCEAN.colors.text,'left');
-  canvasText(c,'分数',hud.x+hud.width/2,hud.y+9,60,9,OCEAN.colors.muted,'center');goldText(c,String(g.score.total),hud.x+hud.width/2,hud.y+27,hud.width*.38,22);
-  canvasText(c,'生命',hud.x+hud.width-12,hud.y+12,60,9,OCEAN.colors.muted,'right');
-  // Hearts: filled for remaining lives, faded for lost ones (two strings, right-aligned).
-  {c.font=`900 15px ${OCEAN.fonts.body}`;c.textBaseline='middle';c.textAlign='right';const lost='♡'.repeat(Math.max(0,g.maxLives-g.lives)),right=hud.x+hud.width-12;c.fillStyle='rgba(255,255,255,.3)';if(lost)c.fillText(lost,right,hud.y+28);c.fillStyle=OCEAN.colors.heart;if(g.lives>0)c.fillText('♥'.repeat(g.lives),right-c.measureText(lost).width,hud.y+28);}
-  const row=hud.y+48;canvasText(c,`弹球 球×${g.physics.balls.length}`,hud.x+12,row,90,10,OCEAN.colors.secondary);canvasText(c,`剩余 ${b.remaining}`,hud.x+92,row,80,10,OCEAN.colors.secondary);
-  const barX=hud.x+170,barW=hud.width-182;canvasText(c,field?(field.blocked?'压到底线':'下沉'):'进度',barX,row-8,60,8,OCEAN.colors.muted);canvasText(c,field?`已下沉${field.descents}行`:`${progress}%`,barX+barW,row-8,80,8,OCEAN.colors.positive,'right');
-  c.save();c.beginPath();c.roundRect(barX,row-1,barW,7,4);c.fillStyle='rgba(10,4,40,.55)';c.fill();if(progress>0){const fillG=c.createLinearGradient(barX,0,barX+barW,0);fillG?.addColorStop(0,'#5CE1FF');fillG?.addColorStop(.55,'#3EE0B5');fillG?.addColorStop(1,'#FFE27A');c.beginPath();c.roundRect(barX,row-1,Math.max(7,barW*progress/100),7,4);c.fillStyle=fillG||'#3EE0B5';c.fill();}c.restore();
+  // HUD: one dense line (level · score · balls · hearts) and a hairline progress line.
+  const g=this.game,b=g.physics.blocks,hud={x:4,y:v.hudY,width:v.width-8,height:v.hudHeight};neonButton(c,hud,'dim',10);
+  const field=g.physics.endless,progress=field?Math.round(field.descentProgress*100):Math.round(b.removed/Math.max(1,b.total)*100),r1=hud.y+13,r2=hud.y+30;
+  canvasText(c,field?'阶段':'关卡',hud.x+10,r1,30,9,OCEAN.colors.muted);canvasText(c,field?`第${g.reachedLevel}阶段`:`${String(g.levels.current.number).padStart(2,'0')}/${g.levels.count}`,hud.x+36,r1,70,12,OCEAN.colors.text);
+  canvasText(c,'分数',hud.x+hud.width*.42-4,r1,30,9,OCEAN.colors.muted,'right');canvasText(c,String(g.score.total),hud.x+hud.width*.42,r1,hud.width*.28,16,NEON.cyan);
+  canvasText(c,`球×${g.physics.balls.length}`,hud.x+hud.width*.72,r1,50,11,OCEAN.colors.secondary);
+  {c.font=`700 12px ${OCEAN.fonts.body}`;c.textBaseline='middle';c.textAlign='right';const lost='♡'.repeat(Math.max(0,g.maxLives-g.lives)),right=hud.x+hud.width-10;c.fillStyle='rgba(255,255,255,.25)';if(lost)c.fillText(lost,right,r1);c.fillStyle=OCEAN.colors.heart;if(g.lives>0)c.fillText('♥'.repeat(g.lives),right-c.measureText(lost).width,r1);}
+  canvasText(c,field?(field.blocked?'压到底线':'下沉'):'进度',hud.x+10,r2,40,9,OCEAN.colors.muted);
+  const tail=field?`已下沉${field.descents}行`:`剩余 ${b.remaining} · ${progress}%`;c.font=`500 9px ${OCEAN.fonts.body}`;const tailW=c.measureText(tail).width;canvasText(c,tail,hud.x+hud.width-10,r2,tailW+4,9,OCEAN.colors.positive,'right');
+  const barX=hud.x+44,barW=hud.width-58-tailW;c.fillStyle='rgba(120,200,255,.14)';c.fillRect(barX,r2-1,barW,2);if(progress>0){c.fillStyle=NEON.cyan;c.fillRect(barX,r2-1,barW*progress/100,2);}
   if(!this.panel.ranking)c.drawImage(this.arena as CanvasImageSource,v.arena.x,v.arena.y,v.arena.width,v.arena.height);this.actions=[];
-  const button=(rect:Rect,label:string,run:()=>void,style:CandyStyle='gold')=>{candyButton(c,rect,style,rect.height/2);chunkyText(c,label,rect.x+rect.width/2,rect.y+rect.height/2-2,rect.width-16,16,CANDY[style][3],'center','rgba(0,0,0,0)');this.actions.push({rect,run});};
-  const iconButton=(rect:Rect,icon:IconName,run:()=>void,style:CandyStyle='violet',_label='')=>{candyButton(c,rect,style,13);drawIcon(c,icon,rect.x+rect.width/2,rect.y+rect.height/2-2,22,CANDY[style][3]);this.actions.push({rect,run});};
+  const button=(rect:Rect,label:string,run:()=>void)=>{neonButton(c,rect,'cyan',rect.height/2);c.font='700 15px '+OCEAN.fonts.body;c.textAlign='center';c.textBaseline='middle';c.fillStyle=NEON.cyan;c.fillText(label,rect.x+rect.width/2,rect.y+rect.height/2,rect.width-16);this.actions.push({rect,run});};
+  const iconButton=(rect:Rect,icon:IconName,run:()=>void,accent:NeonAccent='dim')=>{neonButton(c,rect,accent,8);drawIcon(c,icon,rect.x+rect.width/2,rect.y+rect.height/2,16,accent==='gold'?NEON.gold:OCEAN.colors.secondary);this.actions.push({rect,run});};
   if(g.physics.wideRemaining>0||g.score.multiplier>1)canvasText(c,`${g.physics.wideRemaining>0?'加宽 '+g.physics.wideRemaining.toFixed(1)+' 秒 ':''}${g.score.multiplier>1?'连击 ×'+g.score.multiplier:''}`,v.width/2,v.buttonsY-6,v.width-16,10,OCEAN.colors.positive,'center');
   const action=centralActionFor(g);
-  if(g.state==='levelComplete'&&g.result){c.fillStyle=OCEAN.colors.text;c.font='14px sans-serif';c.fillText(`第${g.levels.current.number}关突破！本关 ${g.result.levelTotal} 分`,v.width/2,v.arena.y+C.arena.y*v.scale-38);}
+  if(g.state==='levelComplete'&&g.result){c.fillStyle=OCEAN.colors.text;c.font='14px sans-serif';c.fillText(`第${g.levels.current.number}关突破！本关 ${g.result.levelTotal} 分`,v.width/2,v.arena.y+(C.arena.y-VIEW.y)*v.scale-38);}
   if(g.state==='paused'){c.fillStyle=OCEAN.alpha.veil;c.fillRect(v.arena.x,v.arena.y,v.arena.width,v.arena.height);}
   // After a finished run the central button reopens the mode picker instead of retrying the same mode.
   const ended=g.state==='gameOver'||g.state==='victory';
-  if(ended&&!this.busy&&!this.panel.open){const centerY=v.arena.y+C.arena.y*v.scale;button({x:v.width/2-84,y:centerY-26,width:168,height:52},'选择模式',()=>this.modePicker());}
-  else if(action&&g.state!=='ready'&&!this.busy){const centerY=v.arena.y+C.arena.y*v.scale;button({x:v.width/2-84,y:centerY-26,width:168,height:52},action.label.replace('▶ ',''),()=>void this.activate());}
+  if(ended&&!this.busy&&!this.panel.open){const centerY=v.arena.y+(C.arena.y-VIEW.y)*v.scale;button({x:v.width/2-70,y:centerY-22,width:140,height:44},'选择模式',()=>this.modePicker());}
+  else if(action&&g.state!=='ready'&&!this.busy){const centerY=v.arena.y+(C.arena.y-VIEW.y)*v.scale;button({x:v.width/2-70,y:centerY-22,width:140,height:44},action.label.replace('▶ ',''),()=>void this.activate());}
   // Touch strip under the arena: a quiet hint; dragging here steers the paddle (see down/move).
   // Joined to the arena's bottom edge: same width, rounded bottom corners, a track and a knob that follows the paddle.
-  if(!this.panel.open&&v.pad.height>=36){const p={x:v.arena.x,y:v.pad.y,width:v.arena.width,height:Math.min(v.pad.height,96)};
-   c.save();c.beginPath();c.roundRect(p.x,p.y,p.width,p.height,[0,0,18,18]);c.fillStyle='#221A58';c.fill();
-   // One console outline around arena + strip.
-   c.beginPath();c.roundRect(v.arena.x-1,v.arena.y-1,v.arena.width+2,p.y+p.height-v.arena.y+2,18);c.strokeStyle='rgba(180,160,255,.45)';c.lineWidth=2;c.stroke();
-   const ty=p.y+p.height/2-8,tx=p.x+28,tw=p.width-56;c.beginPath();c.roundRect(tx,ty-4,tw,8,4);c.fillStyle='rgba(10,4,40,.55)';c.fill();
-   const kx=Math.max(tx+26,Math.min(tx+tw-26,p.x+g.physics.paddleX/C.width*p.width));candyButton(c,{x:kx-26,y:ty-9,width:52,height:20},'sky',10);c.restore();
-   canvasText(c,'左右滑动控制挡板',v.width/2,ty+20,v.width-40,11,OCEAN.colors.muted,'center');}
+  if(!this.panel.open&&v.pad.height>=30){const p={x:v.arena.x,y:v.pad.y,width:v.arena.width,height:Math.min(v.pad.height,56)};
+   c.save();c.beginPath();c.roundRect(p.x,p.y,p.width,p.height,[0,0,10,10]);c.fillStyle='rgba(6,10,24,.95)';c.fill();
+   c.beginPath();c.roundRect(v.arena.x-.5,v.arena.y-.5,v.arena.width+1,p.y+p.height-v.arena.y+1,10);c.strokeStyle='rgba(120,200,255,.2)';c.lineWidth=1;c.stroke();
+   const ty=p.y+p.height/2-5,tx=p.x+20,tw=p.width-40;c.fillStyle='rgba(120,200,255,.16)';c.fillRect(tx,ty-1,tw,2);
+   const kx=Math.max(tx+20,Math.min(tx+tw-20,p.x+viewFraction(g.physics.paddleX,0).x*p.width));// Cheap glow: a wide translucent pill behind the knob (shadowBlur is costly every frame).
+   c.fillStyle='rgba(79,227,255,.25)';c.beginPath();c.roundRect(kx-24,ty-6,48,12,6);c.fill();c.fillStyle=NEON.cyan;c.beginPath();c.roundRect(kx-20,ty-3,40,6,3);c.fill();c.restore();
+   canvasText(c,'左右滑动控制挡板',v.width/2,ty+14,v.width-40,9,OCEAN.colors.muted,'center');}
   // Compact native-style utility controls stay below the capsule safe area.
-  // Top bar: round candy icon buttons (menu · pause | sound · restart · ranking), below the capsule safe area.
-  const tb=(x:number)=>({x,y:v.top+2,width:40,height:40});
-  iconButton(tb(8),'menu',()=>this.menu(),'violet','菜单');
-  iconButton(tb(54),g.state==='paused'?'play':'pause',()=>{if(g.state==='paused')g.start();else g.pause();},'violet',g.state==='paused'?'继续':'暂停');
-  iconButton(tb(v.width-48),'trophy',()=>void this.board(),'gold','排行');
-  iconButton(tb(v.width-94),'restart',()=>{this.panel.close();g.reset();},'violet','重开');
-  iconButton(tb(v.width-140),g.audio.muted?'soundOff':'soundOn',()=>{g.audio.toggle();this.platform.write('qiulegeqiu:wechat-muted:v1',g.audio.muted);},g.audio.muted?'dim':'violet',g.audio.muted?'有声':'静音');
+  // Top bar: small ghost icon buttons sharing the capsule menu's row (left of it), so no row is spent on them.
+  const bs=30,gap=4,tb=(i:number)=>({x:6+i*(bs+gap),y:v.top+(v.barHeight-bs)/2,width:bs,height:bs}),tr=(i:number)=>({x:v.barRight-bs-i*(bs+gap),y:v.top+(v.barHeight-bs)/2,width:bs,height:bs});
+  iconButton(tb(0),'menu',()=>this.menu());
+  iconButton(tb(1),g.state==='paused'?'play':'pause',()=>{if(g.state==='paused')g.start();else g.pause();});
+  iconButton(tr(0),'trophy',()=>void this.board(),'gold');
+  iconButton(tr(1),'restart',()=>{this.panel.close();g.reset();});
+  iconButton(tr(2),g.audio.muted?'soundOff':'soundOn',()=>{g.audio.toggle();this.platform.write('qiulegeqiu:wechat-muted:v1',g.audio.muted);});
   this.panel.draw(c,v.width,v.top,v.bottom,now,g.state!=='paused',this.lowDevice||v.width<360,this.rankingArt,this.dpr);
  }
  private down(e:TouchEvent){if(this.touch)return;const t=e.changedTouches[0];if(!t)return;this.game.audio.unlock();this.touch={id:t.identifier,x:t.clientX,y:t.clientY,moved:false,lastY:t.clientY,drag:!this.panel.open&&(inside(this.view.arena,t.clientX,t.clientY)||inside(this.view.pad,t.clientX,t.clientY))&&!this.actions.some(a=>inside(a.rect,t.clientX,t.clientY))};if(this.touch.drag){this.target(t.clientX);if(!this.busy&&!this.boardLoading)startFromPlayfield(this.game,()=>void this.activate());}}
@@ -117,7 +116,7 @@ export class MiniGameApp {
  private hapticTracker=new HapticTracker();
  /** Short vibration on decisive moments only (shared policy with Web); silent when muted. */
  private haptics(){const type=this.hapticTracker.next(this.game.physics.effects,this.game.state!=='running',Date.now());if(type&&!this.game.audio.muted){try{this.wx.vibrateShort?.({type,fail:()=>{}});}catch{/* Optional device capability. */}}}
- private target(x:number){this.game.physics.setTarget((x-this.view.arena.x)/this.view.arena.width*C.width);}
+ private target(x:number){this.game.physics.setTarget(viewX((x-this.view.arena.x)/this.view.arena.width));}
  private async activate(){if(this.busy)return;this.busy=true;const generation=this.game.journal.generation,state=this.game.state;
   try{if(this.game.state==='ready'&&this.game.readyReason==='initial'){
     this.online=false;

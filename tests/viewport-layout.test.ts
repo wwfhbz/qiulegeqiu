@@ -1,3 +1,4 @@
+import {VIEW} from '../src/Viewport';
 import { describe, it, expect } from 'vitest';
 import { fitCanvas } from '../src/ViewportLayout';
 import { C } from '../src/GameConfig';
@@ -8,7 +9,7 @@ describe('极简界面的等比例视口适配', () => {
       const size = fitCanvas(width, height, 128)!;
       expect(size.width).toBeLessThanOrEqual(width);
       expect(size.height + 128).toBeLessThanOrEqual(height + 1e-8);
-      expect(size.width / size.height).toBeCloseTo(C.width / C.height, 10);
+      expect(size.width / size.height).toBeCloseTo(VIEW.width / VIEW.height, 10);
     });
   }
   it('隐藏或不可用的布局保留上次尺寸', () => {

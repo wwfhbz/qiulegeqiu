@@ -34,3 +34,16 @@ export function glassCard(c:CanvasRenderingContext2D,r:VisualRect,radius=18){
  c.save();c.beginPath();c.roundRect(r.x,r.y,r.width,r.height,radius);c.fillStyle='rgba(255,255,255,.10)';c.fill();c.strokeStyle='rgba(255,255,255,.16)';c.lineWidth=1;c.stroke();
  c.globalAlpha=.35;c.strokeStyle='#FFFFFF';c.beginPath();c.moveTo(r.x+radius,r.y+1);c.lineTo(r.x+r.width-radius,r.y+1);c.stroke();c.restore();
 }
+
+/** Deep-space neon styles (V2.2): a dark glass fill, a thin edge and an optional accent bar on the left. */
+export const NEON={cyan:'#4FE3FF',pink:'#FF6FB1',gold:'#FFD24D',dim:'#6F86A8'} as const;
+export type NeonAccent=keyof typeof NEON;
+export function neonButton(c:CanvasRenderingContext2D,r:VisualRect,accent:NeonAccent='cyan',radius=8,bar=false){
+ c.save();c.beginPath();c.roundRect(r.x,r.y,r.width,r.height,radius);c.fillStyle='rgba(10,18,40,.82)';c.fill();
+ c.strokeStyle=accent==='dim'?'rgba(120,200,255,.18)':NEON[accent]+'66';c.lineWidth=1;c.stroke();
+ if(bar){c.fillStyle=NEON[accent];c.fillRect(r.x,r.y+4,3,r.height-8);}c.restore();
+}
+/** Text with a soft neon glow. Uses shadowBlur, so keep it to screens that are not redrawn every game frame (panels). */
+export function glowText(c:CanvasRenderingContext2D,text:string,x:number,y:number,width:number,size:number,color:string,align:CanvasTextAlign='center',font:string=OCEAN.fonts.numbers,weight=800){
+ c.save();c.font=`${weight} ${size}px ${font}`;c.textAlign=align;c.textBaseline='middle';c.shadowColor=color;c.shadowBlur=size/2;c.fillStyle=color;c.fillText(text,x,y,Math.max(1,width));c.restore();
+}

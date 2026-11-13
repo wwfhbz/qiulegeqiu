@@ -1,6 +1,6 @@
 import type {GameHost} from './Contracts';
 import {Renderer} from '../Renderer';
-import {C} from '../GameConfig';
+import {viewX} from '../Viewport';
 import {startFromPlayfield} from '../PlayfieldStart';
 import {HapticTracker} from '../Haptics';
 /** All browser-only Canvas/input/lifecycle APIs stay in this Web adapter. */
@@ -14,7 +14,7 @@ export function createWebHost(canvas:HTMLCanvasElement,canStart:()=>boolean=()=>
   currentRenderer=renderer;
   const surfaces=[canvas,...steer];
   // Each surface gets its own handlers; x is always mapped through the canvas so the strip below steers 1:1.
-  const moveOn=(target:HTMLElement)=>(event:PointerEvent)=>{if(event.pointerType!=='mouse'&&!target.hasPointerCapture(event.pointerId))return;const rect=canvas.getBoundingClientRect();if(rect.width>0)game.physics.setTarget((event.clientX-rect.left)/rect.width*C.width);};
+  const moveOn=(target:HTMLElement)=>(event:PointerEvent)=>{if(event.pointerType!=='mouse'&&!target.hasPointerCapture(event.pointerId))return;const rect=canvas.getBoundingClientRect();if(rect.width>0)game.physics.setTarget(viewX((event.clientX-rect.left)/rect.width));};
   const downOn=(target:HTMLElement,move:(event:PointerEvent)=>void)=>(event:PointerEvent)=>{
    if(event.isPrimary===false||(event.button!==undefined&&event.button!==0)||!canStart())return;
    game.audio.unlock();target.setPointerCapture(event.pointerId);move(event);
