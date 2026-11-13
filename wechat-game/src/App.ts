@@ -62,10 +62,12 @@ export class MiniGameApp {
  frame(now:number){if(!this.active)return;const dt=this.previous?Math.min(.1,Math.max(0,(now-this.previous)/1000)):0;this.previous=now;
   // Before the first choice the picker stays up; if another panel closes over it, show it again.
   if(this.picking&&!this.panel.open)this.modePicker();
-  this.game.update(dt);this.haptics();if(this.online)this.sync.observe();if(!this.panel.ranking)this.renderer.draw(this.game.physics,this.game.state==='ready',now);this.draw(now);
+  this.game.update(dt);this.haptics();if(this.online)this.sync.observe();if(!this.panel.ranking&&!this.titleOpen)this.renderer.draw(this.game.physics,this.game.state==='ready',now);this.draw(now);
   if((this.game.state==='gameOver'||this.game.state==='victory')&&this.lastEnd!==this.game.journal.generation){this.lastEnd=this.game.journal.generation;this.result();}
  }
  private draw(now:number){const c=this.ctx,v=this.view;c.setTransform(this.dpr,0,0,this.dpr,0,0);
+  // The mode picker is a page of its own: it covers the whole screen (game, HUD and top bar).
+  if(this.titleOpen){this.actions=[];this.panel.screen={height:v.height,top:v.titleY,muted:this.game.audio.muted};this.panel.draw(c,v.width,v.titleY,v.bottom,now);return;}
   // Candy-night sky with two soft glows, like the web version.
   // Deep-space backdrop: one cached linear gradient (cheap). Radial glows or a full-screen image blit every frame
   // cost up to half the frame rate on tablets, so the WeChat build keeps the plain gradient.
@@ -104,12 +106,11 @@ export class MiniGameApp {
   for(const tab of v.modeTabs){const selected=tab.mode===g.mode,visual={x:tab.x,y:v.titleY+6,width:tab.width,height:36};if(selected)candyButton(c,visual,'gold',18);c.font=`800 14px ${OCEAN.fonts.body}`;c.textAlign='center';c.textBaseline='middle';c.fillStyle=selected?'#5A2C00':OCEAN.colors.secondary;c.fillText(tab.mode==='campaign'?'闯关':'无尽',tab.x+tab.width/2,v.titleY+24,tab.width-8);this.actions.push({rect:tab,run:()=>void this.requestMode(tab.mode)});}
   iconButton({x:v.width-98,y:v.titleY,width:40,height:36},g.state==='paused'?'play':'pause',()=>{if(g.state==='paused')g.start();else g.pause();});
   iconButton({x:v.width-50,y:v.titleY,width:40,height:36},'restart',()=>{this.panel.close();g.reset();});
-  this.panel.pickerAnchor={top:v.arena.y,centerY:v.arena.y+(C.arena.y-VIEW.y)*v.scale};
   this.panel.draw(c,v.width,this.panel.ranking?v.top:v.hudY,v.bottom,now,g.state!=='paused',this.lowDevice||v.width<360,this.rankingArt,this.dpr);
  }
  private down(e:TouchEvent){
   if(this.touch)return;const t=e.changedTouches[0],point=t&&touchPoint(t);if(!point)return;this.game.audio.unlock();const {x,y}=point;
-  this.touch={id:t.identifier,x,y,mode:!this.panel.ranking?this.view.modeTabs.find(tab=>inside(tab,x,y))?.mode:undefined,moved:false,lastY:y,drag:!this.panel.open&&(inside(this.view.arena,x,y)||inside(this.view.pad,x,y))&&!this.actions.some(a=>inside(a.rect,x,y))};
+  this.touch={id:t.identifier,x,y,mode:!this.panel.ranking&&!this.titleOpen?this.view.modeTabs.find(tab=>inside(tab,x,y))?.mode:undefined,moved:false,lastY:y,drag:!this.panel.open&&(inside(this.view.arena,x,y)||inside(this.view.pad,x,y))&&!this.actions.some(a=>inside(a.rect,x,y))};
   if(this.touch.drag){this.target(x);if(!this.busy&&!this.boardLoading)startFromPlayfield(this.game,()=>void this.activate());}
  }
  private move(e:TouchEvent){
@@ -177,8 +178,10 @@ export class MiniGameApp {
   finally{this.busy=false;if(!switched&&running&&this.active&&g.journal.generation===generation&&g.state==='paused')g.start();this.previous=0;}
  }
  /** The mode picker panel; it has no close button, so a mode must be chosen to play. */
+ private get titleOpen(){return this.panel.title==='选择游戏模式';}
  private modePicker(){this.picking=true;const last=this.game.mode;this.panel.show('选择游戏模式',['闯关模式：12 关逐关突破 · 5 条命 · 闯关榜','无尽模式：砖墙不断下沉 · 3 条命 · 无尽榜','每局结束后可重新选择模式'],[
-  {label:(last==='campaign'?'▶ ':'')+'闯关模式',run:()=>this.chooseMode('campaign')},{label:(last==='endless'?'▶ ':'')+'无尽模式',run:()=>this.chooseMode('endless')}]);}
+  {label:(last==='campaign'?'▶ ':'')+'闯关模式',run:()=>this.chooseMode('campaign')},{label:(last==='endless'?'▶ ':'')+'无尽模式',run:()=>this.chooseMode('endless')},
+  {label:'排行榜',run:()=>void this.board()},{label:'音效',run:()=>{this.game.audio.toggle();this.platform.write('qiulegeqiu:wechat-muted:v1',this.game.audio.muted);}}]);}
  private async history(){return this.task(async()=>{
   this.me=await this.api.me();const lines=scoreHistoryLines(this.me.historicalBests,this.me.historicalBest);
   this.panel.show('个人历史记录',lines.length?[...lines,'旧成绩完整保留，全球榜需按新版规则重新挑战。']:['暂无旧版有效记录'],[{label:'返回菜单',run:()=>this.menu()}]);

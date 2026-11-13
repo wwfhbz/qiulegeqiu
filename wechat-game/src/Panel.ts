@@ -9,7 +9,8 @@ export interface Action {label:string;run:()=>void;half?:boolean}
 export class Panel {
  ranking?:RankingCanvas;private rankSurface?:CanvasSurface;private canvasFactory?:()=>CanvasSurface;
  configureRankingCache(factory:()=>CanvasSurface){this.canvasFactory=factory;}
- pickerAnchor?:{top:number;centerY:number};
+ /** Full-screen title page geometry: screen height, first row under the capsule, and the sound state. */
+ screen?:{height:number;top:number;muted:boolean};
  title='';lines:string[]=[];actions:Action[]=[];hits:{rect:Rect;run:()=>void}[]=[];
  get open(){return !!this.title;}
  show(title:string,lines:string[],actions:Action[]){this.hits=[];this.ranking=undefined;this.title=title;this.lines=lines;this.actions=actions;}
@@ -21,7 +22,9 @@ export class Panel {
  private accentFor(label:string):NeonAccent{const text=label.replace('▶ ','');return text.includes('闯关')?'cyan':text.includes('无尽')?'pink':text.startsWith('提交')?'gold':text.startsWith('关闭')||text.startsWith('取消')?'dim':'cyan';}
  draw(c:CanvasRenderingContext2D,width:number,top:number,bottom:number,now=0,animate=true,lowDevice=false,art?:CanvasImageSource,pixelRatio=1){
   if(!this.open)return;if(this.ranking){this.ranking.draw(c,width,top,bottom,now,animate,lowDevice,art,pixelRatio);return;}this.hits=[];c.textBaseline='alphabetic';
-  if(this.title==='选择游戏模式'){const v=modePickerLayout(width,this.pickerAnchor?.top??top,bottom,this.pickerAnchor?.centerY??(top+bottom)/2);drawModePicker(c,v.card,v.rows,this.actions[1]?.label.startsWith('▶')?1:0);this.actions.slice(0,2).forEach((a,i)=>this.hits.push({rect:v.rows[i],run:a.run}));return;}
+  if(this.title==='选择游戏模式'){const sc=this.screen??{height:bottom,top,muted:false},v=modePickerLayout(width,sc.height,sc.top,bottom);
+   drawModePicker(c,width,sc.height,v,this.actions[1]?.label.startsWith('▶')?1:0,sc.muted,now);
+   [...v.rows,...v.tools].forEach((rect,i)=>{const a=this.actions[i];if(a)this.hits.push({rect,run:a.run});});return;}
   // Deep-space sheet: dark glass over the game, cyan title, thin-edged rows.
   c.fillStyle='rgba(3,5,12,.94)';c.fillRect(0,top,width,bottom-top);
   let y=top+16;const picker=this.title==='选择游戏模式';

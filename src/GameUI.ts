@@ -1,8 +1,8 @@
-import {OCEAN,OCEAN_CSS} from '../shared/VisualTheme';
+import {OCEAN,OCEAN_CSS,levelBandColors} from '../shared/VisualTheme';
 import {createWebHost,createWebAudio} from './platform/WebPlatform';
 import {AudioSystem} from './Audio';
 import { LeaderboardUI } from './online/LeaderboardUI';
-import { GAME_NAME } from '../shared/Brand';
+import { GAME_NAME, MINIGAME_VERSION } from '../shared/Brand';
 import { iconSvg } from '../shared/Icons';
 import { Game, type GameMode } from './Game';
 import { ENDLESS } from './endless/EndlessRules';
@@ -18,6 +18,8 @@ import { fitGamePanel } from './ViewportLayout';
 export function mountGame(root: HTMLElement) {
   for(const [key,value] of Object.entries(OCEAN_CSS))document.documentElement.style.setProperty(key,value);
   document.querySelector('meta[name=theme-color]')?.setAttribute('content',OCEAN.colors.background);
+  // Title-screen illustration: a small dome of bricks in the level-1 band colours.
+  const bands=levelBandColors(1),heroBricks=[3,5,7,7,7,5].map((n,row)=>Array.from({length:n},()=>`<i style="background:${bands[row]}"></i>`).join('')).map(r=>`<span>${r}</span>`).join('');
   root.innerHTML = `
   <main class="shell">
     <header><div class="mode-switch" role="group" aria-label="游戏模式"><button type="button" data-mode="campaign" aria-pressed="true">闯关</button><button type="button" data-mode="endless" aria-pressed="false">无尽</button></div><h1>${GAME_NAME}</h1><div class="top-actions"><button id="mute" class="icon-btn" type="button" aria-label="静音" aria-pressed="false">${iconSvg('soundOn')}</button><button id="pause" class="icon-btn" type="button" aria-label="暂停">${iconSvg('pause')}</button><button id="reset" class="icon-btn" type="button" aria-label="重新开始">${iconSvg('restart')}</button></div></header>
@@ -50,6 +52,19 @@ export function mountGame(root: HTMLElement) {
       <div class="touch-pad" id="touch-pad" role="presentation" data-fill><div class="power-info"><span id="wide"></span><span id="combo"></span></div><div class="pad-track"><i id="pad-knob"></i></div><span class="pad-hint">左右滑动控制挡板</span></div>
     </section></div>
     <button id="stress" class="debug" hidden>百球压力测试</button>
+    <section id="title-screen" class="title-screen" aria-label="选择游戏模式">
+      <div class="ts-inner">
+        <div class="ts-hero" aria-hidden="true"><div class="ts-ring"><div class="ts-bricks">${heroBricks}</div><i class="ts-orbit"><b></b></i><span class="ts-ball"></span><span class="ts-paddle"></span></div></div>
+        <div class="ts-logo" role="heading" aria-level="1">${GAME_NAME}</div>
+        <p class="ts-tag">圆形弹球 · 击碎星际砖墙</p>
+        <div class="ts-cards">
+          <button type="button" class="ts-card ts-campaign" data-pick="campaign"><span class="ts-icon">${iconSvg('flag')}</span><span class="ts-text"><strong>闯关模式</strong><span class="ts-desc">12 关逐关突破，冲击闯关榜</span><span class="ts-chips"><em>5 条命</em><em>12 关</em><em>闯关榜</em></span></span><span class="ts-go">${iconSvg('play')}</span><span class="ts-last">上次玩过</span></button>
+          <button type="button" class="ts-card ts-endless" data-pick="endless"><span class="ts-icon">${iconSvg('infinity')}</span><span class="ts-text"><strong>无尽模式</strong><span class="ts-desc">砖墙不断下沉，坚持越久分越高</span><span class="ts-chips"><em>3 条命</em><em>无限阶段</em><em>无尽榜</em></span></span><span class="ts-go">${iconSvg('play')}</span><span class="ts-last">上次玩过</span></button>
+        </div>
+        <div class="ts-tools"><button type="button" id="ts-board" class="ts-tool">${iconSvg('trophy')}<span>排行榜</span></button><button type="button" id="ts-sound" class="ts-tool" aria-pressed="false">${iconSvg('soundOn')}<span>音效开</span></button></div>
+        <p class="ts-foot">每局结束后可重新选择模式 · V${MINIGAME_VERSION}</p>
+      </div>
+    </section>
   </main>`;
   const el = (id: string) => root.querySelector<HTMLElement>(`#${id}`)!;
   const button = (id: string) => el(id) as HTMLButtonElement;
@@ -80,7 +95,9 @@ export function mountGame(root: HTMLElement) {
     for(const b of Array.from(root.querySelectorAll<HTMLButtonElement>('[data-mode]'))){b.setAttribute('aria-pressed',String(b.dataset.mode===g.mode));b.disabled=locked&&b.dataset.mode!==g.mode;b.title=locked?'本局结束后可切换模式':'';}
     // The mode picker owns the screen before the first run and after every finished run.
     const ended = g.state === 'gameOver' || g.state === 'victory';
-    el('mode-picker').hidden = !(picking || ended);
+    el('title-screen').hidden = !picking;
+    el('mode-picker').hidden = picking || !ended;
+    const muted=g.audio.muted;if(el('ts-sound').getAttribute('aria-pressed')!==String(muted)){el('ts-sound').setAttribute('aria-pressed',String(muted));el('ts-sound').innerHTML=`${iconSvg(muted?'soundOff':'soundOn')}<span>${muted?'音效关':'音效开'}</span>`;}
     for(const b of Array.from(root.querySelectorAll<HTMLElement>('[data-pick]')))b.classList.toggle('last',b.dataset.pick===g.mode);
     el('status').textContent = STATE_LABELS[g.state];
     const timers=[[g.physics.wideRemaining,'加宽'],[g.physics.pierceRemaining,'穿透'],[g.physics.fireRemaining,'火焰']] as const;
@@ -145,5 +162,8 @@ export function mountGame(root: HTMLElement) {
   const editable=(t:EventTarget|null)=>t instanceof HTMLElement&&!!t.closest('input,textarea,select,[contenteditable]');
   for(const type of ['selectstart','contextmenu','gesturestart','dragstart'])document.addEventListener(type,e=>{if(!editable(e.target))e.preventDefault();});
   online = new LeaderboardUI(root,game);
+  // Title-screen shortcuts reuse the real controls (leaderboard trophy and mute).
+  button('ts-board').onclick=()=>root.querySelector<HTMLButtonElement>('header .trophy')?.click();
+  button('ts-sound').onclick=()=>{button('mute').click();update(game);};
   update(game); return game;
 }
