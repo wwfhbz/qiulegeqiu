@@ -35,7 +35,7 @@ export class MiniGameApp {
  private backgroundFill?:CanvasGradient|string;
  private arena:Canvas;private renderer:Renderer;private ctx:CanvasRenderingContext2D;private sync:ChallengeSync;
  private view=layout(375,667);private dpr=1;private previous=0;private active=true;private online=false;private offlinePreference=false;private busy=false;private lastEnd=-1;
- private touch?:{id:number;x:number;y:number;moved:boolean;drag:boolean;lastY:number};private actions:{rect:Rect;run:()=>void}[]=[];
+ private touch?:{id:number;x:number;y:number;moved:boolean;drag:boolean;lastY:number;mode?:GameMode};private actions:{rect:Rect;run:()=>void}[]=[];
  private lowDevice=false;private boardLoading=false;private boardRevision=0;private me?:Me;private nicknameDraft='';private region:Region={code:'ISO:CN',prefix:'中国',name:'中国',hasChildren:true,path:''};private shareImage?:string;
  constructor(private wx:Wx,config:Config){
   try{this.lowDevice=(wx.getDeviceInfo?.().benchmarkLevel??30)<20;}catch{/* Old runtimes use viewport/frame-time fallback. */}
@@ -99,15 +99,17 @@ export class MiniGameApp {
   iconButton(tool(6),'menu',()=>this.menu());
   iconButton(tool(52),g.audio.muted?'soundOff':'soundOn',()=>{g.audio.toggle();this.platform.write('qiulegeqiu:wechat-muted:v1',g.audio.muted);});
   iconButton(tool(v.barRight-bs),'trophy',()=>void this.board(),'gold');
-  c.font=`900 23px ${OCEAN.fonts.body}`;c.textAlign='left';c.textBaseline='middle';const titleGold=c.createLinearGradient(0,v.titleY,0,v.titleY+36);titleGold?.addColorStop(0,'#FFFFFF');titleGold?.addColorStop(.6,'#FFE27A');titleGold?.addColorStop(1,'#FFB31F');c.fillStyle=titleGold||'#FFE27A';c.fillText(GAME_NAME,14,v.titleY+20,v.width-124);
+  c.font=`900 23px ${OCEAN.fonts.body}`;c.textAlign='left';c.textBaseline='middle';const titleGold=c.createLinearGradient(0,v.titleY,0,v.titleY+36);titleGold?.addColorStop(0,'#FFFFFF');titleGold?.addColorStop(.6,'#FFE27A');titleGold?.addColorStop(1,'#FFB31F');c.fillStyle=titleGold||'#FFE27A';c.fillText(GAME_NAME,128,v.titleY+20,Math.max(40,v.width-234));
+  neonButton(c,{x:4,y:v.titleY+4,width:118,height:40},'dim',20);
+  for(const tab of v.modeTabs){const selected=tab.mode===g.mode,visual={x:tab.x,y:v.titleY+6,width:tab.width,height:36};if(selected)candyButton(c,visual,'gold',18);c.font=`800 14px ${OCEAN.fonts.body}`;c.textAlign='center';c.textBaseline='middle';c.fillStyle=selected?'#5A2C00':OCEAN.colors.secondary;c.fillText(tab.mode==='campaign'?'闯关':'无尽',tab.x+tab.width/2,v.titleY+24,tab.width-8);this.actions.push({rect:tab,run:()=>void this.requestMode(tab.mode)});}
   iconButton({x:v.width-98,y:v.titleY,width:40,height:36},g.state==='paused'?'play':'pause',()=>{if(g.state==='paused')g.start();else g.pause();});
   iconButton({x:v.width-50,y:v.titleY,width:40,height:36},'restart',()=>{this.panel.close();g.reset();});
   this.panel.pickerAnchor={top:v.arena.y,centerY:v.arena.y+(C.arena.y-VIEW.y)*v.scale};
-  this.panel.draw(c,v.width,v.top,v.bottom,now,g.state!=='paused',this.lowDevice||v.width<360,this.rankingArt,this.dpr);
+  this.panel.draw(c,v.width,this.panel.ranking?v.top:v.hudY,v.bottom,now,g.state!=='paused',this.lowDevice||v.width<360,this.rankingArt,this.dpr);
  }
  private down(e:TouchEvent){
   if(this.touch)return;const t=e.changedTouches[0],point=t&&touchPoint(t);if(!point)return;this.game.audio.unlock();const {x,y}=point;
-  this.touch={id:t.identifier,x,y,moved:false,lastY:y,drag:!this.panel.open&&(inside(this.view.arena,x,y)||inside(this.view.pad,x,y))&&!this.actions.some(a=>inside(a.rect,x,y))};
+  this.touch={id:t.identifier,x,y,mode:!this.panel.ranking?this.view.modeTabs.find(tab=>inside(tab,x,y))?.mode:undefined,moved:false,lastY:y,drag:!this.panel.open&&(inside(this.view.arena,x,y)||inside(this.view.pad,x,y))&&!this.actions.some(a=>inside(a.rect,x,y))};
   if(this.touch.drag){this.target(x);if(!this.busy&&!this.boardLoading)startFromPlayfield(this.game,()=>void this.activate());}
  }
  private move(e:TouchEvent){
@@ -118,6 +120,7 @@ export class MiniGameApp {
  private up(e:TouchEvent){
   const active=this.touch;if(!active)return;const t=e.changedTouches.find(t=>t.identifier===active.id);if(!t)return;this.touch=undefined;
   const point=touchPoint(t);if(!point||active.moved||active.drag)return;
+  if(active.mode){const tab=this.view.modeTabs.find(tab=>tab.mode===active.mode);if(tab&&inside(tab,point.x,point.y))void this.requestMode(active.mode);return;}
   if(this.panel.open){this.panel.tap(active.x,active.y,point.x,point.y);return;}
   this.actions.find(a=>inside(a.rect,active.x,active.y)&&inside(a.rect,point.x,point.y))?.run();
  }
@@ -152,12 +155,26 @@ export class MiniGameApp {
  /** True until the player picks a mode: on launch, and again after every finished run. */
  picking=true;
  /** Start a fresh run in the chosen mode (the only way to change modes). */
- chooseMode(mode:GameMode){
+ chooseMode(mode:GameMode,confirmed=false){
   const g=this.game;if(this.busy||this.boardLoading)return;
-  if(g.journal.events.length>0&&g.state!=='gameOver'&&g.state!=='victory'){this.toast('本局结束后可切换模式');return;}
-  this.picking=false;if(mode===g.mode)g.reset();else g.setMode(mode);
+  if(!confirmed&&g.journal.events.length>0&&g.state!=='gameOver'&&g.state!=='victory'){this.toast('本局结束后可切换模式');return;}
+  this.online=false;this.lastEnd=-1;this.picking=false;if(mode===g.mode)g.reset();else g.setMode(mode);
+  // Switching fields can reuse generation/revision numbers: invalidate the visual brick cache.
+  this.renderer.resize();
   this.rankingBoard=mode==='endless'?'endless':'global';this.platform.write(MODE_KEY,mode);this.panel.close();
   this.toast(mode==='endless'?'无尽模式：砖墙会不断下沉，3条命':'闯关模式：12关挑战');
+ }
+ /** The permanent tabs share the existing chooseMode reset path. No score submission is triggered. */
+ private async requestMode(mode:GameMode){
+  if(this.busy||this.boardLoading)return;const g=this.game;
+  if(mode===g.mode){if(g.state==='gameOver'||g.state==='victory'){this.chooseMode(mode);return;}if(this.picking&&g.state==='ready'&&!g.journal.events.length){this.picking=false;this.panel.close();}return;}
+  const generation=g.journal.generation,inProgress=g.journal.events.length>0&&g.state!=='gameOver'&&g.state!=='victory';
+  if(!inProgress){this.chooseMode(mode);return;}
+  const running=g.state==='running';if(running)g.pause();this.busy=true;let switched=false;
+  try{const answer=await this.modal('切换游戏模式','切换将结束当前对局，未提交的本局成绩不会自动上传。是否切换？','确认切换','继续本局');
+   if(answer.confirm&&g.journal.generation===generation){this.busy=false;this.chooseMode(mode,true);switched=true;}
+  }catch(error){this.toast((error as Error).message);}
+  finally{this.busy=false;if(!switched&&running&&this.active&&g.journal.generation===generation&&g.state==='paused')g.start();this.previous=0;}
  }
  /** The mode picker panel; it has no close button, so a mode must be chosen to play. */
  private modePicker(){this.picking=true;const last=this.game.mode;this.panel.show('选择游戏模式',['闯关模式：12 关逐关突破 · 5 条命 · 闯关榜','无尽模式：砖墙不断下沉 · 3 条命 · 无尽榜','每局结束后可重新选择模式'],[
