@@ -18,8 +18,14 @@ export function readBuildConfig(configRoot=CLIENT_ROOT,development=false,release
  let url;try{url=new URL(apiBase);}catch{throw Error('API地址无效，请检查配置');}if(url.username||url.password||url.search||url.hash)throw Error('API地址不能包含凭据或查询参数');
  return {appid:local.appid||'touristappid',runtime:{apiBase,development}};
 }
+/** game.json declares a directory; WeChat always loads its index.js (not the main-domain game.js). */
+export function getOpenDataEntry(gameConfig){
+ const directory=gameConfig.openDataContext;
+ if(typeof directory!=='string'||!/^[a-zA-Z0-9_-]+(?:\/[a-zA-Z0-9_-]+)*$/.test(directory))throw Error('openDataContext必须为包内相对目录');
+ return directory+'/index.js';
+}
 export async function buildWechatGame({configRoot=CLIENT_ROOT,development=false,release=false}={}){
- configRoot=resolve(configRoot);const config=readBuildConfig(configRoot,development,release),out=join(configRoot,'dist'),stage=join(configRoot,'.build-'+randomUUID());fs.mkdirSync(stage,{recursive:true});
+ configRoot=resolve(configRoot);const config=readBuildConfig(configRoot,development,release),gameConfig=JSON.parse(fs.readFileSync(join(CLIENT_ROOT,'game.json'),'utf8')),openEntry=getOpenDataEntry(gameConfig),out=join(configRoot,'dist'),stage=join(configRoot,'.build-'+randomUUID());fs.mkdirSync(stage,{recursive:true});
  try{
   const result=await build({absWorkingDir:REPO_ROOT,entryPoints:[join(CLIENT_ROOT,'game.js')],outfile:join(stage,'game.js'),bundle:true,platform:'neutral',format:'cjs',target:'es2020',minify:!development,sourcemap:development,metafile:true,define:{__MINIGAME_CONFIG__:JSON.stringify(config.runtime)}});
   const inputs=Object.keys(result.metafile.inputs).map(p=>p.replaceAll('\\','/'));
@@ -27,16 +33,18 @@ export async function buildWechatGame({configRoot=CLIENT_ROOT,development=false,
   const bundle=fs.readFileSync(join(stage,'game.js'),'utf8');
   if(/\b(?:document|localStorage|sessionStorage)\s*[.\[]|\bwindow\s*\.|\bfetch\s*\(|WECHAT_APP_SECRET|jscode2session|node:sqlite/.test(bundle))throw Error('小游戏包包含浏览器依赖或服务端代码');
 
-  const open=await build({absWorkingDir:REPO_ROOT,entryPoints:[join(CLIENT_ROOT,'open-data/game.ts')],outfile:join(stage,'open-data/game.js'),bundle:true,platform:'neutral',format:'cjs',target:'es2020',minify:!development,metafile:true});
-  const openBundle=fs.readFileSync(join(stage,'open-data/game.js'),'utf8');
+  const open=await build({absWorkingDir:REPO_ROOT,entryPoints:[join(CLIENT_ROOT,'open-data/index.ts')],outfile:join(stage,openEntry),bundle:true,platform:'neutral',format:'cjs',target:'es2020',minify:!development,metafile:true});
+  const openBundle=fs.readFileSync(join(stage,openEntry),'utf8');
   if(/\b(?:document|localStorage|fetch)\s*[.(]|\brequest\s*\(|WECHAT_APP_SECRET|jscode2session|server\//.test(openBundle))throw Error('开放数据域包含网络或服务端依赖');
   if(Object.keys(open.metafile.inputs).some(p=>p.includes('server/')||p.includes('src/Game.ts')||p.includes('src/Api.ts')))throw Error('开放数据域不应包含主域游戏或身份模块');
   fs.mkdirSync(join(stage,'assets'),{recursive:true});
   fs.copyFileSync(join(REPO_ROOT,'public/ranking-art/reference-scene.png'),join(stage,'assets/ranking-scene.png'));
-  fs.copyFileSync(join(CLIENT_ROOT,'game.json'),join(stage,'game.json'));
+  fs.writeFileSync(join(stage,'game.json'),JSON.stringify(gameConfig,null,2)+'\n');
   const project=JSON.parse(fs.readFileSync(join(CLIENT_ROOT,'project.config.json'),'utf8'));Object.assign(project,{appid:config.appid,miniprogramRoot:'./',projectname:GAME_NAME,description:`${GAME_NAME} 微信小游戏 V${MINIGAME_VERSION} · 社交功能V2.1`});
   fs.writeFileSync(join(stage,'project.config.json'),JSON.stringify(project,null,2)+'\n');
-  fs.writeFileSync(join(stage,'build-info.json'),JSON.stringify({socialFeatureVersion:'2.1.0-social',clientVersion:MINIGAME_VERSION,rulesVersion:RULES_VERSION,apiBase:config.runtime.apiBase,development,inputs},null,2)+'\n');
+  fs.writeFileSync(join(stage,'build-info.json'),JSON.stringify({openDataEntry:openEntry,socialFeatureVersion:'2.1.0-social',clientVersion:MINIGAME_VERSION,rulesVersion:RULES_VERSION,apiBase:config.runtime.apiBase,development,inputs},null,2)+'\n');
+  const entryStat=fs.statSync(join(stage,getOpenDataEntry(JSON.parse(fs.readFileSync(join(stage,'game.json'),'utf8')))));
+  if(!entryStat.isFile()||entryStat.size===0)throw Error('开放数据域index.js产物缺失，停止替换旧包');
   fs.rmSync(out,{recursive:true,force:true});fs.renameSync(stage,out);
   console.log(`微信小游戏产物：${out}。开发者工具导入此目录；游客AppID不代表真实登录或审核资格。`);
   return out;
