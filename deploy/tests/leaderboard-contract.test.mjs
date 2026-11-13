@@ -16,7 +16,15 @@ test('跨版本必须先显式安装兼容API，完整发布仍拒绝未知或�
  assert.doesNotThrow(()=>verifyRollbackCompatibility(current,previous,{apiOnly:true}));
  for(const old of ['0.8.0-arcade-5l-10lv-v1','unknown',undefined])assert.throws(()=>verifyRollbackCompatibility(current,old,{apiOnly:true}));
  const health={ok:true,database:'ready',rulesVersion:current,supportedRulesVersions:[previous,current],challengeProtocolVersion:2,challengeFeatures:['triple-threshold20-v1','tutorial-brick-powers-v1'],leaderboard:{board:'global',rankingRulesVersion:current}};
- assert.doesNotThrow(()=>verifyCompatibilityBridgeHealth(health,current));assert.throws(()=>verifyCompatibilityBridgeHealth({...health,supportedRulesVersions:[current]},current),/旧十二关/);
+ assert.doesNotThrow(()=>verifyCompatibilityBridgeHealth(health,current));assert.throws(()=>verifyCompatibilityBridgeHealth({...health,supportedRulesVersions:[current]},current),/上一赛季/);
+});
+test('V1.3→V1.5同样只能经--api-only双验证桥接，不能跳过V1.3直接从V1.2切换',()=>{
+ const previous='1.3.0-arcade-5l-12lv-drops-v2',current='1.5.0-arcade-5l-12lv-short-v3';
+ assert.throws(()=>verifyRollbackCompatibility(current,previous),/--api-only/);
+ assert.doesNotThrow(()=>verifyRollbackCompatibility(current,previous,{apiOnly:true}));
+ assert.throws(()=>verifyRollbackCompatibility(current,'1.2.0-arcade-5l-12lv-v1',{apiOnly:true}));
+ const health={ok:true,database:'ready',rulesVersion:current,supportedRulesVersions:['1.2.0-arcade-5l-12lv-v1',previous,current],challengeProtocolVersion:2,challengeFeatures:['triple-threshold20-v1','tutorial-brick-powers-v1'],leaderboard:{board:'global',rankingRulesVersion:current}};
+ assert.doesNotThrow(()=>verifyCompatibilityBridgeHealth(health,current));assert.throws(()=>verifyCompatibilityBridgeHealth({...health,supportedRulesVersions:[current]},current),/上一赛季/);
 });
 test('API桥接不发布HTML或assets，普通发布保留原回滚路径，绝不回滚数据库',async()=>{
  const {readFileSync}=await import('node:fs'),script=readFileSync('deploy/publish.sh','utf8');

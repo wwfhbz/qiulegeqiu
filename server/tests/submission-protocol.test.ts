@@ -5,12 +5,14 @@ import {createApp,challengeEvent} from '../src/app';
 import {validationFailure} from '../src/validation';
 import {Game} from '../../src/Game';
 import {C} from '../../src/GameConfig';
-import {RULES_VERSION} from '../../shared/Challenge';
+import {RULES_VERSION,V13_RULES_VERSION} from '../../shared/Challenge';
+import {LevelManager} from '../../src/LevelManager';
+import {V13_LEVELS} from '../../src/Levels';
 const apps:Awaited<ReturnType<typeof createApp>>[]=[];
 afterEach(async()=>{for(const s of apps.splice(0))await s.app.close();});
-/** Controlled rule replay, not a claim to reproduce the player's physical trajectory. */
+/** Controlled rule replay of a reported V1.3-season run, not a claim to reproduce the player's physical trajectory. */
 function reportedRun(){
- const g=new Game();g.journal.seed=4;g.physics.setSeed(4);
+ const g=new Game(undefined,undefined,new LevelManager(V13_LEVELS));g.journal.seed=4;g.physics.setSeed(4);
  const advance=(ticks:number)=>{for(let n=0;n<ticks;n++){g.physics.onStep?.(C.step);g.physics.wideRemaining=Math.max(0,g.physics.wideRemaining-C.step);g.physics.powers.update(C.step,C.arena.x,g.physics.paddleWidth,(kind,id)=>g.physics.collect(kind,id));}};
  for(let level=1;level<=4;level++){
   g.start();const cells=Array.from(g.physics.blocks.alive.keys()).filter(i=>g.physics.blocks.alive[i]);
@@ -34,7 +36,7 @@ it('428.9秒/6013砖/第4关/186045分的真实规则回调日志通过API，伪
  const me=await s.app.inject({url:'/api/me?board=global'}),headers={cookie:'__Secure-qlgq='+me.cookies[0].value,origin:'https://test.local','x-csrf-token':me.json().csrfToken};
  await s.app.inject({method:'POST',url:'/api/players',headers,payload:{nickname:'提交回归玩家',regionCode:'ISO:CN'}});
  const health=(await s.app.inject({url:'/api/health'})).json();expect(health).toMatchObject({rulesVersion:RULES_VERSION,challengeProtocolVersion:2});
- const created=await s.app.inject({method:'POST',url:'/api/challenges',headers,payload:{rulesVersion:RULES_VERSION,seed:g.journal.seed}});expect(created.json().challengeProtocolVersion).toBe(2);const cid=created.json().id;clock+=summary.durationMs+5000;
+ const created=await s.app.inject({method:'POST',url:'/api/challenges',headers,payload:{rulesVersion:V13_RULES_VERSION,seed:g.journal.seed}});expect(created.json().challengeProtocolVersion).toBe(2);const cid=created.json().id;clock+=summary.durationMs+5000;
  for(let offset=0;offset<g.journal.events.length;offset+=256){const result=await s.app.inject({method:'POST',url:`/api/challenges/${cid}/events`,headers,payload:{sequence:offset/256,events:g.journal.events.slice(offset,offset+256)}});expect(result.statusCode,result.body).toBe(200);}
  const payload={idempotencyKey:randomUUID(),summary};expect((await s.app.inject({method:'POST',url:`/api/challenges/${cid}/submit`,headers,payload:{...payload,summary:{...summary,score:summary.score+1}}})).statusCode).toBe(422);
  const accepted=await s.app.inject({method:'POST',url:`/api/challenges/${cid}/submit`,headers,payload});expect(accepted.statusCode,accepted.body).toBe(200);expect(accepted.json().verificationStatus).toBe('verified');

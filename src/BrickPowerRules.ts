@@ -3,7 +3,9 @@ import type {PowerKind} from './PowerRules';
 /** Only ordinary, destructible cells in the generated grid participate. */
 export interface BrickPowerConfig {readonly fraction:number;readonly tripleShare:number;readonly stratumSize:number}
 export const TUTORIAL_POWERS={
- first:{fraction:.8,tripleShare:1,stratumSize:10},
+ first:{fraction:.35,tripleShare:1,stratumSize:10},
+ /** Frozen V1.3 quota, used only to verify and replay that season. */
+ firstV13:{fraction:.8,tripleShare:1,stratumSize:10},
  second:{fraction:.5,tripleShare:.6,stratumSize:10},
 } as const satisfies Record<string,BrickPowerConfig>;
 export type BrickPowerVersion=1|2;
