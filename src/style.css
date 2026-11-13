@@ -197,3 +197,27 @@ input,textarea,select,[contenteditable]{-webkit-user-select:text;user-select:tex
 @media (max-width:360px){.title-screen{padding-left:12px;padding-right:12px}.ts-card{gap:10px;padding:10px 12px;min-height:80px}.ts-icon{width:44px;height:44px;border-radius:14px}.ts-icon svg{width:26px;height:26px}
  .ts-text strong{font-size:19px;letter-spacing:2px}.ts-desc{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ts-chips{flex-wrap:nowrap}.ts-chips em{padding:1px 6px;font-size:10px}.ts-go{width:32px;height:32px}.ts-cards{gap:12px}.ts-logo{letter-spacing:4px}}
 @media (max-height:600px){.ts-hero{width:min(40vw,22vh)}.ts-tag{display:none}}
+
+/* Result page: the title page after a finished run (score card on top, the mode cards below to play again). */
+.ts-result,.ts-again{display:none}
+.title-screen.result .ts-hero,.title-screen.result .ts-logo,.title-screen.result .ts-tag{display:none}
+.title-screen.result .ts-result{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%;padding:18px 16px 16px;border-radius:24px;
+ background:radial-gradient(90% 50% at 50% 0%,rgba(255,190,60,.16),transparent 70%),rgba(255,255,255,.06);box-shadow:inset 0 0 0 1px rgba(255,255,255,.12),0 14px 30px rgba(0,0,0,.35)}
+.title-screen.result .ts-again{display:block;margin-bottom:-4px;font-size:13px;font-weight:700;letter-spacing:4px;color:#A9C1DE}
+.tr-medal{display:grid;place-items:center;width:56px;height:56px;margin-top:-46px;border-radius:50%;color:#6A3A00;background:linear-gradient(180deg,#FFE27A,#FFB31F);box-shadow:0 4px 0 #C9770A,0 0 24px rgba(255,190,60,.5),inset 0 1px 0 rgba(255,255,255,.7)}
+.tr-medal svg{width:30px;height:30px}
+.title-screen.result .ts-inner{padding-top:30px}
+.tr-title{font-size:24px;font-weight:900;letter-spacing:4px;color:#fff;text-shadow:0 2px 0 rgba(0,0,0,.25)}
+.tr-score-label{margin-top:2px;font-size:12px;letter-spacing:3px;color:#A9C1DE}
+.tr-score{font-size:clamp(40px,13vw,56px)}
+.tr-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;width:100%;margin-top:4px}
+.tr-submit{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:48px;margin-top:8px;border:0;border-radius:16px;font-size:16px;font-weight:900;letter-spacing:3px;color:#5A2C00;
+ background:linear-gradient(180deg,#FFE27A,#FFB31F);box-shadow:0 5px 0 #C9770A,0 10px 22px rgba(255,170,30,.25),inset 0 1px 0 rgba(255,255,255,.7)}
+.tr-submit svg{width:20px;height:20px}
+.tr-submit:active{transform:translateY(4px);box-shadow:0 1px 0 #C9770A}
+.title-screen.result .ts-card{min-height:80px;padding:10px 14px}
+.title-screen.result .ts-icon{width:46px;height:46px;border-radius:15px}
+.title-screen.result .ts-icon svg{width:26px;height:26px}
+.title-screen.result .ts-text strong{font-size:19px}
+.title-screen.result .ts-chips{display:none}
+@media (max-height:700px){.title-screen.result .ts-desc{display:none}.title-screen.result .ts-card{min-height:66px}.tr-score{font-size:40px}.title-screen.result .ts-result{gap:4px;padding:14px 14px 12px}}

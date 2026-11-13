@@ -67,12 +67,13 @@ export class MiniGameApp {
  frame(now:number){if(!this.active)return;if(this.panel.title!=='我的资料')this.profile.clearButton();const dt=this.previous?Math.min(.1,Math.max(0,(now-this.previous)/1000)):0;this.previous=now;
   // Before the first choice the picker stays up; if another panel closes over it, show it again.
   if(this.picking&&!this.panel.open)this.modePicker();
+  else if(!this.panel.open&&!this.busy&&(this.game.state==='gameOver'||this.game.state==='victory')&&this.lastEnd===this.game.journal.generation)this.resultPage();
   this.game.update(dt);this.haptics();if(this.online)this.sync.observe();if(!this.panel.ranking&&!this.panel.friend&&!this.titleOpen)this.renderer.draw(this.game.physics,this.game.state==='ready',now);this.draw(now);
   if((this.game.state==='gameOver'||this.game.state==='victory')&&this.lastEnd!==this.game.journal.generation){this.lastEnd=this.game.journal.generation;this.result();}
  }
  private draw(now:number){const c=this.ctx,v=this.view;c.setTransform(this.dpr,0,0,this.dpr,0,0);
   // The mode picker is a page of its own: it covers the whole screen (game, HUD and top bar).
-  if(this.titleOpen){this.actions=[];this.panel.screen={height:v.height,top:v.titleY,muted:this.game.audio.muted};this.panel.draw(c,v.width,v.titleY,v.bottom,now);return;}
+  if(this.titleOpen){this.actions=[];this.panel.screen={height:v.height,top:v.titleY,resultTop:v.top+8,muted:this.game.audio.muted};this.panel.draw(c,v.width,v.titleY,v.bottom,now);return;}
   // Candy-night sky with two soft glows, like the web version.
   // Deep-space backdrop: one cached linear gradient (cheap). Radial glows or a full-screen image blit every frame
   // cost up to half the frame rate on tablets, so the WeChat build keeps the plain gradient.
@@ -184,7 +185,8 @@ export class MiniGameApp {
   finally{this.busy=false;if(!switched&&running&&this.active&&g.journal.generation===generation&&g.state==='paused')g.start();this.previous=0;}
  }
  /** The mode picker panel; it has no close button, so a mode must be chosen to play. */
- private get titleOpen(){return this.panel.title==='选择游戏模式';}
+ /** Full-screen pages (mode picker and result page) cover the game, HUD and top bar. */
+ private get titleOpen(){return this.panel.title==='选择游戏模式'||!!this.panel.resultView;}
  private modePicker(){this.picking=true;const last=this.game.mode;this.panel.show('选择游戏模式',['闯关模式：12 关逐关突破 · 5 条命 · 闯关榜','无尽模式：砖墙不断下沉 · 3 条命 · 无尽榜','每局结束后可重新选择模式'],[
   {label:(last==='campaign'?'▶ ':'')+'闯关模式',run:()=>this.chooseMode('campaign')},{label:(last==='endless'?'▶ ':'')+'无尽模式',run:()=>this.chooseMode('endless')},
   {label:'排行榜',run:()=>void this.board()},{label:'音效',run:()=>{this.game.audio.toggle();this.platform.write('qiulegeqiu:wechat-muted:v1',this.game.audio.muted);}}]);}
@@ -192,11 +194,16 @@ export class MiniGameApp {
   this.me=await this.api.me();const lines=scoreHistoryLines(this.me.historicalBests,this.me.historicalBest);
   this.panel.show('个人历史记录',lines.length?[...lines,'旧成绩完整保留，全球榜需按新版规则重新挑战。']:['暂无旧版有效记录'],[{label:'返回菜单',run:()=>this.menu()}]);
  });}
- private result(){this.scoreShareImage=undefined;const g=this.game,generation=g.journal.generation;void scoreShare(this.wx,{mode:g.mode,score:g.score.total}).then(r=>{if(g.journal.generation===generation&&(g.state==='gameOver'||g.state==='victory'))this.scoreShareImage=r.imageUrl;}).catch(()=>{});this.panel.show(GAME_NAME+' · '+(g.state==='victory'?'十二关突破成功':'挑战结束'),[`本次总分 ${g.score.total}`,(g.mode==='endless'?`无尽模式 · 第${g.reachedLevel}阶段`:`到达第${g.levels.current.number}关`)+` · 消除 ${g.journal.bricksDestroyed} 块`,this.online?'成绩仍需服务端记录验证':'本轮为单机挑战，不上传成绩'],[
-  ...(this.online&&!this.me?.player?[{label:'登记地区：'+this.region.prefix,run:()=>void this.regions(undefined,()=>this.result())}]:[]),
+ private result(){this.scoreShareImage=undefined;const g=this.game,generation=g.journal.generation;void scoreShare(this.wx,{mode:g.mode,score:g.score.total}).then(r=>{if(g.journal.generation===generation&&(g.state==='gameOver'||g.state==='victory'))this.scoreShareImage=r.imageUrl;}).catch(()=>{});this.resultPage();}
+ /** Full-screen result page; it stays up (also after the leaderboard or a dialog closes) until a mode is chosen. */
+ private resultPage(){const g=this.game,endless=g.mode==='endless',field=g.physics.endless,s=g.journal.summary(g.score.total,g.reachedLevel,g.state==='victory');
+  const view={mode:g.mode,title:g.state==='victory'?'全部关卡突破！':endless?'挑战结束':'生命耗尽',score:g.score.total,
+   stats:[[endless?'到达阶段':'到达关卡',endless?`第${g.reachedLevel}阶段`:`第${g.levels.current.number}关`],['消除砖块',g.journal.bricksDestroyed.toLocaleString('zh-CN')],endless?['砖墙下沉',`${field?.descents??0} 行`]:['挑战用时',`${Math.round(s.durationMs/1000)} 秒`]] as [string,string][],
+   submitLabel:this.online?'提交成绩':'单机局 · 不上传',note:this.online?'成绩经服务端回放验证后上榜':'本轮为单机挑战，下一局开始时可选择联网',canSubmit:this.online};
+  this.panel.showResult(GAME_NAME+' · '+(g.state==='victory'?'十二关突破成功':'挑战结束'),[`本次总分 ${g.score.total}`,(endless?`无尽模式 · 第${g.reachedLevel}阶段`:`到达第${g.levels.current.number}关`)+` · 消除 ${g.journal.bricksDestroyed} 块`,view.note],[
   {label:'提交本次成绩',run:()=>void this.submit()}, {label:'查看全球排行榜',half:true,run:()=>void this.board()}, {label:'分享成绩',half:true,run:()=>void this.shareScore()},
-  {label:'闯关模式',half:true,run:()=>this.chooseMode('campaign')},{label:'无尽模式',half:true,run:()=>this.chooseMode('endless')}, {label:'关闭结算',run:()=>this.panel.close()}
- ]);}
+  {label:'闯关模式',half:true,run:()=>this.chooseMode('campaign')},{label:'无尽模式',half:true,run:()=>this.chooseMode('endless')}
+ ],view);}
  private async submit(){return this.task(async()=>{if(!this.online)throw Error('本轮单机成绩无法登记；下一轮开始时可选择联网');
   this.me=await this.api.me();if(!this.me.player){const name=await this.modal('登记玩家昵称','允许中文、英文、数字及安全字符，2～12个字符。','下一步','取消',true,this.nicknameDraft);if(!name.confirm)return;const nickname=name.content||'';this.nicknameDraft=nickname;
    const check=await this.api.request<{message:string;available:boolean}>('/players/availability?nickname='+encodeURIComponent(nickname)+'&region='+encodeURIComponent(this.region.code));

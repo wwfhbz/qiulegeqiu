@@ -2,7 +2,7 @@
  * One small, consistent icon set for the casual UI. Web uses the SVG strings; WeChat draws the same
  * shapes on canvas with `drawIcon` so both clients look alike. All icons sit in a 24×24 box.
  */
-export type IconName='pause'|'play'|'restart'|'soundOn'|'soundOff'|'trophy'|'menu'|'flag'|'infinity';
+export type IconName='pause'|'play'|'restart'|'soundOn'|'soundOff'|'trophy'|'menu'|'flag'|'infinity'|'share';
 
 const stroke=(d:string)=>`<path d="${d}" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>`;
 const fill=(d:string)=>`<path d="${d}" fill="currentColor"/>`;
@@ -16,6 +16,7 @@ const SVG_BODY:Record<IconName,string>={
  menu:stroke('M5 7h14M5 12h14M5 17h14'),
  flag:stroke('M6 21V4')+fill('M6 4.5h11l-2.4 3.7L17 12H6z'),
  infinity:stroke('M12 12c-2-2.6-3.6-4-5.6-4a4 4 0 0 0 0 8c2 0 3.6-1.4 5.6-4s3.6-4 5.6-4a4 4 0 0 1 0 8c-2 0-3.6-1.4-5.6-4z'),
+ share:stroke('M12 15V4M7.5 8.5 12 4l4.5 4.5M5 12.5V19a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-6.5'),
 };
 export function iconSvg(name:IconName){return `<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false">${SVG_BODY[name]}</svg>`;}
 
@@ -35,6 +36,7 @@ export function drawIcon(c:CanvasRenderingContext2D,name:IconName,x:number,y:num
    c.beginPath();c.moveTo(7,6.5);c.lineTo(4.5,6.5);c.quadraticCurveTo(4.5,10,7.5,10);c.stroke();c.beginPath();c.moveTo(17,6.5);c.lineTo(19.5,6.5);c.quadraticCurveTo(19.5,10,16.5,10);c.stroke();break;
   case 'menu':line([[5,7],[19,7]]);line([[5,12],[19,12]]);line([[5,17],[19,17]]);break;
   case 'flag':line([[6,21],[6,4]]);poly([[6,4.5],[17,4.5],[14.6,8.2],[17,12],[6,12]]);break;
+  case 'share':line([[12,15],[12,4]]);line([[7.5,8.5],[12,4],[16.5,8.5]]);line([[5,12.5],[5,20],[19,20],[19,12.5]]);break;
   case 'infinity':c.beginPath();c.ellipse(7.5,12,3.6,3.2,0,0,Math.PI*2);c.stroke();c.beginPath();c.ellipse(16.5,12,3.6,3.2,0,0,Math.PI*2);c.stroke();break;
  }
  c.restore();
