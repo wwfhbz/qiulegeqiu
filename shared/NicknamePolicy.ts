@@ -1,0 +1,3 @@
+export interface NicknameQuota {weeklyRemaining:number;yearlyRemaining:number;allowed:boolean;nextAllowedAt:number|null;weekResetsAt:number;yearResetsAt:number;timeZone:'Asia/Shanghai'}
+export function beijingTime(time:number){const d=new Date(time+8*3600000);return `${d.getUTCFullYear()}年${d.getUTCMonth()+1}月${d.getUTCDate()}日 ${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')}（北京时间）`;}
+export function nicknameQuotaText(q:NicknameQuota){return `本周剩余：${q.weeklyRemaining}次 · 今年剩余：${q.yearlyRemaining}次`+(q.allowed?'':`；下次可修改：${beijingTime(q.nextAllowedAt!)}`);}

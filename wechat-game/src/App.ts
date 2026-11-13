@@ -12,6 +12,7 @@ import {OCEAN,brickColor} from '../../shared/VisualTheme';
 import {drawIcon,type IconName} from '../../shared/Icons';
 import {canvasText,neonButton,candyButton,NEON,type NeonAccent} from '../../shared/CanvasUI';
 import {scoreHistoryLines} from '../../shared/ScoreHistory';
+import {nicknameQuotaText} from '../../shared/NicknamePolicy';
 import {assertGlobalBoard,assertEndlessBoard,type LeaderboardMetadata} from '../../shared/Challenge';
 import type {GameMode} from '../../src/Game';
 import {GAME_NAME} from '../../shared/Brand';
@@ -192,7 +193,7 @@ export class MiniGameApp {
   {label:'排行榜',run:()=>void this.board()},{label:'音效',run:()=>{this.game.audio.toggle();this.platform.write('qiulegeqiu:wechat-muted:v1',this.game.audio.muted);}}]);}
  private async history(){return this.task(async()=>{
   this.me=await this.api.me();const lines=scoreHistoryLines(this.me.historicalBests,this.me.historicalBest);
-  this.panel.show('个人历史记录',lines.length?[...lines,'旧成绩完整保留，全球榜需按新版规则重新挑战。']:['暂无旧版有效记录'],[{label:'返回菜单',run:()=>this.menu()}]);
+  this.panel.show('个人历史记录',lines.length?[...lines,'历史有效成绩已参与所属模式永久统一排行榜。']:['暂无旧版有效记录'],[{label:'返回菜单',run:()=>this.menu()}]);
  });}
  private result(){this.scoreShareImage=undefined;const g=this.game,generation=g.journal.generation;void scoreShare(this.wx,{mode:g.mode,score:g.score.total}).then(r=>{if(g.journal.generation===generation&&(g.state==='gameOver'||g.state==='victory'))this.scoreShareImage=r.imageUrl;}).catch(()=>{});this.resultPage();}
  /** Full-screen result page; it stays up (also after the leaderboard or a dialog closes) until a mode is chosen. */
@@ -201,9 +202,21 @@ export class MiniGameApp {
    stats:[[endless?'到达阶段':'到达关卡',endless?`第${g.reachedLevel}阶段`:`第${g.levels.current.number}关`],['消除砖块',g.journal.bricksDestroyed.toLocaleString('zh-CN')],endless?['砖墙下沉',`${field?.descents??0} 行`]:['挑战用时',`${Math.round(s.durationMs/1000)} 秒`]] as [string,string][],
    submitLabel:this.online?'提交成绩':'单机局 · 不上传',note:this.online?'成绩经服务端回放验证后上榜':'本轮为单机挑战，下一局开始时可选择联网',canSubmit:this.online};
   this.panel.showResult(GAME_NAME+' · '+(g.state==='victory'?'十二关突破成功':'挑战结束'),[`本次总分 ${g.score.total}`,(endless?`无尽模式 · 第${g.reachedLevel}阶段`:`到达第${g.levels.current.number}关`)+` · 消除 ${g.journal.bricksDestroyed} 块`,view.note],[
-  {label:'提交本次成绩',run:()=>void this.submit()}, {label:'查看全球排行榜',half:true,run:()=>void this.board()}, {label:'分享成绩',half:true,run:()=>void this.shareScore()},
+  {label:'提交本次成绩',run:()=>void this.scoreEntry()}, {label:'查看全球排行榜',half:true,run:()=>void this.board()}, {label:'分享成绩',half:true,run:()=>void this.shareScore()},
   {label:'闯关模式',half:true,run:()=>this.chooseMode('campaign')},{label:'无尽模式',half:true,run:()=>this.chooseMode('endless')}
  ],view);}
+ private async scoreEntry(){return this.task(async()=>{
+  if(!this.online)throw Error('本轮单机成绩无法登记；下一轮开始时可选择联网');
+  this.me=await this.api.me();const p=this.me.player;
+  this.panel.show('提交挑战成绩',[p?'当前昵称：'+p.nickname:'首次登记昵称不消耗修改额度',p&&this.me.nicknameChange?nicknameQuotaText(this.me.nicknameChange):'昵称额度由服务器统一记录；可直接提交成绩'],[
+   {label:'提交成绩',run:()=>void this.submit()},...(p?[{label:'修改昵称',run:()=>void this.changeNickname()}]:[]),{label:'返回结算',run:()=>this.resultPage()}
+  ]);
+ });}
+ private async changeNickname(){await this.task(async()=>{
+  this.me=await this.api.me();if(!this.me.player)return;const r=await this.modal('修改排行榜昵称',this.me.nicknameChange?nicknameQuotaText(this.me.nicknameChange):'每周最多2次，每年最多6次（北京时间）','保存','取消',true,this.me.player.nickname);if(!r.confirm)return;
+  try{await this.api.request('/players/nickname',{nickname:r.content||''});this.me=await this.api.me();this.toast('排行榜昵称已同步');}
+  catch(e){this.toast((e as Error).message+'；仍可提交成绩');}
+ });if(this.panel.title==='提交挑战成绩')await this.scoreEntry();}
  private async submit(){return this.task(async()=>{if(!this.online)throw Error('本轮单机成绩无法登记；下一轮开始时可选择联网');
   this.me=await this.api.me();if(!this.me.player){const name=await this.modal('登记玩家昵称','允许中文、英文、数字及安全字符，2～12个字符。','下一步','取消',true,this.nicknameDraft);if(!name.confirm)return;const nickname=name.content||'';this.nicknameDraft=nickname;
    const check=await this.api.request<{message:string;available:boolean}>('/players/availability?nickname='+encodeURIComponent(nickname)+'&region='+encodeURIComponent(this.region.code));
