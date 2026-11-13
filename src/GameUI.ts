@@ -3,6 +3,7 @@ import {createWebHost,createWebAudio} from './platform/WebPlatform';
 import {AudioSystem} from './Audio';
 import { LeaderboardUI } from './online/LeaderboardUI';
 import { GAME_NAME } from '../shared/Brand';
+import { iconSvg } from '../shared/Icons';
 import { Game, type GameMode } from './Game';
 import { ENDLESS } from './endless/EndlessRules';
 import { C } from './GameConfig';
@@ -18,15 +19,17 @@ export function mountGame(root: HTMLElement) {
   document.querySelector('meta[name=theme-color]')?.setAttribute('content',OCEAN.colors.background);
   root.innerHTML = `
   <main class="shell">
-    <header><div class="mode-switch" role="group" aria-label="游戏模式"><button type="button" data-mode="campaign" aria-pressed="true">闯关</button><button type="button" data-mode="endless" aria-pressed="false">无尽</button></div><h1><span class="brand-mark" aria-hidden="true">◉</span>${GAME_NAME}</h1><div class="top-actions"><button id="mute" type="button" aria-label="静音" aria-pressed="false">🔊</button><button id="pause" type="button" aria-label="暂停">⏸</button><button id="reset" type="button" aria-label="重新开始">↻</button></div></header>
+    <header><div class="mode-switch" role="group" aria-label="游戏模式"><button type="button" data-mode="campaign" aria-pressed="true">闯关</button><button type="button" data-mode="endless" aria-pressed="false">无尽</button></div><h1>${GAME_NAME}</h1><div class="top-actions"><button id="mute" class="icon-btn" type="button" aria-label="静音" aria-pressed="false">${iconSvg('soundOn')}</button><button id="pause" class="icon-btn" type="button" aria-label="暂停">${iconSvg('pause')}</button><button id="reset" class="icon-btn" type="button" aria-label="重新开始">${iconSvg('restart')}</button></div></header>
     <div class="stage-room"><section class="game-panel" aria-label="游戏区域">
       <div class="hud" aria-label="游戏状态">
-        <div class="hud-item"><span class="label" id="level-label">关卡</span><strong id="level"></strong></div>
-        <div class="hud-item"><span class="label">生命</span><span id="hearts" role="img" aria-live="polite"></span><span id="lives" class="sr-only"></span></div>
-        <div class="hud-item"><span class="label">分数</span><strong id="score">0</strong></div>
-        <div class="hud-item"><span class="label">弹球</span><strong id="ball-badge">球×<span id="balls">1</span></strong></div>
-        <div class="hud-item"><span class="label">剩余方块</span><strong id="remaining">0</strong></div>
-        <div class="hud-item hud-progress"><span class="label"><span id="progress-label">进度</span> <span id="progress-value">0%</span></span><span id="progress-meter" role="progressbar" aria-label="本关消除进度" aria-valuemin="0" aria-valuemax="100"><i></i></span></div>
+        <div class="hud-chip hud-level"><span class="label" id="level-label">关卡</span><strong id="level"></strong></div>
+        <div class="hud-score"><span class="label">分数</span><strong id="score">0</strong></div>
+        <div class="hud-chip hud-lives"><span class="label">生命</span><span id="hearts" role="img" aria-live="polite"></span><span id="lives" class="sr-only"></span></div>
+        <div class="hud-row">
+          <span class="hud-stat"><span class="label">弹球</span><strong id="ball-badge">×<span id="balls">1</span></strong></span>
+          <span class="hud-stat"><span class="label">剩余</span><strong id="remaining">0</strong></span>
+          <div class="hud-progress"><span class="label"><span id="progress-label">进度</span><span id="progress-value">0%</span></span><span id="progress-meter" role="progressbar" aria-label="本关消除进度" aria-valuemin="0" aria-valuemax="100"><i></i></span></div>
+        </div>
       </div>
       <div class="canvas-wrap"><canvas id="arena-canvas" aria-label="圆形弹球竞技场，移动鼠标或拖动控制挡板"></canvas>
         <span id="status" class="sr-only" role="status"></span><span id="removed" class="sr-only"></span><span id="total" class="sr-only"></span>
@@ -35,12 +38,13 @@ export function mountGame(root: HTMLElement) {
           <div class="result-total"><span id="result-label"></span><strong id="result-score">0</strong></div><p id="score-details"></p>
         </section>
         <section id="mode-picker" class="mode-picker" aria-label="选择游戏模式">
+          <div class="picker-logo">${GAME_NAME}</div>
           <h2>选择游戏模式</h2>
-          <button type="button" data-pick="campaign"><strong>闯关模式</strong><span>12 关逐关突破 · 5 条命 · 闯关榜</span></button>
-          <button type="button" data-pick="endless"><strong>无尽模式</strong><span>砖墙不断下沉 · 3 条命 · 无尽榜</span></button>
+          <button type="button" data-pick="campaign"><i class="pick-icon">${iconSvg('flag')}</i><span class="pick-text"><strong>闯关模式</strong><span>12 关逐关突破 · 5 条命</span></span><b class="pick-go">${iconSvg('play')}</b></button>
+          <button type="button" data-pick="endless"><i class="pick-icon">${iconSvg('infinity')}</i><span class="pick-text"><strong>无尽模式</strong><span>砖墙不断下沉 · 3 条命</span></span><b class="pick-go">${iconSvg('play')}</b></button>
           <p>每局结束后可重新选择模式</p>
         </section>
-        <div id="central-layer" class="central-layer" hidden><button id="start" class="central-start" type="button" aria-controls="arena-canvas">▶ 开始游戏</button></div>
+        <div id="central-layer" class="central-layer" hidden><button id="start" class="central-start" type="button" aria-controls="arena-canvas">开始游戏</button></div>
       </div>
       <div class="touch-pad" id="touch-pad" role="presentation"><div class="power-info"><span id="wide"></span><span id="combo"></span></div><div class="pad-track"><i id="pad-knob"></i></div><span class="pad-hint">左右滑动控制挡板</span></div>
     </section></div>
@@ -89,7 +93,8 @@ export function mountGame(root: HTMLElement) {
     button('start').disabled = action === null;
     if (action) button('start').textContent = g.state==='ready'?START_HINT:action.label;
     button('pause').disabled = g.state !== 'running' && g.state !== 'paused';
-    button('pause').textContent = g.state === 'paused' ? '▶' : '⏸'; button('pause').setAttribute('aria-label', g.state === 'paused' ? '继续' : '暂停');
+    const pauseIcon = g.state === 'paused' ? 'play' : 'pause';
+    if (button('pause').dataset.icon !== pauseIcon) { button('pause').dataset.icon = pauseIcon; button('pause').innerHTML = iconSvg(pauseIcon); button('pause').setAttribute('aria-label', g.state === 'paused' ? '继续' : '暂停'); }
     const completed = g.state === 'levelComplete' || g.state === 'victory';
     el('settlement').hidden = !completed && g.state !== 'gameOver';
     if (completed || g.state === 'gameOver') {
@@ -114,7 +119,7 @@ export function mountGame(root: HTMLElement) {
   button('reset').onclick = () => game.reset();
   button('mute').onclick = () => {
     game.audio.unlock(); const muted = game.audio.toggle();
-    button('mute').textContent = muted ? '🔇' : '🔊'; button('mute').setAttribute('aria-pressed', String(muted)); button('mute').setAttribute('aria-label', muted ? '开启音效' : '静音');
+    button('mute').innerHTML = iconSvg(muted ? 'soundOff' : 'soundOn'); button('mute').setAttribute('aria-pressed', String(muted)); button('mute').setAttribute('aria-label', muted ? '开启音效' : '静音');
   };
   button('stress').hidden = new URLSearchParams(location.search).get('debug') !== '1';
   button('stress').onclick = () => game.stress();

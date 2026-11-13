@@ -98,7 +98,7 @@ it('微信菜单和面板不穿透，暂停或结算点击球场不创建新挑�
 });
 it('微信授权未完成时重复触摸不重复开局，重置后旧授权回调不启动新一轮',async()=>{
  const f=wxFixture();let complete:((result:{confirm:boolean})=>void)|undefined,modals=0;
- f.wx.showModal=o=>{modals++;complete=o.success;};const app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});app.frame(100);
+ f.wx.showModal=o=>{modals++;complete=o.success;};const app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});(app as unknown as {chooseMode(m:string):void}).chooseMode('campaign');app.frame(100);
  const v=(app as unknown as {view:{arena:{x:number;y:number;width:number;height:number}}}).view;
  const tap=()=>{const e=f.touch(1,v.arena.x+5,v.arena.y+20);f.events.down(e);f.events.up(e);};tap();tap();
  expect(modals).toBe(1);expect(app.game.state).toBe('ready');expect(app.game.journal.events).toHaveLength(0);

@@ -1,7 +1,8 @@
 import {HapticTracker} from '../../src/Haptics';
 const MODE_KEY='qiulegeqiu:wechat-mode:v1';
 import {OCEAN,brickColor} from '../../shared/VisualTheme';
-import {panel,canvasText} from '../../shared/CanvasUI';
+import {drawIcon,type IconName} from '../../shared/Icons';
+import {panel,canvasText,candyButton,chunkyText,goldText,glassCard,CANDY,type CandyStyle} from '../../shared/CanvasUI';
 import {scoreHistoryLines} from '../../shared/ScoreHistory';
 import {assertGlobalBoard,ENDLESS_BOARD,ENDLESS_RULES_VERSION,type LeaderboardMetadata} from '../../shared/Challenge';
 import type {GameMode} from '../../src/Game';
@@ -62,37 +63,52 @@ export class MiniGameApp {
   if((this.game.state==='gameOver'||this.game.state==='victory')&&this.lastEnd!==this.game.journal.generation){this.lastEnd=this.game.journal.generation;this.result();}
  }
  private draw(now:number){const c=this.ctx,v=this.view;c.setTransform(this.dpr,0,0,this.dpr,0,0);
-  if(!this.backgroundFill){const gradient=c.createLinearGradient(0,0,0,v.height);gradient?.addColorStop(0,OCEAN.colors.background);gradient?.addColorStop(1,OCEAN.colors.gradientEnd);this.backgroundFill=gradient||OCEAN.colors.background;}
-  c.fillStyle=this.backgroundFill;c.fillRect(0,0,v.width,v.height);canvasText(c,GAME_NAME,v.width/2,v.top+24,v.width-300,15,OCEAN.colors.text,'center');
-  const g=this.game,b=g.physics.blocks,hud={x:8,y:v.hudY-4,width:v.width-16,height:56};panel(c,hud,OCEAN.colors.arena,OCEAN.colors.line,10);
+  // Candy-night sky with two soft glows, like the web version.
+  // Candy-night sky: one cached linear gradient (cheap). Radial glows or a full-screen image blit every frame
+  // cost up to half the frame rate on tablets, so the WeChat build keeps the plain gradient.
+  if(!this.backgroundFill){const gradient=c.createLinearGradient(0,0,0,v.height);gradient?.addColorStop(0,'#3B2A8F');gradient?.addColorStop(.45,'#231A5C');gradient?.addColorStop(1,'#130E36');this.backgroundFill=gradient||OCEAN.colors.background;
+}
+  c.fillStyle=this.backgroundFill;c.fillRect(0,0,v.width,v.height);
+  // HUD card: level chip · big gold score · hearts, then balls / remaining / thick progress bar.
+  const g=this.game,b=g.physics.blocks,hud={x:8,y:v.hudY-6,width:v.width-16,height:60};glassCard(c,hud,16);
   const field=g.physics.endless,progress=field?Math.round(field.descentProgress*100):Math.round(b.removed/Math.max(1,b.total)*100);
-  const cells=[field?['无尽阶段',`第${g.reachedLevel}阶段`]:['关卡',`${String(g.levels.current.number).padStart(2,'0')}/${g.levels.count}`],['生命',`♥×${g.lives}`],['得分',String(g.score.total)],['弹球',`球×${g.physics.balls.length}`],['剩余砖块',String(b.remaining)],field?[field.blocked?'压到底线':'下沉',`已下沉${field.descents}行`]:['进度',`${progress}%`]];
-  cells.forEach(([label,value],i)=>{const x=hud.x+10+(i%3)*(hud.width-12)/3,y=hud.y+8+Math.floor(i/3)*26,w=(hud.width-24)/3;canvasText(c,label,x,y,w,8,OCEAN.colors.muted);canvasText(c,value,x,y+12,w,12,i===1?OCEAN.colors.heart:i===5?OCEAN.colors.positive:OCEAN.colors.number);});
-  const meterX=hud.x+10+2*(hud.width-12)/3,meterWidth=(hud.width-24)/3;c.fillStyle=OCEAN.colors.line;c.fillRect(meterX,hud.y+53,meterWidth,2);c.fillStyle=OCEAN.colors.positive;c.fillRect(meterX,hud.y+53,meterWidth*progress/100,2);
+  canvasText(c,field?'无尽阶段':'关卡',hud.x+12,hud.y+12,90,9,OCEAN.colors.muted);
+  chunkyText(c,field?`第${g.reachedLevel}阶段`:`${String(g.levels.current.number).padStart(2,'0')}/${g.levels.count}`,hud.x+12,hud.y+28,100,14,OCEAN.colors.text,'left');
+  canvasText(c,'分数',hud.x+hud.width/2,hud.y+9,60,9,OCEAN.colors.muted,'center');goldText(c,String(g.score.total),hud.x+hud.width/2,hud.y+27,hud.width*.38,22);
+  canvasText(c,'生命',hud.x+hud.width-12,hud.y+12,60,9,OCEAN.colors.muted,'right');
+  // Hearts: filled for remaining lives, faded for lost ones (two strings, right-aligned).
+  {c.font=`900 15px ${OCEAN.fonts.body}`;c.textBaseline='middle';c.textAlign='right';const lost='♡'.repeat(Math.max(0,g.maxLives-g.lives)),right=hud.x+hud.width-12;c.fillStyle='rgba(255,255,255,.3)';if(lost)c.fillText(lost,right,hud.y+28);c.fillStyle=OCEAN.colors.heart;if(g.lives>0)c.fillText('♥'.repeat(g.lives),right-c.measureText(lost).width,hud.y+28);}
+  const row=hud.y+48;canvasText(c,`弹球 球×${g.physics.balls.length}`,hud.x+12,row,90,10,OCEAN.colors.secondary);canvasText(c,`剩余 ${b.remaining}`,hud.x+92,row,80,10,OCEAN.colors.secondary);
+  const barX=hud.x+170,barW=hud.width-182;canvasText(c,field?(field.blocked?'压到底线':'下沉'):'进度',barX,row-8,60,8,OCEAN.colors.muted);canvasText(c,field?`已下沉${field.descents}行`:`${progress}%`,barX+barW,row-8,80,8,OCEAN.colors.positive,'right');
+  c.save();c.beginPath();c.roundRect(barX,row-1,barW,7,4);c.fillStyle='rgba(10,4,40,.55)';c.fill();if(progress>0){const fillG=c.createLinearGradient(barX,0,barX+barW,0);fillG?.addColorStop(0,'#5CE1FF');fillG?.addColorStop(.55,'#3EE0B5');fillG?.addColorStop(1,'#FFE27A');c.beginPath();c.roundRect(barX,row-1,Math.max(7,barW*progress/100),7,4);c.fillStyle=fillG||'#3EE0B5';c.fill();}c.restore();
   if(!this.panel.ranking)c.drawImage(this.arena as CanvasImageSource,v.arena.x,v.arena.y,v.arena.width,v.arena.height);this.actions=[];
-  const button=(rect:Rect,label:string,run:()=>void)=>{panel(c,rect,OCEAN.colors.panel,OCEAN.colors.border,9);canvasText(c,label,rect.x+rect.width/2,rect.y+rect.height/2,rect.width-8,13,OCEAN.colors.text,'center');this.actions.push({rect,run});};
+  const button=(rect:Rect,label:string,run:()=>void,style:CandyStyle='gold')=>{candyButton(c,rect,style,rect.height/2);chunkyText(c,label,rect.x+rect.width/2,rect.y+rect.height/2-2,rect.width-16,16,CANDY[style][3],'center','rgba(0,0,0,0)');this.actions.push({rect,run});};
+  const iconButton=(rect:Rect,icon:IconName,run:()=>void,style:CandyStyle='violet',_label='')=>{candyButton(c,rect,style,13);drawIcon(c,icon,rect.x+rect.width/2,rect.y+rect.height/2-2,22,CANDY[style][3]);this.actions.push({rect,run});};
   if(g.physics.wideRemaining>0||g.score.multiplier>1)canvasText(c,`${g.physics.wideRemaining>0?'加宽 '+g.physics.wideRemaining.toFixed(1)+' 秒 ':''}${g.score.multiplier>1?'连击 ×'+g.score.multiplier:''}`,v.width/2,v.buttonsY-6,v.width-16,10,OCEAN.colors.positive,'center');
   const action=centralActionFor(g);
   if(g.state==='levelComplete'&&g.result){c.fillStyle=OCEAN.colors.text;c.font='14px sans-serif';c.fillText(`第${g.levels.current.number}关突破！本关 ${g.result.levelTotal} 分`,v.width/2,v.arena.y+C.arena.y*v.scale-38);}
   if(g.state==='paused'){c.fillStyle=OCEAN.alpha.veil;c.fillRect(v.arena.x,v.arena.y,v.arena.width,v.arena.height);}
   // After a finished run the central button reopens the mode picker instead of retrying the same mode.
   const ended=g.state==='gameOver'||g.state==='victory';
-  if(ended&&!this.busy&&!this.panel.open){const centerY=v.arena.y+C.arena.y*v.scale;button({x:v.width/2-78,y:centerY-22,width:156,height:44},'选择模式',()=>this.modePicker());}
-  else if(action&&g.state!=='ready'&&!this.busy){const centerY=v.arena.y+C.arena.y*v.scale;button({x:v.width/2-78,y:centerY-22,width:156,height:44},action.label,()=>void this.activate());}
+  if(ended&&!this.busy&&!this.panel.open){const centerY=v.arena.y+C.arena.y*v.scale;button({x:v.width/2-84,y:centerY-26,width:168,height:52},'选择模式',()=>this.modePicker());}
+  else if(action&&g.state!=='ready'&&!this.busy){const centerY=v.arena.y+C.arena.y*v.scale;button({x:v.width/2-84,y:centerY-26,width:168,height:52},action.label.replace('▶ ',''),()=>void this.activate());}
   // Touch strip under the arena: a quiet hint; dragging here steers the paddle (see down/move).
   // Joined to the arena's bottom edge: same width, rounded bottom corners, a track and a knob that follows the paddle.
   if(!this.panel.open&&v.pad.height>=36){const p={x:v.arena.x,y:v.pad.y,width:v.arena.width,height:Math.min(v.pad.height,96)};
-   const fill=c.createLinearGradient(0,p.y,0,p.y+p.height);fill?.addColorStop(0,'#1A2236');fill?.addColorStop(1,'#0A1424');
-   c.save();c.beginPath();c.roundRect(p.x,p.y,p.width,p.height,[0,0,14,14]);c.fillStyle=fill||'#0F1A2C';c.fill();c.strokeStyle='rgba(79,227,255,.18)';c.lineWidth=1;c.stroke();
-   const ty=p.y+p.height/2-6,tx=p.x+24,tw=p.width-48;c.fillStyle='rgba(127,239,255,.14)';c.fillRect(tx,ty-2,tw,4);
-   const kx=p.x+g.physics.paddleX/C.width*p.width;c.shadowColor='rgba(79,227,255,.8)';c.shadowBlur=10;c.fillStyle='#7FEFFF';c.beginPath();c.roundRect(kx-22,ty-5,44,10,5);c.fill();c.restore();
-   canvasText(c,'左右滑动控制挡板',v.width/2,ty+12,v.width-40,11,OCEAN.colors.muted,'center');}
+   c.save();c.beginPath();c.roundRect(p.x,p.y,p.width,p.height,[0,0,18,18]);c.fillStyle='#221A58';c.fill();
+   // One console outline around arena + strip.
+   c.beginPath();c.roundRect(v.arena.x-1,v.arena.y-1,v.arena.width+2,p.y+p.height-v.arena.y+2,18);c.strokeStyle='rgba(180,160,255,.45)';c.lineWidth=2;c.stroke();
+   const ty=p.y+p.height/2-8,tx=p.x+28,tw=p.width-56;c.beginPath();c.roundRect(tx,ty-4,tw,8,4);c.fillStyle='rgba(10,4,40,.55)';c.fill();
+   const kx=Math.max(tx+26,Math.min(tx+tw-26,p.x+g.physics.paddleX/C.width*p.width));candyButton(c,{x:kx-26,y:ty-9,width:52,height:20},'sky',10);c.restore();
+   canvasText(c,'左右滑动控制挡板',v.width/2,ty+20,v.width-40,11,OCEAN.colors.muted,'center');}
   // Compact native-style utility controls stay below the capsule safe area.
-  button({x:8,y:v.top,width:44,height:44},'菜单',()=>this.menu());button({x:v.width-52,y:v.top,width:44,height:44},'排行',()=>void this.board());
-  // Pause and restart sit in the top bar, away from the thumb that steers the paddle.
-  button({x:56,y:v.top,width:44,height:44},g.state==='paused'?'继续':'暂停',()=>{if(g.state==='paused')g.start();else g.pause();});
-  button({x:v.width-100,y:v.top,width:44,height:44},'重开',()=>{this.panel.close();g.reset();});
-  button({x:v.width-148,y:v.top,width:44,height:44},g.audio.muted?'有声':'静音',()=>{g.audio.toggle();this.platform.write('qiulegeqiu:wechat-muted:v1',g.audio.muted);});
+  // Top bar: round candy icon buttons (menu · pause | sound · restart · ranking), below the capsule safe area.
+  const tb=(x:number)=>({x,y:v.top+2,width:40,height:40});
+  iconButton(tb(8),'menu',()=>this.menu(),'violet','菜单');
+  iconButton(tb(54),g.state==='paused'?'play':'pause',()=>{if(g.state==='paused')g.start();else g.pause();},'violet',g.state==='paused'?'继续':'暂停');
+  iconButton(tb(v.width-48),'trophy',()=>void this.board(),'gold','排行');
+  iconButton(tb(v.width-94),'restart',()=>{this.panel.close();g.reset();},'violet','重开');
+  iconButton(tb(v.width-140),g.audio.muted?'soundOff':'soundOn',()=>{g.audio.toggle();this.platform.write('qiulegeqiu:wechat-muted:v1',g.audio.muted);},g.audio.muted?'dim':'violet',g.audio.muted?'有声':'静音');
   this.panel.draw(c,v.width,v.top,v.bottom,now,g.state!=='paused',this.lowDevice||v.width<360,this.rankingArt,this.dpr);
  }
  private down(e:TouchEvent){if(this.touch)return;const t=e.changedTouches[0];if(!t)return;this.game.audio.unlock();this.touch={id:t.identifier,x:t.clientX,y:t.clientY,moved:false,lastY:t.clientY,drag:!this.panel.open&&(inside(this.view.arena,t.clientX,t.clientY)||inside(this.view.pad,t.clientX,t.clientY))&&!this.actions.some(a=>inside(a.rect,t.clientX,t.clientY))};if(this.touch.drag){this.target(t.clientX);if(!this.busy&&!this.boardLoading)startFromPlayfield(this.game,()=>void this.activate());}}
