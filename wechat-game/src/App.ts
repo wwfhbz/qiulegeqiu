@@ -1,3 +1,4 @@
+import {HapticTracker} from '../../src/Haptics';
 import {OCEAN,brickColor} from '../../shared/VisualTheme';
 import {panel,canvasText} from '../../shared/CanvasUI';
 import {scoreHistoryLines} from '../../shared/ScoreHistory';
@@ -78,12 +79,9 @@ export class MiniGameApp {
  private down(e:TouchEvent){if(this.touch)return;const t=e.changedTouches[0];if(!t)return;this.game.audio.unlock();this.touch={id:t.identifier,x:t.clientX,y:t.clientY,moved:false,lastY:t.clientY,drag:!this.panel.open&&inside(this.view.arena,t.clientX,t.clientY)&&!this.actions.some(a=>inside(a.rect,t.clientX,t.clientY))};if(this.touch.drag){this.target(t.clientX);if(!this.busy&&!this.boardLoading)startFromPlayfield(this.game,()=>void this.activate());}}
  private move(e:TouchEvent){const active=this.touch;if(!active)return;const t=e.touches.find(t=>t.identifier===active.id);if(!t)return;if(Math.hypot(t.clientX-active.x,t.clientY-active.y)>8)active.moved=true;if(this.panel.open)this.panel.scroll(t.clientY-active.lastY,active.x,active.y);else if(active.drag)this.target(t.clientX);active.lastY=t.clientY;}
  private up(e:TouchEvent){const active=this.touch;if(!active||!e.changedTouches.some(t=>t.identifier===active.id))return;this.touch=undefined;if(active.moved||active.drag)return;if(this.panel.open){this.panel.tap(active.x,active.y);return;}this.actions.find(a=>inside(a.rect,active.x,active.y))?.run();}
- private hapticSeq=-1;private lastHaptic=0;
- /** Short vibration on decisive moments only; never per brick, and silent when muted. */
- private haptics(){const fx=this.game.physics.effects,seq=fx.eventSeq;if(this.hapticSeq<0||seq<this.hapticSeq){this.hapticSeq=seq;return;}
-  let type:'heavy'|'medium'|'light'|undefined;for(let s=Math.max(this.hapticSeq+1,seq-fx.events.length+1);s<=seq;s++){const e=fx.events[s%fx.events.length];if(e.seq!==s)continue;
-   if(e.kind==='bomb'||e.kind==='clear')type='heavy';else if(e.kind==='power'&&e.power==='halve'&&type!=='heavy')type='medium';else if(e.kind==='lost'&&this.game.state!=='running'&&!type)type='medium';}
-  this.hapticSeq=seq;const now=Date.now();if(type&&!this.game.audio.muted&&now-this.lastHaptic>120){this.lastHaptic=now;try{this.wx.vibrateShort?.({type,fail:()=>{}});}catch{/* Optional device capability. */}}}
+ private hapticTracker=new HapticTracker();
+ /** Short vibration on decisive moments only (shared policy with Web); silent when muted. */
+ private haptics(){const type=this.hapticTracker.next(this.game.physics.effects,this.game.state!=='running',Date.now());if(type&&!this.game.audio.muted){try{this.wx.vibrateShort?.({type,fail:()=>{}});}catch{/* Optional device capability. */}}}
  private target(x:number){this.game.physics.setTarget((x-this.view.arena.x)/this.view.arena.width*C.width);}
  private async activate(){if(this.busy)return;this.busy=true;const generation=this.game.journal.generation,state=this.game.state;
   try{if(this.game.state==='ready'&&this.game.readyReason==='initial'){

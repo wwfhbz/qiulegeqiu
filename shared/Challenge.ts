@@ -11,6 +11,11 @@ export const V16_RULES_VERSION = '1.6.0-arcade-5l-12lv-full-v4';
 /** V1.7 season: same layouts; random drops thin out per level (1/14 → 1/50), +1 life and bomb 0.3% each. Only this season ranks globally. */
 export const RULES_VERSION = '1.7.0-arcade-5l-12lv-scarce-v5';
 export const SUPPORTED_RULES_VERSIONS=[LEGACY_RULES_VERSION,PREVIOUS_RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,RULES_VERSION] as const;
+/**
+ * Seasons whose verified scores share the global board: every twelve-level ruleset. A rules update must
+ * never empty the board, so each player's best across these seasons ranks. Ten-level scores stay history only.
+ */
+export const GLOBAL_BOARD_RULES_VERSIONS=[PREVIOUS_RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,RULES_VERSION] as const;
 /** Seasons whose first launch must declare preassigned tutorial powers and the X3 threshold rule. */
 export function usesBrickPowers(rules:string){return rules===RULES_VERSION||rules===V16_RULES_VERSION||rules===V15_RULES_VERSION||rules===V13_RULES_VERSION;}
 
