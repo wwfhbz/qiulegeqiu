@@ -9,8 +9,8 @@ import { ScoreSystem, type LevelScore } from './ScoreSystem';
 import type { GameState, ReadyReason } from './GameState';
 import { Blocks } from './Blocks';
 import { EndlessField } from './endless/EndlessField';
-import { ENDLESS, ENDLESS_LEVEL, endlessStage } from './endless/EndlessRules';
-import { RULES_VERSION, ENDLESS_RULES_VERSION } from '../shared/Challenge';
+import { ENDLESS, ENDLESS_LEVEL, endlessStage, endlessVersion } from './endless/EndlessRules';
+import { RULES_VERSION } from '../shared/Challenge';
 export type GameMode = 'campaign' | 'endless';
 
 /** Coordinates the arcade session; physics and rendering remain independent. */
@@ -48,7 +48,7 @@ export class Game {
   /** Replays of seasons before +100-per-power turn this off, like the other per-season flags. */
   powerPointsEnabled = true;
   get powerPoints(){if(!this.powerPointsEnabled)return false;const field=this.physics.endless;return field?!!field.variant.powerPoints:this.levels.isStandard;}
-  get rulesVersion(){return this.mode==='endless'?ENDLESS_RULES_VERSION:RULES_VERSION;}
+  get rulesVersion(){return this.mode==='endless'?endlessVersion(this.physics.endless!.variant):RULES_VERSION;}
   get maxLives():number{return this.mode==='endless'?ENDLESS.lives:ARCADE.maxLives;}
   /** Level for campaign; stage (+1 per 10 descended rows) for endless. Stored as the score's reached level. */
   get reachedLevel(){const field=this.physics.endless;return field?endlessStage(field.descents):this.levels.current.number;}

@@ -72,11 +72,11 @@ export class EndlessField extends Blocks {
     // The pressure timer reads the state left by the previous tick's contacts, like the descent check.
     if(this.blocked)this.pressure++;else this.pressure=0;
     this.sinceDescent++;
-    if(this.sinceDescent<descentInterval(this.descents)||this.blocked)return false;
+    if(this.sinceDescent<descentInterval(this.descents,this.variant)||this.blocked)return false;
     this.descend();this.sinceDescent=0;return true;
   }
   /** Seconds-equivalent progress toward the next descent, for the HUD (0–1). */
-  get descentProgress(){return Math.min(1,this.sinceDescent/descentInterval(this.descents));}
+  get descentProgress(){return Math.min(1,this.sinceDescent/descentInterval(this.descents,this.variant));}
   /**
    * Relief after a pressure death: remove every brick in the `rows` rows nearest the floor. These are not
    * player hits — no score, no drops, no destroyed count — and the pressure timer restarts.

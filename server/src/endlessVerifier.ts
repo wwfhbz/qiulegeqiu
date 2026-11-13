@@ -1,6 +1,6 @@
 import {validateTrajectoryMarkers} from '../../shared/Challenge.js';
 import {EndlessField} from '../../src/endless/EndlessField.js';
-import {ENDLESS,ENDLESS_CURRENT,dropEvery,endlessPower,endlessBonus,endlessStage,DROP_SALT,BONUS_SALT,type EndlessVariant} from '../../src/endless/EndlessRules.js';
+import {ENDLESS,ENDLESS_CURRENT,endlessSettings,dropEvery,endlessPower,endlessBonus,endlessStage,DROP_SALT,BONUS_SALT,type EndlessVariant} from '../../src/endless/EndlessRules.js';
 import {ScoreSystem} from '../../src/ScoreSystem.js';
 import {C} from '../../src/GameConfig.js';
 import {seededRandom,type PowerKind} from '../../src/PowerRules.js';
@@ -15,7 +15,7 @@ import {ApiError} from './moderation.js';
  */
 export function verifyEndlessTrace(events:ChallengeEvent[],wallMs:number,seed:number,variant:EndlessVariant=ENDLESS_CURRENT):{summary:ChallengeSummary;suspicious:string[]}{
   try{validateTrajectoryMarkers(events);}catch{throw new ApiError(422,'轨迹版本标记无效');}
-  const field=new EndlessField();field.start(seed,variant);
+  const field=new EndlessField();field.start(seed,variant);const skills=endlessSettings(variant);
   const score=new ScoreSystem('unbounded'),drops:{id:number;kind:PowerKind;tick:number;y:number}[]=[],suspicious=new Set<string>();
   const dropRandom=seededRandom((seed>>>0^DROP_SALT)>>>0),bonusRandom=seededRandom((seed>>>0^BONUS_SALT)>>>0);let pendingRelief=false,expectBonus=false;let nextDropAt=dropEvery(0,variant),dropSequence=0;
   let lives:number=ENDLESS.lives,phase:'ready'|'running'|'gameOver'='ready',balls=0,peakBalls=1,lastTick=0,fieldTick=0,bricks=0,finished=false;
@@ -46,10 +46,10 @@ export function verifyEndlessTrace(events:ChallengeEvent[],wallMs:number,seed:nu
         if(phase!=='running'||!balls)throw new ApiError(422,'重复或不可能的方块事件');
         const index=field.indexOfWorld(e.index);if(index<0)throw new ApiError(422,'方块不存在或已被击碎');
         const y=field.top+Math.floor(index/field.cols)*field.step+field.size/2;field.hit(index);score.hit(e.index);bricks++;
-        // Fire burns 8 neighbours per contact, lightning breaks a fixed batch: widen the per-tick budget accordingly.
-        const allowance=Math.max(tickBallMax,balls)*12*(e.tick<=fireUntil?9:1)+(e.tick===lightningTick?lightnings*ENDLESS.lightningBricks:0);
+        // Versioned fire area and lightning batch bound the existing per-tick anomaly budget.
+        const allowance=Math.max(tickBallMax,balls)*12*(e.tick<=fireUntil?1+skills.fireOffsets.length:1)+(e.tick===lightningTick?lightnings*skills.lightningBricks:0);
         if(++tickHits>allowance)suspicious.add('单步击碎数量异常');
-        if(field.destroyedTotal>=nextDropAt){nextDropAt+=dropEvery(field.destroyedTotal,variant);const kind=endlessPower(dropRandom),id=++dropSequence;if(drops.length<C.power.maxDrops)drops.push({id,kind,tick:e.tick,y});}
+        if(field.destroyedTotal>=nextDropAt){nextDropAt+=dropEvery(field.destroyedTotal,variant);const kind=endlessPower(dropRandom,variant),id=++dropSequence;if(drops.length<C.power.maxDrops)drops.push({id,kind,tick:e.tick,y});}
         break;
       }
       case 'power':{

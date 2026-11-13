@@ -14,7 +14,7 @@ export class CloudSync {
   if(!this.api.authenticated||!this.wx.getOpenDataContext){this.status='登录后可同步已校验最佳成绩';return;}
   try{const me=await this.api.me();if(!me.player){this.status='登记玩家后可同步';return;}const player=me.player.id;
    // Both requests are authenticated and carry the server's board/rules metadata.
-   for(const mode of ['campaign','endless'] as SocialMode[]){const board=mode==='campaign'?'global':'endless',result=await this.api.request<{best:BestScore|null}&LeaderboardMetadata>('/me/best?board='+board);
+   for(const mode of ['campaign','endless'] as SocialMode[]){const board=mode==='campaign'?'global':'endless',result=await this.api.request<{best:BestScore|null}&LeaderboardMetadata>('/me/best?board='+board+(mode==='endless'?'&rulesVersion='+ENDLESS_RULES_VERSION:''));
     if(mode==='campaign')assertGlobalBoard(result);else if(result.board!==ENDLESS_BOARD||result.rankingRulesVersion!==ENDLESS_RULES_VERSION)throw Error('无尽好友榜规则不匹配');
     const current=await this.api.me();if(current.player?.id!==player)throw Error('身份已变化，请重新同步');
     if(result.best){const score=result.best.score;if(!Number.isSafeInteger(score)||score<0)throw Error('服务器最佳成绩格式无效');this.wx.getOpenDataContext().postMessage({type:'sync-best',mode,score,rulesVersion:rulesFor(mode)});}
