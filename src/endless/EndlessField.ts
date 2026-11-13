@@ -1,7 +1,7 @@
 import {Blocks} from '../Blocks';
 import {C} from '../GameConfig';
 import {seededRandom} from '../Random';
-import {ENDLESS,ENDLESS_CURRENT,descentInterval,type EndlessVariant} from './EndlessRules';
+import {ENDLESS,ENDLESS_CURRENT,endlessSettings,descentInterval,type EndlessVariant} from './EndlessRules';
 
 /**
  * Descending brick wall for endless mode, exposed through the ordinary Blocks grid so physics,
@@ -22,7 +22,7 @@ export class EndlessField extends Blocks {
   /** Consecutive running ticks with a brick on the floor row (pressure-death timer). */
   pressure=0;
   private seed=1;
-  private readonly base=ENDLESS.initialRows-1;
+  private base=endlessSettings().initialRows-1;
   private patterns=new Map<number,Uint8Array>();
   private maskStart=new Int16Array(0);private maskEnd=new Int16Array(0);
   private rowCount=new Int32Array(0);
@@ -31,7 +31,7 @@ export class EndlessField extends Blocks {
 
   /** Configure the endless grid and spawn the initial wall for this seed. */
   start(seed:number,variant:EndlessVariant=ENDLESS_CURRENT){
-    this.variant=variant;this.seed=seed>>>0;this.step=ENDLESS.gridStep;this.size=ENDLESS.gridSize;
+    this.variant=variant;this.base=endlessSettings(variant).initialRows-1;this.seed=seed>>>0;this.step=ENDLESS.gridStep;this.size=ENDLESS.gridSize;
     this.cols=this.rows=Math.ceil(C.arena.radius*2/this.step);
     if(this.cols*this.rows>this.alive.length)throw Error('无尽网格超过固定存储容量');
     // 'bowl': bricks may sink right to the bottom of the circle; 'legacy' kept the campaign's 80% floor.
