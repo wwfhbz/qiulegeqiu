@@ -16,8 +16,6 @@ export const ENDLESS={
  descent:{startTicks:720,decay:.985,minTicks:300},
  /** Ball speed scale: 0.90, +0.0035 per descended row, capped at 1.25. */
  speed:{start:.9,perRow:.0035,max:1.25},
- /** One random drop every N destroyed bricks; N starts at 8 and grows by 1 every 250 bricks up to 30. */
- drops:{start:8,growEvery:250,max:30},
  /** Timed power durations (seconds) and instant lightning size. */
  pierceSeconds:4,fireSeconds:6,lightningBricks:12,plusBalls:3,
  /** Stage shown to players and stored as the score's reached level: +1 every 10 descended rows. */
@@ -35,7 +33,22 @@ export function endlessPower(random:()=>number):PowerKind{
 }
 export function descentInterval(descents:number){const d=ENDLESS.descent;return Math.max(d.minTicks,Math.round(d.startTicks*d.decay**descents));}
 export function endlessSpeed(descents:number){const s=ENDLESS.speed;return Math.min(s.max,s.start+s.perRow*descents);}
-export function dropEvery(destroyed:number){const d=ENDLESS.drops;return Math.min(d.max,d.start+Math.floor(destroyed/d.growEvery));}
+/**
+ * The rules that changed between endless versions. Each released version stays frozen so its
+ * scores still verify and stay on the endless board.
+ */
+export interface EndlessVariant {
+ /** One random drop every N destroyed bricks; N starts at `start`, +1 every `growEvery` bricks, up to `max`. */
+ readonly drops:{readonly start:number;readonly growEvery:number;readonly max:number};
+ /** Lowest brick edge: 'legacy' = the campaign brick floor (80% down the bowl); 'bowl' = the bottom of the circle. */
+ readonly floor:'legacy'|'bowl';
+}
+/** endless-1.0.0: drops every 8 → 30 bricks; the wall stopped 80% down the bowl. */
+export const ENDLESS_V1:EndlessVariant={drops:{start:8,growEvery:250,max:30},floor:'legacy'};
+/** endless-1.1.0: half the drops (every 16 → 60 bricks); the wall can sink to the bottom of the circle. */
+export const ENDLESS_V2:EndlessVariant={drops:{start:16,growEvery:125,max:60},floor:'bowl'};
+export const ENDLESS_CURRENT=ENDLESS_V2;
+export function dropEvery(destroyed:number,variant:EndlessVariant=ENDLESS_CURRENT){const d=variant.drops;return Math.min(d.max,d.start+Math.floor(destroyed/d.growEvery));}
 export function endlessStage(descents:number){return Math.min(100,1+Math.floor(descents/ENDLESS.rowsPerStage));}
 
 /** The single pseudo-level used for arena geometry, paddle and exit. */

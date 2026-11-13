@@ -32,8 +32,8 @@ it('Web及微信同样保留600/120、1200/86/58配置、五命与新版规则�
 
 it('120个道具徽章使用共享纹理图集，不在每帧重复排版120次文字',()=>{
  const g=new Game(),{r,c,ac,factory}=renderer(true);const text=vi.fn();ac.fillText=text;
- for(let i=0;i<g.physics.blocks.alive.length;i++)g.physics.blocks.hit(i);r.resize();expect(text).toHaveBeenCalledTimes(9);
- const draw=vi.fn();c.drawImage=draw;r.draw(g.physics,false,0);const perFrame=draw.mock.calls.length;expect(perFrame).toBeGreaterThanOrEqual(120);expect(perFrame).toBeLessThanOrEqual(120*2+8);r.draw(g.physics,false,16);expect(draw).toHaveBeenCalledTimes(perFrame*2);expect(text).toHaveBeenCalledTimes(9);expect(factory.mock.calls.length).toBeLessThan(20);expect(g.physics.powers.items.filter(p=>p.alive)).toHaveLength(120);r.dispose();
+ for(let i=0;i<g.physics.blocks.alive.length;i++)g.physics.blocks.hit(i);r.resize();expect(text).toHaveBeenCalledTimes(15);
+ const draw=vi.fn();c.drawImage=draw;r.draw(g.physics,false,0);const perFrame=draw.mock.calls.length;expect(perFrame).toBeGreaterThanOrEqual(120);expect(perFrame).toBeLessThanOrEqual(120*2+8);r.draw(g.physics,false,16);expect(draw).toHaveBeenCalledTimes(perFrame*2);expect(text).toHaveBeenCalledTimes(15);expect(factory.mock.calls.length).toBeLessThan(20);expect(g.physics.powers.items.filter(p=>p.alive)).toHaveLength(120);r.dispose();
 });
 it('微信错误使用完整原生文字提示且恢复提交状态，不清理挑战记录',async()=>{
  const f=wxFixture(),app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false}),message='本地错误回归：'.repeat(40),modal=vi.fn();f.wx.showModal=modal;const original=JSON.stringify(app.game.journal.events);

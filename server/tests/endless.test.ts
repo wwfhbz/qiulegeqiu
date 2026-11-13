@@ -3,7 +3,9 @@ import {randomUUID} from 'node:crypto';
 import {Game} from '../../src/Game';
 import {C} from '../../src/GameConfig';
 import {descentInterval} from '../../src/endless/EndlessRules';
-import {ENDLESS_RULES_VERSION,RULES_VERSION,type ChallengeEvent} from '../../shared/Challenge';
+import {ENDLESS_RULES_VERSION,ENDLESS_V1_RULES_VERSION,RULES_VERSION,type ChallengeEvent} from '../../shared/Challenge';
+import {ENDLESS_V1} from '../../src/endless/EndlessRules';
+import {EndlessField} from '../../src/endless/EndlessField';
 import {verifyTrace} from '../src/verifier';
 import {createApp} from '../src/app';
 const apps:Awaited<ReturnType<typeof createApp>>[]=[];
@@ -13,8 +15,8 @@ afterEach(async()=>{for(const s of apps.splice(0))await s.app.close();});
  * Real endless callbacks (field descent, hits, seeded drops, pickups, lightning) with scripted contacts:
  * each tick follows Physics.update's order — journal tick, wall descent, then contacts and pickups.
  */
-function run(seed:number,ticks=9000,spacing=6){
- const g=new Game();g.setMode('endless');g.journal.seed=seed;g.physics.setSeed(seed);g.physics.reset();g.start();
+function run(seed:number,ticks=9000,spacing=6,legacy=false){
+ const g=new Game();g.setMode('endless');if(legacy){const f=new EndlessField();f.variant=ENDLESS_V1;g.physics.useField(f);}g.journal.seed=seed;g.physics.setSeed(seed);g.physics.reset();g.start();
  const p=g.physics,field=p.endless!;
  for(let t=1;t<=ticks;t++){
   p.onStep?.(C.step);field.tick();
@@ -57,4 +59,11 @@ expect((await s.app.inject({method:'POST',url:`/api/challenges/${cid}/submit`,he
  expect((await s.app.inject({url:'/api/me/best?board=endless',headers})).json().best.score).toBe(summary.score);
  expect((await s.app.inject({url:'/api/me/best?board=global',headers})).json().best).toBeNull();
  expect((await s.app.inject({url:'/api/leaderboard?board=endless&rulesVersion='+RULES_VERSION})).statusCode).toBe(400);
+});
+
+it('冻结的无尽1.0：旧规则日志仍按旧底线与旧掉落频率通过校验，且不能冒充1.1；无尽榜同时收录两个版本',async()=>{
+ const g=run(9,9000,6,true),result=verifyTrace(g.journal.events,1e9,9,ENDLESS_V1_RULES_VERSION);
+ expect(result.summary).toEqual(g.journal.summary(g.score.total,g.reachedLevel,false));
+ expect(()=>verifyTrace(g.journal.events,1e9,9,ENDLESS_RULES_VERSION)).toThrow();
+ const now=run(9),drops=(x:Game)=>x.journal.events.filter(e=>e.type==='power').length;expect(drops(now)).toBeLessThan(drops(g));
 });

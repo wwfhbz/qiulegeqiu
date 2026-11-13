@@ -11,7 +11,7 @@ import { FRAME, isBallInDeathZone } from './WorldGeometry';
 import { Effects } from './Effects';
 import { PowerUps, type PowerKind } from './PowerUps';
 import { EndlessField } from './endless/EndlessField';
-import { ENDLESS,endlessPower,dropEvery,endlessSpeed } from './endless/EndlessRules';
+import { ENDLESS,ENDLESS_CURRENT,endlessPower,dropEvery,endlessSpeed } from './endless/EndlessRules';
 export interface Ball { x: number; y: number; vx: number; vy: number; radius: number; alive: boolean; previousX?: number; previousY?: number; outsideArena?: boolean }
 export function reflect(b: Ball, nx: number, ny: number) {
   const dot = b.vx * nx + b.vy * ny;
@@ -109,7 +109,7 @@ export class Physics {
   useField(field:Blocks){this.blocks=field;field.onHit=this.destroyed;}
   // Endless-only timed powers and drop schedule (own seeded stream, mirrored by the server verifier).
   pierceRemaining=0;fireRemaining=0;
-  private endlessDrops=seededRandom(1);private nextDropAt:number=ENDLESS.drops.start;
+  private endlessDrops=seededRandom(1);private nextDropAt:number=ENDLESS_CURRENT.drops.start;
 
   paddleX: number = C.arena.x; targetX: number = C.arena.x;
   accumulator = 0; ticks = 0; paused = false;
@@ -147,7 +147,7 @@ export class Physics {
     const field=this.endless;
     if(field){
       // Endless: one random drop each time the destroyed count reaches the next threshold.
-      if(field.destroyedTotal>=this.nextDropAt){this.nextDropAt+=dropEvery(field.destroyedTotal);this.powers.spawn(x,y,endlessPower(this.endlessDrops));}
+      if(field.destroyedTotal>=this.nextDropAt){this.nextDropAt+=dropEvery(field.destroyedTotal,field.variant);this.powers.spawn(x,y,endlessPower(this.endlessDrops));}
       return;
     }
     const interval = this.powerDropEvery;
@@ -261,9 +261,9 @@ export class Physics {
   reset() {
     const field=this.endless;
     if(field){
-      this.obstacles.load([]);field.start(this.seed);this.powers.setCapacity(C.power.maxDrops);
+      this.obstacles.load([]);field.start(this.seed,field.variant);this.powers.setCapacity(C.power.maxDrops);
       // Separate stream from the field's row patterns; the verifier derives both from the run seed.
-      this.endlessDrops=seededRandom((this.seed^0x5bd1e995)>>>0);this.nextDropAt=dropEvery(0);this.speedScale=endlessSpeed(0);
+      this.endlessDrops=seededRandom((this.seed^0x5bd1e995)>>>0);this.nextDropAt=dropEvery(0,field.variant);this.speedScale=endlessSpeed(0);
       this.resetRound();return;
     }
     this.obstacles.load(this.level.obstacles??[]);this.blocks.reset(this.level.obstacles??[],this.level);this.allocatePowers();

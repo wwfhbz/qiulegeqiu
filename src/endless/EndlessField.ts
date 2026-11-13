@@ -1,7 +1,7 @@
 import {Blocks} from '../Blocks';
 import {C} from '../GameConfig';
 import {seededRandom} from '../Random';
-import {ENDLESS,descentInterval} from './EndlessRules';
+import {ENDLESS,ENDLESS_CURRENT,descentInterval,type EndlessVariant} from './EndlessRules';
 
 /**
  * Descending brick wall for endless mode, exposed through the ordinary Blocks grid so physics,
@@ -25,13 +25,15 @@ export class EndlessField extends Blocks {
   private maskStart=new Int16Array(0);private maskEnd=new Int16Array(0);
   private rowCount=new Int32Array(0);
   floorRow=0;
+  variant:EndlessVariant=ENDLESS_CURRENT;
 
   /** Configure the endless grid and spawn the initial wall for this seed. */
-  start(seed:number){
-    this.seed=seed>>>0;this.step=ENDLESS.gridStep;this.size=ENDLESS.gridSize;
+  start(seed:number,variant:EndlessVariant=ENDLESS_CURRENT){
+    this.variant=variant;this.seed=seed>>>0;this.step=ENDLESS.gridStep;this.size=ENDLESS.gridSize;
     this.cols=this.rows=Math.ceil(C.arena.radius*2/this.step);
     if(this.cols*this.rows>this.alive.length)throw Error('无尽网格超过固定存储容量');
-    const {x:cx,y:cy,radius:r}=C.arena,floorY=this.top+2*r*(1-C.grid.emptyFraction);
+    // 'bowl': bricks may sink right to the bottom of the circle; 'legacy' kept the campaign's 80% floor.
+    const {x:cx,y:cy,radius:r}=C.arena,floorY=variant.floor==='bowl'?cy+r:this.top+2*r*(1-C.grid.emptyFraction);
     this.maskStart=new Int16Array(this.rows).fill(-1);this.maskEnd=new Int16Array(this.rows).fill(-2);this.rowCount=new Int32Array(this.rows);this.floorRow=0;
     for(let row=0;row<this.rows;row++){
       const y=this.top+row*this.step;if(y+this.size>floorY)continue;
