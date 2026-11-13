@@ -44,7 +44,7 @@ export function mountGame(root: HTMLElement) {
         </section>
         <div id="central-layer" class="central-layer" hidden><button id="start" class="central-start" type="button" aria-controls="arena-canvas">开始游戏</button></div>
       </div>
-      <div class="touch-pad" id="touch-pad" role="presentation"><div class="power-info"><span id="wide"></span><span id="combo"></span></div><div class="pad-track"><i id="pad-knob"></i></div><span class="pad-hint">左右滑动控制挡板</span></div>
+      <div class="touch-pad" id="touch-pad" role="presentation" data-fill><div class="power-info"><span id="wide"></span><span id="combo"></span></div><div class="pad-track"><i id="pad-knob"></i></div><span class="pad-hint">左右滑动控制挡板</span></div>
     </section></div>
     <button id="stress" class="debug" hidden>百球压力测试</button>
   </main>`;
@@ -137,6 +137,10 @@ export function mountGame(root: HTMLElement) {
   };
   // Pre-select the last mode played so it is highlighted in the picker.
   try{if(localStorage.getItem(MODE_KEY)==='endless')game.setMode('endless');}catch{/* Preference only. */}
+  // Guard the play screen against accidental selection, long-press menus and pinch zoom (some in-app browsers
+  // ignore the CSS alone; double-tap zoom is off via the viewport and touch-action). Form fields behave normally.
+  const editable=(t:EventTarget|null)=>t instanceof HTMLElement&&!!t.closest('input,textarea,select,[contenteditable]');
+  for(const type of ['selectstart','contextmenu','gesturestart','dragstart'])document.addEventListener(type,e=>{if(!editable(e.target))e.preventDefault();});
   online = new LeaderboardUI(root,game);
   update(game); return game;
 }

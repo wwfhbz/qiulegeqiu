@@ -93,10 +93,10 @@ export class MiniGameApp {
   else if(action&&g.state!=='ready'&&!this.busy){const centerY=v.arena.y+(C.arena.y-VIEW.y)*v.scale;button({x:v.width/2-70,y:centerY-22,width:140,height:44},action.label.replace('▶ ',''),()=>void this.activate());}
   // Touch strip under the arena: a quiet hint; dragging here steers the paddle (see down/move).
   // Joined to the arena's bottom edge: same width, rounded bottom corners, a track and a knob that follows the paddle.
-  if(!this.panel.open&&v.pad.height>=30){const p={x:v.arena.x,y:v.pad.y,width:v.arena.width,height:Math.min(v.pad.height,56)};
+  if(!this.panel.open&&v.pad.height>=30){const p={x:v.arena.x,y:v.pad.y,width:v.arena.width,height:v.pad.height};// Fills to the screen bottom: the whole strip steers.
    c.save();c.beginPath();c.roundRect(p.x,p.y,p.width,p.height,[0,0,10,10]);c.fillStyle='rgba(6,10,24,.95)';c.fill();
    c.beginPath();c.roundRect(v.arena.x-.5,v.arena.y-.5,v.arena.width+1,p.y+p.height-v.arena.y+1,10);c.strokeStyle='rgba(120,200,255,.2)';c.lineWidth=1;c.stroke();
-   const ty=p.y+p.height/2-5,tx=p.x+20,tw=p.width-40;c.fillStyle='rgba(120,200,255,.16)';c.fillRect(tx,ty-1,tw,2);
+   const ty=p.y+Math.min(p.height/2-5,p.height*.42),tx=p.x+20,tw=p.width-40;c.fillStyle='rgba(120,200,255,.16)';c.fillRect(tx,ty-1,tw,2);
    const kx=Math.max(tx+20,Math.min(tx+tw-20,p.x+viewFraction(g.physics.paddleX,0).x*p.width));// Cheap glow: a wide translucent pill behind the knob (shadowBlur is costly every frame).
    c.fillStyle='rgba(79,227,255,.25)';c.beginPath();c.roundRect(kx-24,ty-6,48,12,6);c.fill();c.fillStyle=NEON.cyan;c.beginPath();c.roundRect(kx-20,ty-3,40,6,3);c.fill();c.restore();
    canvasText(c,'左右滑动控制挡板',v.width/2,ty+14,v.width-40,9,OCEAN.colors.muted,'center');}
