@@ -1,6 +1,6 @@
 import {apiPayload,assertIdentityPayload} from '../../shared/ApiErrors';
 import {RULES_VERSION,assertGlobalBoard,type LeaderboardMetadata} from '../../shared/Challenge';
-export interface BestScore { score:number; reached_level:number; bricks_destroyed:number; duration_ms:number; rank:number; display_name:string }
+export interface BestScore { rules_version?:string; score:number; reached_level:number; bricks_destroyed:number; duration_ms:number; rank:number; display_name:string }
 export interface Player { id:string; nickname:string; region_code:string; prefix:string; status:string; display_name:string }
 export interface Me extends LeaderboardMetadata {historicalBest?:BestScore|null;historicalBests?:(BestScore&{rules_version:string})[];rankingAvailable?:boolean;csrfToken:string; player:Player|null; best:BestScore|null }
 export class ApiClient {

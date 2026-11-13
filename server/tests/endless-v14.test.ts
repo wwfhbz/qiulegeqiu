@@ -30,7 +30,7 @@ it('V1.4压线1200tick扣命、重新发射清5行/补偿奖励，与客户端�
  for(let n=0;n<10&&g.state!=='gameOver';n++){for(const b of p.balls)Object.assign(b,{x:400,y:1080,vx:0,vy:760,outsideArena:true});g.update(C.step);if(g.state==='ready')g.start();}
  expect(verifyTrace(g.journal.events,1e9,31,g.rulesVersion).summary).toEqual(g.journal.summary(g.score.total,g.reachedLevel,false));
 });
-it('API：新旧版同账号分别最佳分、TOP100、分页、排名；旧榜/会话/历史行不变，幂等与分数验证不变',async()=>{
+it('API：新旧版同账号统一最佳分、TOP100、分页、排名；会话/历史行不变，幂等与分数验证不变',async()=>{
  let now=Date.now();const s=await createApp({dbPath:':memory:',origin:'https://test.local',secure:true,rateLimit:false,now:()=>now});try{
  const account=async(name:string)=>{const me=await s.app.inject({url:'/api/me?board=global'}),headers={cookie:'__Secure-qlgq='+me.cookies[0].value,origin:'https://test.local','x-csrf-token':me.json().csrfToken};expect((await s.app.inject({method:'POST',url:'/api/players',headers,payload:{nickname:name,regionCode:'ISO:CN'}})).statusCode).toBe(201);return headers;};
  const a=await account('新版规则测试甲'),b=await account('新版规则测试乙');
@@ -39,25 +39,26 @@ it('API：新旧版同账号分别最佳分、TOP100、分页、排名；旧榜/
   const payload={idempotencyKey:randomUUID(),summary},url=`/api/challenges/${id}/submit`;expect((await s.app.inject({method:'POST',url,headers,payload:{...payload,summary:{...summary,score:summary.score+1}}})).statusCode).toBe(422);const r=await s.app.inject({method:'POST',url,headers,payload});expect(r.statusCode,r.body).toBe(200);expect(r.json().verificationStatus).toBe('verified');expect((await s.app.inject({method:'POST',url,headers,payload})).json().id).toBe(r.json().id);return r.json().id;};
  const old=await submit(a,ENDLESS_V4),saved=s.db.prepare('SELECT * FROM scores WHERE id=?').get(old),oldBest=(await s.app.inject({url:'/api/me/best?board=endless',headers:a})).json().best;
  const fresh=await submit(a,ENDLESS_V5),second=await submit(b,ENDLESS_V5,7000);expect(oldBest.id).toBe(old);expect(s.db.prepare('SELECT * FROM scores WHERE id=?').get(old)).toEqual(saved);
- expect((await s.app.inject({url:'/api/leaderboard?board=endless'})).json().items.map((r:{id:string})=>r.id)).toEqual([old]);expect((await s.app.inject({url:'/api/me/best?board=endless',headers:a})).json().best).toEqual(oldBest);
+ expect((await s.app.inject({url:'/api/leaderboard?board=endless'})).json().items.map((r:{id:string})=>r.id)).toEqual([fresh,second]);expect((await s.app.inject({url:'/api/me/best?board=endless',headers:a})).json().best.id).toBe(fresh);
  const url='/api/leaderboard?board=endless&rulesVersion='+ENDLESS_RULES_VERSION,page=(await s.app.inject({url:url+'&limit=1'})).json(),next=(await s.app.inject({url:url+'&offset=1&limit=1'})).json();expect(page).toMatchObject({rankingRulesVersion:ENDLESS_RULES_VERSION,nextOffset:1});expect(page.items.map((x:{id:string})=>x.id)).toEqual([fresh]);expect(next.items[0]).toMatchObject({id:second,rank:2});expect(next.nextOffset).toBeNull();
+ for(const suffix of ['board=endless&rulesVersion='+ENDLESS_V4_RULES_VERSION,'rulesVersion='+ENDLESS_V4_RULES_VERSION,'rulesVersion='+ENDLESS_RULES_VERSION]){const alias=(await s.app.inject({url:'/api/leaderboard?'+suffix})).json();expect(alias.items.map((r:{id:string})=>r.id)).toEqual([fresh,second]);expect(alias.rankingScope).toBe('all-endless-versions');expect(alias.items[0].rules_version).toBe(ENDLESS_RULES_VERSION);}
  const me=(await s.app.inject({url:'/api/me/best?board=endless&rulesVersion='+ENDLESS_RULES_VERSION,headers:a})).json();expect(me.best).toMatchObject({id:fresh,rank:1});expect(me.rankingRulesVersion).toBe(ENDLESS_RULES_VERSION);
  await submit(a,ENDLESS_V5,4000);expect((await s.app.inject({url:'/api/me/best?board=endless&rulesVersion='+ENDLESS_RULES_VERSION,headers:a})).json().best.id).toBe(fresh);
  expect((await s.app.inject({url:'/api/leaderboard?board=global'})).json().items).toEqual([]);expect((await s.app.inject({url:'/api/leaderboard?board=endless&rulesVersion='+RULES_VERSION})).statusCode).toBe(400);expect((await s.app.inject({method:'POST',url:'/api/challenges',headers:a,payload:{rulesVersion:'endless-unknown',seed:7}})).statusCode).toBe(400);
  expect(s.db.prepare('SELECT count(*) AS n FROM players').get()!.n).toBe(2);expect(s.db.prepare('SELECT count(*) AS n FROM scores').get()!.n).toBe(4);
  }finally{await s.app.close();}
 },15000);
-it('V1.4完整排名：TOP100分页截断但个人第105名可读，并列顺序稳定；旧版高分不混入',async()=>{
+it('统一完整排名：TOP100分页截断但个人第105名可读，并列顺序稳定；旧版高分排首位',async()=>{
  const s=await createApp({dbPath:':memory:',secure:true,origin:'https://test.local',rateLimit:false});try{
  const session=(await s.app.inject({url:'/api/me'})).cookies[0];const sid=s.db.prepare('SELECT id FROM sessions').get()!.id;
  // Ranking-only fixtures live exclusively in this in-memory test DB; never submitted to the real API.
  const add=(pid:string,id:string,rules:string,score:number,level:number,time:number,achieved:number)=>{
-  s.db.prepare('INSERT INTO challenges(id,session_id,rules_version,created_at,expires_at,seed) VALUES(?,?,?,?,?,?)').run('c'+id,String(sid),rules,0,999999,7);
+  s.db.prepare('INSERT INTO challenges(id,session_id,rules_version,created_at,expires_at,seed,mode) VALUES(?,?,?,?,?,?,?)').run('c'+id,String(sid),rules,0,999999,7,'endless');
   s.db.prepare("INSERT INTO scores VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)").run(id,pid,'c'+id,'key'+id,'test',score,level,10,time,0,achieved,achieved,'verified','');
  };
  const expected:{id:string;level:number;time:number;achieved:number}[]=[];
  for(let i=0;i<105;i++){const pid='p'+i,id='s'+String(i).padStart(3,'0');s.db.prepare("INSERT INTO players VALUES(?,?,?,?,?,?,?,?)").run(pid,'测试'+i,'测试'+i,'ISO:CN','country',0,0,'active');const level=1+i%3,time=4000+i%4,achieved=i%5;add(pid,id,ENDLESS_RULES_VERSION,1000,level,time,achieved);expected.push({id,level,time,achieved});}
- expected.sort((a,b)=>b.level-a.level||a.time-b.time||a.achieved-b.achieved||a.id.localeCompare(b.id));add('p0','old-huge',ENDLESS_V4_RULES_VERSION,999999,99,3000,0);
+ expected.sort((a,b)=>b.level-a.level||a.time-b.time||a.achieved-b.achieved||a.id.localeCompare(b.id));add('p0','old-huge',ENDLESS_V4_RULES_VERSION,999999,99,3000,0);expected.splice(expected.findIndex(r=>r.id==='s000'),1);expected.unshift({id:'old-huge',level:99,time:3000,achieved:0});
  const ids:string[]=[];for(let offset=0;offset<100;offset+=20){const r=(await s.app.inject({url:'/api/leaderboard?board=endless&rulesVersion='+ENDLESS_RULES_VERSION+'&offset='+offset})).json();ids.push(...r.items.map((x:{id:string})=>x.id));expect(r.items.map((x:{rank:number})=>x.rank)).toEqual(Array.from({length:20},(_,n)=>offset+n+1));if(offset===80)expect(r.nextOffset).toBeNull();}
  expect(ids).toEqual(expected.slice(0,100).map(r=>r.id));const last=expected[104];const pid=s.db.prepare('SELECT player_id FROM scores WHERE id=?').get(last.id)!.player_id;s.db.prepare('UPDATE sessions SET player_id=?').run(pid);
  const result=(await s.app.inject({url:'/api/me/best?board=endless&rulesVersion='+ENDLESS_RULES_VERSION,headers:{cookie:'__Secure-qlgq='+session.value}})).json();expect(result.best).toMatchObject({id:last.id,rank:105});expect((await s.app.inject({url:'/api/leaderboard?board=endless'})).json().items[0].id).toBe('old-huge');

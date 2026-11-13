@@ -12,7 +12,7 @@ import {OCEAN,brickColor} from '../../shared/VisualTheme';
 import {drawIcon,type IconName} from '../../shared/Icons';
 import {canvasText,neonButton,candyButton,NEON,type NeonAccent} from '../../shared/CanvasUI';
 import {scoreHistoryLines} from '../../shared/ScoreHistory';
-import {assertGlobalBoard,ENDLESS_BOARD,ENDLESS_RULES_VERSION,type LeaderboardMetadata} from '../../shared/Challenge';
+import {assertGlobalBoard,assertEndlessBoard,type LeaderboardMetadata} from '../../shared/Challenge';
 import type {GameMode} from '../../src/Game';
 import {GAME_NAME} from '../../shared/Brand';
 import {Game} from '../../src/Game';
@@ -224,9 +224,9 @@ export class MiniGameApp {
    ],row=>{const card=rankingCard(row,endless);this.wx.showModal({title:card.name,content:`${card.rankLabel}\n最高总分 ${card.score}\n${endless?'最高阶段':'最高关卡'} ${card.level}\n消除砖块 ${card.bricks}\n最佳时间 ${card.time}`,showCancel:false});});
   };
   show('loading',[],null,undefined,'正在连接星际榜单',false);
-  try{const result=await this.api.request<{items:BestScore[];nextOffset:number|null}&LeaderboardMetadata>(`/leaderboard?offset=${offset}&limit=${pageSize}&board=${board}${endless?'&rulesVersion='+ENDLESS_RULES_VERSION:''}`);if(endless){if(result.board!==ENDLESS_BOARD||result.rankingRulesVersion!==ENDLESS_RULES_VERSION)throw Error('排行榜后端尚未支持无尽榜，请等待服务器更新');}else assertGlobalBoard(result);
+  try{const result=await this.api.request<{items:BestScore[];nextOffset:number|null}&LeaderboardMetadata>(`/leaderboard?offset=${offset}&limit=${pageSize}&board=${board}`);if(endless){assertEndlessBoard(result);}else assertGlobalBoard(result);
    let me:Me|undefined,identityError='';try{if(this.api.authenticated)me=await this.api.me();}catch{this.me=undefined;identityError='个人记录暂不可用，请重新登录；全球榜单仍可查看';}if(revision!==this.boardRevision)return;if(me)this.me=me;
-   let best=me?.best;if(endless&&me){try{const personal=await this.api.request<{best:BestScore|null}&LeaderboardMetadata>('/me/best?board=endless&rulesVersion='+ENDLESS_RULES_VERSION);if(personal.board!==ENDLESS_BOARD||personal.rankingRulesVersion!==ENDLESS_RULES_VERSION)throw Error('无尽个人排名规则不匹配');best=personal.best;}catch{best=null;}if(revision!==this.boardRevision)return;}
+   let best=me?.best;if(endless&&me){try{const personal=await this.api.request<{best:BestScore|null}&LeaderboardMetadata>('/me/best?board=endless');assertEndlessBoard(personal);best=personal.best;}catch{best=null;}if(revision!==this.boardRevision)return;}
    show('ready',result.items,result.nextOffset,best,identityError||'每一份荣耀，都来自真实挑战',!identityError&&me?.rankingAvailable!==false);
   }catch(error){if(revision===this.boardRevision){show('error',[],null,undefined,'全球 TOP100',false,(error as Error).message);this.toast((error as Error).message);}}
   finally{if(revision===this.boardRevision)this.boardLoading=false;}

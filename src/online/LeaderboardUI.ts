@@ -3,7 +3,7 @@ import "./ranking/ranking.css";
 import "./ranking/reference.css";
 import "./ranking/legacy.css";
 import {REFERENCE,referenceSeconds} from './ranking/ReferenceLayout';
-import {assertGlobalBoard,ENDLESS_BOARD,ENDLESS_RULES_VERSION,type LeaderboardMetadata} from '../../shared/Challenge';
+import {assertGlobalBoard,assertEndlessBoard,type LeaderboardMetadata} from '../../shared/Challenge';
 import {CUP_SVG,BALL_SVG} from './ranking/Artwork';
 import {iconSvg} from '../../shared/Icons';
 import {rankingElement,boardStatus} from './ranking/WebCards';
@@ -80,7 +80,7 @@ export class LeaderboardUI {
     const myStats=this.el('my-stats');myStats.replaceChildren();if(best){for(const [label,value] of [['最高总分',mine.card!.score],[endless?'最高阶段':'最高关卡',endless?`第${best.reached_level}阶段`:mine.card!.level],['消除砖块',mine.card!.bricks],['最佳时间',referenceSeconds(best.duration_ms)]]){const item=document.createElement('span'),caption=document.createElement('small'),number=document.createElement('strong');caption.textContent=label;number.textContent=value;item.append(caption,number);myStats.append(item);}}else myStats.textContent=!available?'个人排名暂不可用，排行榜后端需要更新':'完成挑战并提交有效成绩后上榜';
   }
   /** Endless tab: the player's own endless best, fetched separately from the campaign identity call. */
-  private async loadEndlessBest(){try{const result=await this.api.request<{best:Me['best']}&LeaderboardMetadata>('/me/best?board=endless&rulesVersion='+ENDLESS_RULES_VERSION);if(this.board!=='endless')return;this.applyBest(result.best,result.board===ENDLESS_BOARD&&result.rankingRulesVersion===ENDLESS_RULES_VERSION);}catch{if(this.board==='endless')this.applyBest(null,false);}}
+  private async loadEndlessBest(){try{const result=await this.api.request<{best:Me['best']}&LeaderboardMetadata>('/me/best?board=endless');if(this.board!=='endless')return;assertEndlessBoard(result);this.applyBest(result.best,true);}catch{if(this.board==='endless')this.applyBest(null,false);}}
   /** Switch the dialog between the campaign board and the endless board. */
   private selectBoard(board:'global'|'endless'){
     this.board=board;const endless=board==='endless';
@@ -111,7 +111,7 @@ export class LeaderboardUI {
   private async loadBoard(offset:number,showError=true){
     const revision=++this.boardRevision;this.offset=offset;this.button('previous-page').disabled=offset===0;this.button('next-page').disabled=true;
     const body=this.el('ranking-rows');body.setAttribute('aria-busy','true');boardStatus(body,'正在加载排行榜','loading');
-    try{const result=await this.api.request<{items:RankingScore[];nextOffset:number|null}&LeaderboardMetadata>(`/leaderboard?offset=${offset}&limit=20&board=${this.board}${this.board==='endless'?'&rulesVersion='+ENDLESS_RULES_VERSION:''}`);const endless=this.board==='endless';if(endless){if(result.board!==ENDLESS_BOARD||result.rankingRulesVersion!==ENDLESS_RULES_VERSION)throw Error('排行榜后端尚未支持无尽榜，请等待服务器更新');}else assertGlobalBoard(result);if(revision!==this.boardRevision)return;
+    try{const result=await this.api.request<{items:RankingScore[];nextOffset:number|null}&LeaderboardMetadata>(`/leaderboard?offset=${offset}&limit=20&board=${this.board}`);const endless=this.board==='endless';if(endless){assertEndlessBoard(result);}else assertGlobalBoard(result);if(revision!==this.boardRevision)return;
       body.replaceChildren(...result.items.map(row=>rankingElement(row,endless)));if(!result.items.length)boardStatus(body,offset===0?'暂时还没有上榜成绩':'这一页暂无成绩','empty');
       this.button('previous-page').onclick=()=>void this.loadBoard(Math.max(0,offset-20));this.button('next-page').disabled=result.nextOffset===null;this.button('next-page').onclick=()=>void this.loadBoard(result.nextOffset!);return true;
     }catch(error){if(revision===this.boardRevision){boardStatus(body,'排行榜暂时无法加载','error',(error as Error).message);if(showError)this.message((error as Error).message);}return false;}

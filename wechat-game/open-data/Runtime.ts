@@ -2,7 +2,7 @@ import {context} from '../src/CanvasAdapter';
 import {panel} from '../../shared/CanvasUI';
 import {ball} from '../../src/online/ranking/Artwork';
 import {OCEAN} from '../../shared/VisualTheme';
-import {cloudKey,cloudScore,friendRows,rulesFor,type SocialMode,type KV,type FriendRecord,type CloudScore} from '../src/social/Protocol';
+import {cloudKey,cloudScore,cloudReadKeys,cloudBest,cloudEnvelope,friendRows,type SocialMode,type KV,type FriendRecord,type CloudScore} from '../src/social/Protocol';
 interface Image {src:string;onload?:()=>void;onerror?:()=>void}
 export interface OpenWx {
  onMessage(fn:(message:Record<string,unknown>)=>void):void;
@@ -30,17 +30,17 @@ export function createOpenDataRuntime(wx:OpenWx){
   if(syncFailed)text('云同步暂失败，点击刷新安全重试',12,height-12,width-24,10,OCEAN.colors.warning);
  }
  function load(){const rev=++revision;state='loading';rows=[];own=undefined;scroll=0;draw();
-  wx.getUserCloudStorage({keyList:[cloudKey(mode)],success:r=>{if(rev===revision){own=cloudScore(r.KVDataList.find(k=>k.key===cloudKey(mode))?.value,mode);draw();}},fail:()=>{}});
-  wx.getFriendCloudStorage({keyList:[cloudKey(mode)],success:r=>{if(rev!==revision)return;if(!Array.isArray(r.data)){state='error';draw();return;}rows=friendRows(r.data,mode);state='ready';draw();},fail:()=>{if(rev===revision){state='error';draw();}}});
+  wx.getUserCloudStorage({keyList:cloudReadKeys(mode),success:r=>{if(rev===revision){own=cloudBest(r.KVDataList,mode);draw();}},fail:()=>{}});
+  wx.getFriendCloudStorage({keyList:cloudReadKeys(mode),success:r=>{if(rev!==revision)return;if(!Array.isArray(r.data)){state='error';draw();return;}rows=friendRows(r.data,mode);state='ready';draw();},fail:()=>{if(rev===revision){state='error';draw();}}});
  }
  function sync(m:SocialMode){if(working.has(m)||!pending.has(m))return;working.add(m);const candidate=pending.get(m)!;
   const done=(success:boolean)=>{syncFailed=!success;working.delete(m);if(!success)draw();if(success&&pending.get(m)===candidate)pending.delete(m);if(success&&visible&&mode===m)load();if(success&&pending.has(m))sync(m);};
-  wx.getUserCloudStorage({keyList:[cloudKey(m)],success:r=>{const old=cloudScore(r.KVDataList.find(k=>k.key===cloudKey(m))?.value,m);if(old&&old.score>=candidate.score){done(true);return;}
-   wx.setUserCloudStorage({KVDataList:[{key:cloudKey(m),value:JSON.stringify(candidate)}],success:()=>done(true),fail:()=>done(false)});},fail:()=>done(false)});
+  wx.getUserCloudStorage({keyList:cloudReadKeys(m),success:r=>{const old=cloudBest(r.KVDataList,m),canonical=cloudScore(r.KVDataList.find(k=>k.key===cloudKey(m))?.value,m),best=old&&old.score>=candidate.score?old:candidate;if(canonical&&canonical.score>=best.score){done(true);return;}
+   wx.setUserCloudStorage({KVDataList:[{key:cloudKey(m),value:JSON.stringify(cloudEnvelope(best,m))}],success:()=>done(true),fail:()=>done(false)});},fail:()=>done(false)});
  }
  wx.onMessage(msg=>{const m=msg.mode==='endless'?'endless':'campaign';
   if((msg.type==='sync-best'||msg.type==='show')&&msg.mode!=='campaign'&&msg.mode!=='endless')return;
-  if(msg.type==='sync-best'){if(msg.rulesVersion!==rulesFor(m)||!Number.isSafeInteger(msg.score)||(msg.score as number)<0)return;const next:CloudScore={schema:1,score:msg.score as number,rulesVersion:rulesFor(m),marker:Array.from({length:24},()=>Math.floor(Math.random()*36).toString(36)).join('')};if(!pending.has(m)||pending.get(m)!.score<next.score)pending.set(m,next);sync(m);return;}
+  if(msg.type==='sync-best'){if(!cloudScore(JSON.stringify({schema:1,score:msg.score,rulesVersion:msg.rulesVersion,marker:'a'.repeat(24)}),m)||!Number.isSafeInteger(msg.score)||(msg.score as number)<0)return;const next:CloudScore={schema:1,score:msg.score as number,rulesVersion:msg.rulesVersion as string,marker:Array.from({length:24},()=>Math.floor(Math.random()*36).toString(36)).join('')};if(!pending.has(m)||pending.get(m)!.score<next.score)pending.set(m,next);sync(m);return;}
   if(msg.type==='hide'){visible=false;revision++;return;}
   if(msg.type==='show'){if(!Number.isFinite(msg.width)||!Number.isFinite(msg.height))return;mode=m;width=Math.max(1,Math.min(2048,Number(msg.width)));height=Math.max(1,Math.min(2048,Number(msg.height)));ratio=Math.max(1,Math.min(2,Number(msg.ratio)||1));canvas.width=Math.ceil(width*ratio);canvas.height=Math.ceil(height*ratio);visible=true;load();for(const key of pending.keys())sync(key);}
   if(msg.type==='scroll'&&visible){scroll=Math.max(0,Math.min(Math.max(0,rows.length*64-height),scroll-Number(msg.dy||0)));draw();}

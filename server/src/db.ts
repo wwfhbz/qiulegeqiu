@@ -11,6 +11,7 @@ export function openDb(path: string) {
   if(!db.prepare('SELECT 1 FROM schema_migrations WHERE version=2').get())transaction(db,()=>{db.exec(readFileSync(resource('migrations/002-challenge-seed.sql'),'utf8'));db.prepare('INSERT INTO schema_migrations VALUES(2,?)').run(Date.now());});
   if(!db.prepare('SELECT 1 FROM schema_migrations WHERE version=3').get())transaction(db,()=>{db.exec(readFileSync(resource('migrations/003-wechat.sql'),'utf8'));db.prepare('INSERT INTO schema_migrations VALUES(3,?)').run(Date.now());});
   if(!db.prepare('SELECT 1 FROM schema_migrations WHERE version=4').get())transaction(db,()=>{db.exec(readFileSync(resource('migrations/004-seasons.sql'),'utf8'));db.prepare('INSERT INTO schema_migrations VALUES(4,?)').run(Date.now());});
+  if(!db.prepare('SELECT 1 FROM schema_migrations WHERE version=5').get())transaction(db,()=>{db.exec(readFileSync(resource('migrations/005-challenge-mode.sql'),'utf8'));db.prepare('INSERT INTO schema_migrations VALUES(5,?)').run(Date.now());});
   return db;
 }
 export type Db = DatabaseSync;
