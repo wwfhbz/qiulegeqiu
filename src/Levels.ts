@@ -1,3 +1,4 @@
+import type {PowerProfile} from './PowerRules';
 import {TUTORIAL_POWERS,type BrickPowerConfig} from './BrickPowerRules';
 import {LEGACY_LEVELS} from './LegacyLevels';
 export type ObstacleKind = 'fixed'|'moving'|'rotating';
@@ -5,7 +6,7 @@ export interface ObstacleConfig {
   readonly id:string;readonly kind:ObstacleKind;readonly x:number;readonly y:number;readonly length:number;readonly thickness:number;readonly angle:number;
   readonly amplitude?:number;readonly speed?:number;readonly phase?:number;readonly angularSpeed?:number;
 }
-export interface LevelConfig {readonly brickPowers?:BrickPowerConfig;readonly number:number;readonly name:string;readonly speedScale:number;readonly obstacles?:readonly ObstacleConfig[];readonly legacyNumber?:number;readonly brickCount?:number;readonly gridStep?:number;readonly gridSize?:number;readonly exitWidth?:number;readonly paddleScale?:number;readonly powerProfile?:'first'|'later';readonly powerDropMultiplier?:number;readonly autoAdvance?:boolean}
+export interface LevelConfig {readonly brickPowers?:BrickPowerConfig;readonly number:number;readonly name:string;readonly speedScale:number;readonly obstacles?:readonly ObstacleConfig[];readonly legacyNumber?:number;readonly brickCount?:number;readonly gridStep?:number;readonly gridSize?:number;readonly exitWidth?:number;readonly paddleScale?:number;readonly powerProfile?:PowerProfile;readonly powerDropMultiplier?:number;readonly autoAdvance?:boolean}
 
 /** Frozen V1.3 twelve levels (rules 1.3.0): full ~4100-brick grids for levels 3–12. */
 export const V13_LEVELS:readonly LevelConfig[]=[
@@ -25,14 +26,29 @@ export const V15_LEVELS:readonly LevelConfig[]=V13_LEVELS.map(level=>level.numbe
  */
 export const LATER_LAYOUTS=[[15,1320],[14,1500],[13,1700],[13,1800],[12,2000],[12,2100],[12,2150],[11,2400],[11,2480],[11,2560]] as const;
 export const LATER_BRICK_COUNTS=LATER_LAYOUTS.map(([,count])=>count);
-/** Drop rate ramps down instead of falling off a cliff: L1 20% → L2 12% → L3/L4 1 in 14 → L5+ 1 in 28. */
-const laterDrop=(number:number)=>number<=4?1:.5;
-/** Current twelve levels (rules 1.6.0). Obstacles, speeds, exits and paddles are unchanged. */
-export const LEVELS:readonly LevelConfig[]=V13_LEVELS.map(level=>{
+/** Frozen V1.6 drop rate: L3/L4 1 in 14 bricks, L5+ 1 in 28. */
+const v16LaterDrop=(number:number)=>number<=4?1:.5;
+/** Frozen V1.6 twelve levels (rules 1.6.0). */
+export const V16_LEVELS:readonly LevelConfig[]=V13_LEVELS.map(level=>{
  if(level.number===1)return {...level,brickPowers:TUTORIAL_POWERS.first};
  if(level.number===2)return {...level,brickPowers:TUTORIAL_POWERS.second};
  const [gridStep,brickCount]=LATER_LAYOUTS[level.number-3];
- return {...level,gridStep,gridSize:gridStep-2,brickCount,powerDropMultiplier:laterDrop(level.number)};
+ return {...level,gridStep,gridSize:gridStep-2,brickCount,powerDropMultiplier:v16LaterDrop(level.number)};
+});
+
+/**
+ * V1.7: power-ups thin out as levels get harder — one random drop every 14 bricks on level 3,
+ * then 4 more bricks per level up to 1 in 50 on level 12 (≈7.1% → 2.0% of bricks).
+ */
+export const LATER_DROP_EVERY=[14,18,22,26,30,34,38,42,46,50] as const;
+/** Mirrors C.power.dropEvery (14); not imported because GameConfig → ArcadeRules → Levels is circular. */
+export const BASE_DROP_EVERY=14;
+/** Current twelve levels (rules 1.7.0). Layouts, obstacles, speeds, exits and paddles match V1.6. */
+export const LEVELS:readonly LevelConfig[]=V16_LEVELS.map(level=>level.number<3?level:{
+ ...level,
+ powerDropMultiplier:BASE_DROP_EVERY/LATER_DROP_EVERY[level.number-3],
+ // Level 3 keeps the gentle ×3/wide-only mix as the bridge out of the tutorials.
+ powerProfile:level.number===3?'first':'scarce',
 });
 export function dropMultiplier(level:LevelConfig){return level.powerDropMultiplier??((level.legacyNumber??level.number)===1?1:.5);}
 export function powerProfile(level:LevelConfig){return level.powerProfile??((level.legacyNumber??level.number)===1?'first':'later');}
