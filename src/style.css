@@ -21,35 +21,47 @@ button:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
 .stage-room{flex:1;min-height:0;display:flex;justify-content:center;align-items:flex-start}
 .game-panel{width:100%;min-width:0}
 
-/* Top bar — 34px: mode switch · (title on wide screens) · small ghost icons */
-header{position:relative;height:34px;flex:none;max-width:600px;width:100%;margin:0 auto;display:flex;align-items:center;gap:6px;padding:0 2px}
-h1{position:absolute;left:50%;transform:translateX(-50%);margin:0;font-size:13px;font-weight:700;letter-spacing:6px;color:var(--cyan);text-shadow:0 0 10px rgba(79,227,255,.5);white-space:nowrap;pointer-events:none}
-.mode-switch{display:flex;padding:2px;border-radius:8px;border:1px solid var(--edge);background:rgba(8,14,32,.6)}
-.mode-switch button{border:0;height:24px;padding:0 10px;border-radius:6px;background:none;color:var(--o-muted);font-size:12px;font-weight:700;letter-spacing:1px}
-.mode-switch button[aria-pressed=true]{color:#03101A;background:var(--cyan);box-shadow:0 0 10px rgba(79,227,255,.45)}
-.mode-switch button:disabled:not([aria-pressed=true]){opacity:.35}
-.top-actions{display:flex;gap:4px;margin-left:auto;margin-right:36px}
-.icon-btn{display:grid;place-items:center;width:30px;height:30px;padding:0;border-radius:8px;border:1px solid var(--edge);background:rgba(8,14,32,.6);color:var(--o-secondary)}
-.icon-btn svg{width:16px;height:16px}
-.icon-btn:active{background:var(--cyan-faint);color:var(--cyan)}
-.icon-btn:disabled{opacity:.4}
-#mute[aria-pressed=true]{color:var(--o-muted);opacity:.7}
-.trophy{position:absolute;right:2px;top:2px;color:var(--o-gold);border-color:rgba(255,210,77,.35)}
+:root{--gold-1:#FFE27A;--gold-2:#FFB31F;--gold-edge:#C9770A;--mint-1:#7FF5D6;--glass-edge:rgba(255,255,255,.22);--card-shadow:0 10px 30px rgba(10,4,40,.45)}
+/* Top bar + HUD: the candy-style controls from V2.1 */
+/* Top bar: mode switch · title · round icon buttons */
+header{position:relative;height:48px;flex:none;max-width:600px;width:100%;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:8px}
+h1{position:absolute;left:50%;transform:translateX(-50%);margin:0;font-size:20px;font-weight:900;letter-spacing:3px;white-space:nowrap;pointer-events:none;
+ background:linear-gradient(180deg,#FFFFFF 10%,#FFE27A 60%,#FFB31F);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 2px 0 rgba(120,40,0,.55))}
+.mode-switch{position:relative;z-index:1;display:flex;padding:3px;border-radius:999px;background:rgba(10,4,40,.45);box-shadow:inset 0 2px 4px rgba(0,0,0,.35),0 0 0 1px var(--glass-edge)}
+.mode-switch button{border:0;min-height:32px;padding:0 13px;border-radius:999px;background:none;color:rgba(255,255,255,.75);font-size:14px;font-weight:800;letter-spacing:1px}
+.mode-switch button[aria-pressed=true]{color:#5A2C00;background:linear-gradient(180deg,var(--gold-1),var(--gold-2));box-shadow:0 3px 0 var(--gold-edge),inset 0 1px 0 rgba(255,255,255,.7)}
+.mode-switch button:disabled:not([aria-pressed=true]){opacity:.38}
+.top-actions{position:relative;z-index:1;display:flex;gap:8px;margin-left:auto;margin-right:52px}
+.icon-btn{display:grid;place-items:center;width:40px;height:40px;padding:0;border:0;border-radius:14px;color:#fff;
+ background:linear-gradient(180deg,#7F6BFF,#5641D8);box-shadow:0 4px 0 #3A2A9C,0 6px 14px rgba(10,4,40,.4),inset 0 1px 0 rgba(255,255,255,.35)}
+.icon-btn:active{transform:translateY(3px);box-shadow:0 1px 0 #3A2A9C,inset 0 1px 0 rgba(255,255,255,.35)}
+.icon-btn:disabled{filter:grayscale(.6);opacity:.55}
+.icon-btn svg{width:22px;height:22px;filter:drop-shadow(0 1px 0 rgba(0,0,0,.25))}
+#mute[aria-pressed=true]{background:linear-gradient(180deg,#9B93C9,#6E66A3);box-shadow:0 4px 0 #4C4680,inset 0 1px 0 rgba(255,255,255,.3)}
+.trophy{position:absolute;right:0;top:4px;color:#6A3A00;background:linear-gradient(180deg,var(--gold-1),var(--gold-2));box-shadow:0 4px 0 var(--gold-edge),0 6px 14px rgba(10,4,40,.4),inset 0 1px 0 rgba(255,255,255,.7)}
+.trophy:active{box-shadow:0 1px 0 var(--gold-edge)}
 
-/* HUD — one dense row + a hairline progress line */
-.hud{display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:2px 12px;margin-top:2px;padding:4px 10px 5px;border-radius:10px;background:var(--glass);border:1px solid var(--edge)}
-.label{font-size:10px;color:var(--o-muted);letter-spacing:1px;white-space:nowrap}
-.hud-cell{display:flex;align-items:baseline;gap:5px;min-width:0;white-space:nowrap}
-.hud-cell strong{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--o-text);font-variant-numeric:tabular-nums}
-.hud-score{justify-content:center}
-#score{font-size:18px;color:var(--cyan);text-shadow:0 0 10px rgba(79,227,255,.55)}
-#hearts{display:flex;gap:1px;font-size:13px;line-height:14px;color:var(--o-heart)}
-#hearts .lost{color:rgba(255,255,255,.18)}
-.hud-progress{grid-column:1/-1;display:flex;align-items:center;gap:8px}
-.hud-progress b{font-family:var(--mono);font-weight:700;color:var(--o-secondary)}
-#progress-value{color:var(--o-positive)}
-#progress-meter{flex:1;display:block;height:3px;border-radius:2px;background:rgba(120,200,255,.12);overflow:hidden}
-#progress-meter i{display:block;height:100%;width:var(--fill,0%);background:linear-gradient(90deg,var(--cyan),var(--o-positive));box-shadow:0 0 6px rgba(79,227,255,.7);transition:width .25s ease}
+/* HUD: level chip · big score · hearts chip, then a thin stats row */
+.hud{display:grid;grid-template-columns:1fr auto 1fr;grid-template-rows:auto auto;align-items:center;gap:6px 8px;margin-top:6px;padding:10px 12px 10px;border-radius:20px;
+ background:linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,.06));box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 0 0 1px rgba(255,255,255,.10),var(--card-shadow);backdrop-filter:blur(8px)}
+.hud .label{font-size:11px;font-weight:700;color:var(--o-muted);letter-spacing:1px;white-space:nowrap}
+.hud-chip{display:flex;flex-direction:column;gap:2px;min-width:0}
+.hud-chip strong{font-size:17px;font-weight:900;font-variant-numeric:tabular-nums;white-space:nowrap}
+.hud-lives{align-items:flex-end;text-align:right}
+.hud-score{display:flex;flex-direction:column;align-items:center;line-height:1}
+.hud-score .label{margin-bottom:3px}
+#score{font-size:30px;font-weight:900;font-variant-numeric:tabular-nums;letter-spacing:1px;
+ background:linear-gradient(180deg,#FFFFFF 5%,var(--gold-1) 45%,var(--gold-2));-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 2px 0 rgba(140,60,0,.6))}
+#hearts{display:flex;gap:2px;font-size:17px;line-height:18px;color:var(--o-heart);filter:drop-shadow(0 0 4px rgba(255,94,138,.6))}
+#hearts .lost{color:rgba(255,255,255,.22);filter:none}
+.hud-row{grid-column:1/-1;display:flex;align-items:center;gap:12px;padding-top:7px;border-top:1px solid rgba(255,255,255,.10)}
+.hud-stat{display:flex;align-items:baseline;gap:5px;white-space:nowrap}
+.hud-stat strong{font-size:14px;font-weight:800;font-variant-numeric:tabular-nums}
+.hud-progress{flex:1;min-width:80px;display:flex;flex-direction:column;gap:4px}
+.hud-progress .label{display:flex;justify-content:space-between;gap:6px}
+#progress-value{color:var(--mint-1);font-variant-numeric:tabular-nums}
+#progress-meter{display:block;height:10px;width:100%;border-radius:999px;background:rgba(10,4,40,.5);box-shadow:inset 0 2px 3px rgba(0,0,0,.4);overflow:hidden}
+#progress-meter i{display:block;height:100%;width:var(--fill,0%);border-radius:inherit;background:linear-gradient(90deg,#5CE1FF,#3EE0B5 55%,#FFE27A);box-shadow:inset 0 2px 0 rgba(255,255,255,.45);transition:width .25s ease}
 
 /* Play area + touch strip: one thin-edged panel */
 .canvas-wrap{position:relative;margin-top:4px;border-radius:10px 10px 0 0;overflow:hidden;border:1px solid var(--edge);border-bottom:0}
@@ -101,7 +113,14 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 
 @media (pointer:fine) and (min-width:700px){.touch-pad{height:36px}.pad-hint{display:none}}
 /* Phones: drop the title; the picker carries the name */
-@media (max-width:600px){h1{display:none}}
+@media (max-width:600px){h1{display:none}
+ .top-actions{gap:6px;margin-right:46px}
+ .icon-btn{width:38px;height:38px;border-radius:13px}
+ .hud{padding:8px 10px;border-radius:18px}
+ #score{font-size:26px}
+ .hud-chip strong{font-size:15px}
+}
+@media (max-width:360px){.mode-switch button{padding:0 9px;font-size:13px}.icon-btn{width:34px;height:34px}.top-actions{gap:4px;margin-right:40px}}
 
 /* Phone portrait: the play panel fills the screen. The arena keeps its largest size and the touch strip
    stretches to the bottom edge, so every pixel below the arena steers the paddle. */

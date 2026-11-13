@@ -23,11 +23,14 @@ export function mountGame(root: HTMLElement) {
     <header><div class="mode-switch" role="group" aria-label="游戏模式"><button type="button" data-mode="campaign" aria-pressed="true">闯关</button><button type="button" data-mode="endless" aria-pressed="false">无尽</button></div><h1>${GAME_NAME}</h1><div class="top-actions"><button id="mute" class="icon-btn" type="button" aria-label="静音" aria-pressed="false">${iconSvg('soundOn')}</button><button id="pause" class="icon-btn" type="button" aria-label="暂停">${iconSvg('pause')}</button><button id="reset" class="icon-btn" type="button" aria-label="重新开始">${iconSvg('restart')}</button></div></header>
     <div class="stage-room"><section class="game-panel" aria-label="游戏区域">
       <div class="hud" aria-label="游戏状态">
-        <span class="hud-cell"><span class="label" id="level-label">关卡</span><strong id="level"></strong></span>
-        <span class="hud-cell hud-score"><span class="label">分数</span><strong id="score">0</strong></span>
-        <span class="hud-cell"><span class="label">弹球</span><strong id="ball-badge">×<span id="balls">1</span></strong></span>
-        <span class="hud-cell hud-lives"><span id="hearts" role="img" aria-live="polite"></span><span id="lives" class="sr-only"></span></span>
-        <div class="hud-progress"><span class="label" id="progress-label">进度</span><span id="progress-meter" role="progressbar" aria-label="本关消除进度" aria-valuemin="0" aria-valuemax="100"><i></i></span><span class="label">剩余 <b id="remaining">0</b> · <b id="progress-value">0%</b></span></div>
+        <div class="hud-chip hud-level"><span class="label" id="level-label">关卡</span><strong id="level"></strong></div>
+        <div class="hud-score"><span class="label">分数</span><strong id="score">0</strong></div>
+        <div class="hud-chip hud-lives"><span class="label">生命</span><span id="hearts" role="img" aria-live="polite"></span><span id="lives" class="sr-only"></span></div>
+        <div class="hud-row">
+          <span class="hud-stat"><span class="label">弹球</span><strong id="ball-badge">×<span id="balls">1</span></strong></span>
+          <span class="hud-stat"><span class="label">剩余</span><strong id="remaining">0</strong></span>
+          <div class="hud-progress"><span class="label"><span id="progress-label">进度</span><span id="progress-value">0%</span></span><span id="progress-meter" role="progressbar" aria-label="本关消除进度" aria-valuemin="0" aria-valuemax="100"><i></i></span></div>
+        </div>
       </div>
       <div class="canvas-wrap"><canvas id="arena-canvas" aria-label="圆形弹球竞技场，移动鼠标或拖动控制挡板"></canvas>
         <span id="status" class="sr-only" role="status"></span><span id="removed" class="sr-only"></span><span id="total" class="sr-only"></span>
