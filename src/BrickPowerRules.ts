@@ -3,10 +3,13 @@ import type {PowerKind} from './PowerRules';
 /** Only ordinary, destructible cells in the generated grid participate. */
 export interface BrickPowerConfig {readonly fraction:number;readonly tripleShare:number;readonly stratumSize:number}
 export const TUTORIAL_POWERS={
- first:{fraction:.35,tripleShare:1,stratumSize:10},
- /** Frozen V1.3 quota, used only to verify and replay that season. */
+ /** V1.6: 20% of level 1 (96 X3 + 24 wide) and 12% of level 2 (86 X3 + 58 wide). */
+ first:{fraction:.2,tripleShare:.8,stratumSize:10},
+ second:{fraction:.12,tripleShare:.6,stratumSize:10},
+ /** Frozen quotas, used only to verify and replay their seasons. */
+ firstV15:{fraction:.35,tripleShare:1,stratumSize:10},
  firstV13:{fraction:.8,tripleShare:1,stratumSize:10},
- second:{fraction:.5,tripleShare:.6,stratumSize:10},
+ secondV13:{fraction:.5,tripleShare:.6,stratumSize:10},
 } as const satisfies Record<string,BrickPowerConfig>;
 export type BrickPowerVersion=1|2;
 export const BRICK_POWER_VERSION:BrickPowerVersion=2;

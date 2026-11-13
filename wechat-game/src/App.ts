@@ -1,4 +1,4 @@
-import {OCEAN,brickColorIndex} from '../../shared/VisualTheme';
+import {OCEAN,brickColor} from '../../shared/VisualTheme';
 import {panel,canvasText} from '../../shared/CanvasUI';
 import {scoreHistoryLines} from '../../shared/ScoreHistory';
 import {assertGlobalBoard,type LeaderboardMetadata} from '../../shared/Challenge';
@@ -159,5 +159,5 @@ export class MiniGameApp {
   await this.api.request('/wechat/bind',{ticket:ticket.content?.trim()});this.me=await this.api.me();this.toast('已绑定原网页玩家');this.menu();});}
  private async appeal(){return this.task(async()=>{if(!this.api.authenticated)throw Error('请先在开始挑战时选择联网登录');const r=await this.modal('账号与隐私申诉','请说明更正、注销或删除请求，不要填写密码。','提交','取消',true);if(r.confirm){await this.api.request('/appeals',{message:r.content||''});this.toast('申诉已提交');}});}
  private shareData(){return {title:this.me?.best?`${GAME_NAME}：我的最高纪录 ${this.me.best.score} 分，一起突破！`:`${GAME_NAME}：十二关弹球挑战，一起突破！`,imageUrl:this.shareImage,query:'source=friend'};}
- private makeShareImage(){const card=this.wx.createCanvas();card.width=500;card.height=400;const c=context(card);c.fillStyle=OCEAN.colors.background;c.fillRect(0,0,500,400);c.strokeStyle=OCEAN.colors.border;c.lineWidth=2;c.beginPath();c.arc(250,190,145,0,Math.PI*2);c.stroke();for(let y=90;y<220;y+=18)for(let x=155;x<350;x+=18)if(Math.hypot(x-250,y-190)<130){c.fillStyle=OCEAN.bricks[brickColorIndex(Math.floor(y/18),Math.floor(x/18))];c.fillRect(x,y,14,14);}c.fillStyle=OCEAN.paddle.body;c.fillRect(195,310,110,8);c.fillStyle=OCEAN.ball.body;c.beginPath();c.arc(245,270,6,0,Math.PI*2);c.fill();c.font='bold 30px sans-serif';c.textAlign='center';c.fillText(GAME_NAME,250,375);card.toTempFilePath?.({success:r=>{this.shareImage=r.tempFilePath;}});}
+ private makeShareImage(){const card=this.wx.createCanvas();card.width=500;card.height=400;const c=context(card);c.fillStyle=OCEAN.colors.background;c.fillRect(0,0,500,400);c.strokeStyle=OCEAN.colors.border;c.lineWidth=2;c.beginPath();c.arc(250,190,145,0,Math.PI*2);c.stroke();for(let y=90;y<220;y+=18)for(let x=155;x<350;x+=18)if(Math.hypot(x-250,y-190)<130){c.fillStyle=brickColor(Math.floor((y-90)/18),40);c.fillRect(x,y,14,14);}c.fillStyle=OCEAN.paddle.body;c.fillRect(195,310,110,8);c.fillStyle=OCEAN.ball.body;c.beginPath();c.arc(245,270,6,0,Math.PI*2);c.fill();c.font='bold 30px sans-serif';c.textAlign='center';c.fillText(GAME_NAME,250,375);card.toTempFilePath?.({success:r=>{this.shareImage=r.tempFilePath;}});}
 }
