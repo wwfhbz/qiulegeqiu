@@ -63,7 +63,7 @@ export class MiniGameApp {
  }
  private draw(now:number){const c=this.ctx,v=this.view;c.setTransform(this.dpr,0,0,this.dpr,0,0);
   if(!this.backgroundFill){const gradient=c.createLinearGradient(0,0,0,v.height);gradient?.addColorStop(0,OCEAN.colors.background);gradient?.addColorStop(1,OCEAN.colors.gradientEnd);this.backgroundFill=gradient||OCEAN.colors.background;}
-  c.fillStyle=this.backgroundFill;c.fillRect(0,0,v.width,v.height);canvasText(c,GAME_NAME,v.width/2,v.top+24,v.width-216,15,OCEAN.colors.text,'center');
+  c.fillStyle=this.backgroundFill;c.fillRect(0,0,v.width,v.height);canvasText(c,GAME_NAME,v.width/2,v.top+24,v.width-300,15,OCEAN.colors.text,'center');
   const g=this.game,b=g.physics.blocks,hud={x:8,y:v.hudY-4,width:v.width-16,height:56};panel(c,hud,OCEAN.colors.arena,OCEAN.colors.line,10);
   const field=g.physics.endless,progress=field?Math.round(field.descentProgress*100):Math.round(b.removed/Math.max(1,b.total)*100);
   const cells=[field?['无尽阶段',`第${g.reachedLevel}阶段`]:['关卡',`${String(g.levels.current.number).padStart(2,'0')}/${g.levels.count}`],['生命',`♥×${g.lives}`],['得分',String(g.score.total)],['弹球',`球×${g.physics.balls.length}`],['剩余砖块',String(b.remaining)],field?[field.blocked?'压到底线':'下沉',`已下沉${field.descents}行`]:['进度',`${progress}%`]];
@@ -80,13 +80,19 @@ export class MiniGameApp {
   if(ended&&!this.busy&&!this.panel.open){const centerY=v.arena.y+C.arena.y*v.scale;button({x:v.width/2-78,y:centerY-22,width:156,height:44},'选择模式',()=>this.modePicker());}
   else if(action&&g.state!=='ready'&&!this.busy){const centerY=v.arena.y+C.arena.y*v.scale;button({x:v.width/2-78,y:centerY-22,width:156,height:44},action.label,()=>void this.activate());}
   // Touch strip under the arena: a quiet hint; dragging here steers the paddle (see down/move).
-  if(!this.panel.open&&v.pad.height>=36){c.save();c.globalAlpha=.9;panel(c,v.pad,'rgba(16,40,66,.35)','rgba(79,227,255,.18)',14);c.restore();
-   canvasText(c,'⟵  在此左右滑动控制挡板  ⟶',v.width/2,v.pad.y+v.pad.height/2-6,v.width-40,12,OCEAN.colors.muted,'center');}
+  // Joined to the arena's bottom edge: same width, rounded bottom corners, a track and a knob that follows the paddle.
+  if(!this.panel.open&&v.pad.height>=36){const p={x:v.arena.x,y:v.pad.y,width:v.arena.width,height:Math.min(v.pad.height,96)};
+   const fill=c.createLinearGradient(0,p.y,0,p.y+p.height);fill?.addColorStop(0,'#1A2236');fill?.addColorStop(1,'#0A1424');
+   c.save();c.beginPath();c.roundRect(p.x,p.y,p.width,p.height,[0,0,14,14]);c.fillStyle=fill||'#0F1A2C';c.fill();c.strokeStyle='rgba(79,227,255,.18)';c.lineWidth=1;c.stroke();
+   const ty=p.y+p.height/2-6,tx=p.x+24,tw=p.width-48;c.fillStyle='rgba(127,239,255,.14)';c.fillRect(tx,ty-2,tw,4);
+   const kx=p.x+g.physics.paddleX/C.width*p.width;c.shadowColor='rgba(79,227,255,.8)';c.shadowBlur=10;c.fillStyle='#7FEFFF';c.beginPath();c.roundRect(kx-22,ty-5,44,10,5);c.fill();c.restore();
+   canvasText(c,'左右滑动控制挡板',v.width/2,ty+12,v.width-40,11,OCEAN.colors.muted,'center');}
   // Compact native-style utility controls stay below the capsule safe area.
   button({x:8,y:v.top,width:44,height:44},'菜单',()=>this.menu());button({x:v.width-52,y:v.top,width:44,height:44},'排行',()=>void this.board());
   // Pause and restart sit in the top bar, away from the thumb that steers the paddle.
   button({x:56,y:v.top,width:44,height:44},g.state==='paused'?'继续':'暂停',()=>{if(g.state==='paused')g.start();else g.pause();});
   button({x:v.width-100,y:v.top,width:44,height:44},'重开',()=>{this.panel.close();g.reset();});
+  button({x:v.width-148,y:v.top,width:44,height:44},g.audio.muted?'有声':'静音',()=>{g.audio.toggle();this.platform.write('qiulegeqiu:wechat-muted:v1',g.audio.muted);});
   this.panel.draw(c,v.width,v.top,v.bottom,now,g.state!=='paused',this.lowDevice||v.width<360,this.rankingArt,this.dpr);
  }
  private down(e:TouchEvent){if(this.touch)return;const t=e.changedTouches[0];if(!t)return;this.game.audio.unlock();this.touch={id:t.identifier,x:t.clientX,y:t.clientY,moved:false,lastY:t.clientY,drag:!this.panel.open&&(inside(this.view.arena,t.clientX,t.clientY)||inside(this.view.pad,t.clientX,t.clientY))&&!this.actions.some(a=>inside(a.rect,t.clientX,t.clientY))};if(this.touch.drag){this.target(t.clientX);if(!this.busy&&!this.boardLoading)startFromPlayfield(this.game,()=>void this.activate());}}
@@ -114,6 +120,7 @@ export class MiniGameApp {
   {label:'分享小游戏',run:()=>this.wx.shareAppMessage(this.shareData()),half:true},{label:this.game.audio.muted?'开启音效':'静音',run:()=>{this.game.audio.toggle();this.platform.write('qiulegeqiu:wechat-muted:v1',this.game.audio.muted);this.menu();},half:true},
   {label:'个人历史记录',run:()=>void this.history(),half:true},
   {label:'绑定已有网页账号',run:()=>void this.bind(),half:true},
+  {label:this.game.journal.events.length>0&&this.game.state!=='gameOver'&&this.game.state!=='victory'?'本局结束后可切换模式':this.game.mode==='endless'?'切换到闯关模式':'切换到无尽模式',run:()=>{const g=this.game;if(g.journal.events.length>0&&g.state!=='gameOver'&&g.state!=='victory'){this.toast('本局结束后可切换模式');return;}this.chooseMode(g.mode==='endless'?'campaign':'endless');}},
   {label:'单机重新挑战',run:()=>{this.offlinePreference=true;this.online=false;this.panel.close();this.game.reset();},half:true},{label:'联网重新挑战',run:()=>{this.offlinePreference=false;this.panel.close();this.game.reset();},half:true},
   {label:'隐私保护说明',run:()=>this.wx.showModal({title:'隐私保护说明',content:privacy,showCancel:false}),half:true},{label:'用户协议',run:()=>this.wx.showModal({title:'用户协议',content:agreement,showCancel:false}),half:true},
   {label:'账号及隐私申诉',run:()=>void this.appeal()}, {label:'关闭菜单',run:()=>this.panel.close()}

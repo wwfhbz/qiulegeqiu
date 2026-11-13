@@ -4,7 +4,7 @@ import {wxFixture} from './helpers/WxFixture';
 import {C} from '../src/GameConfig';
 
 type Internals={chooseMode(mode:'campaign'|'endless'):void;draw(now:number):void;frame(now:number):void;rankingBoard:string;picking:boolean;panel:{open:boolean;title:string;actions:{label:string;run:()=>void}[]}};
-it('微信：打开即显示模式选择（必须选择才能开始），选无尽后记住选择、HUD显示阶段与下沉；菜单里不再有切换模式',()=>{
+it('微信：打开即显示模式选择（必须选择才能开始），选无尽后记住选择、HUD显示阶段与下沉；菜单切换模式只在局外可用',()=>{
  const f=wxFixture(),app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false}),x=app as unknown as Internals;
  try{
   x.frame(16);expect(x.picking).toBe(true);expect(x.panel.open).toBe(true);expect(x.panel.title).toBe('选择游戏模式');
@@ -13,7 +13,10 @@ it('微信：打开即显示模式选择（必须选择才能开始），选无�
   expect(f.wx.getStorageSync('qiulegeqiu:wechat-mode:v1')).toBe('endless');
   x.draw(0);expect(f.texts).toContain('第1阶段');expect(f.texts).toContain('已下沉0行');
   const again=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});try{expect(again.game.mode).toBe('endless');expect((again as unknown as Internals).picking).toBe(true);}finally{again.dispose();}
-  (app as unknown as {menu():void}).menu();expect(x.panel.actions.some(a=>a.label.includes('切换到'))).toBe(false);x.panel.actions.at(-1)!.run();
+  const menu=()=>(app as unknown as {menu():void}).menu();
+  menu();const item=x.panel.actions.find(a=>a.label==='切换到闯关模式');expect(item).toBeDefined();x.panel.actions.at(-1)!.run();
+  app.game.start();menu();const locked=x.panel.actions.find(a=>a.label==='本局结束后可切换模式')!;expect(locked).toBeDefined();locked.run();expect(app.game.mode).toBe('endless');x.panel.actions.at(-1)!.run();
+  app.game.state='gameOver';menu();x.panel.actions.find(a=>a.label==='切换到闯关模式')!.run();expect(app.game.mode).toBe('campaign');expect(app.game.lives).toBe(5);
  }finally{app.dispose();}
 });
 it('微信：一局结束后结算面板直接给出两种模式；关闭结算后中央按钮是"选择模式"',()=>{

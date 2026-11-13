@@ -36,6 +36,10 @@ try{
   },RULES_VERSION);
   await page.waitForFunction(()=>window.module?.exports.app?.game.state==='ready');
   await page.waitForTimeout(150);await page.screenshot({path:`${out}/${name}-ready.png`});
+  // Mid-game view after choosing a mode: top bar, joined touch strip and knob.
+  await page.evaluate(async()=>{const app=module.exports.app;const pick=app.panel.hits[0];const t={identifier:9,clientX:pick.rect.x+pick.rect.width/2,clientY:pick.rect.y+pick.rect.height/2};__touch.down({touches:[t],changedTouches:[t]});__touch.up({touches:[],changedTouches:[t]});app.game.start();app.game.physics.collect('wide');await new Promise(r=>setTimeout(r,400));});
+  await page.screenshot({path:`${out}/${name}-play.png`});
+  await page.evaluate(()=>{const app=module.exports.app;app.game.reset();app.picking=true;});await page.waitForTimeout(100);
   const result=await page.evaluate(async()=>{
    const app=module.exports.app,g=app.game;const click=(x,y)=>{const t={identifier:1,clientX:x,clientY:y};__touch.down({touches:[t],changedTouches:[t]});__touch.up({touches:[],changedTouches:[t]});};
    // Use the same central hit target and wx touch callbacks as a real host.
