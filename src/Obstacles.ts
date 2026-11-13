@@ -9,7 +9,7 @@ export class Obstacles {
   private scratch:Pose={x:0,y:0,angle:0,vx:0,vy:0,omega:0};
   load(configs:readonly ObstacleConfig[]){this.time=0;this.items=configs.map(config=>({config,destroyed:false,x:0,y:0,angle:0,vx:0,vy:0,omega:0}));this.sync();}
   sync(){for(const item of this.items)obstaclePose(item.config,this.time,item);}
-  collide(ball:Ball,time=this.time){let touched=false;
+  collide(ball:Ball,time=this.time,onContact?:(ball:Ball,nx:number,ny:number)=>void){let touched=false;
     for(const item of this.items){if(item.destroyed)continue;const pose=obstaclePose(item.config,time,this.scratch),c=item.config;
       const cos=Math.cos(pose.angle),sin=Math.sin(pose.angle),half=(c.length-c.thickness)/2;
       const dx=ball.x-pose.x,dy=ball.y-pose.y,projection=Math.max(-half,Math.min(half,dx*cos+dy*sin));
@@ -20,7 +20,7 @@ export class Obstacles {
       ball.x+=nx*(contact-d+.02);ball.y+=ny*(contact-d+.02);
       const dot=(ball.vx-surfaceVx)*nx+(ball.vy-surfaceVy)*ny;if(dot<0){ball.vx-=2*dot*nx;ball.vy-=2*dot*ny;}
       const speed=Math.hypot(ball.vx,ball.vy);if(speed>C.ball.maxSpeed){ball.vx*=C.ball.maxSpeed/speed;ball.vy*=C.ball.maxSpeed/speed;}
-      touched=true;
+      onContact?.(ball,nx,ny);touched=true;
     }return touched;
   }
   overlaps(ball:Ball){for(const item of this.items){if(item.destroyed)continue;const pose=obstaclePose(item.config,this.time,this.scratch),cos=Math.cos(pose.angle),sin=Math.sin(pose.angle),half=(item.config.length-item.config.thickness)/2,p=Math.max(-half,Math.min(half,(ball.x-pose.x)*cos+(ball.y-pose.y)*sin));if(Math.hypot(ball.x-pose.x-p*cos,ball.y-pose.y-p*sin)<ball.radius+item.config.thickness/2)return true;}return false;}

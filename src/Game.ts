@@ -66,7 +66,7 @@ export class Game {
 
   start() {
     if (this.lives <= 0 || (this.state !== 'ready' && this.state !== 'paused')) return;
-    if (this.state === 'ready') { this.journal.record({type:'launch',level:this.levels.current.number,...(this.journal.events.length===0&&this.mode==='campaign'?{...(this.physics.tripleRuleVersion===2?{tripleRuleVersion:2 as const}:{}),...(this.physics.brickPowerVersion===2&&this.levels.current.brickPowers?{brickPowerVersion:2 as const}:{})}:{})}); this.roundActive = true; for (const b of this.physics.balls) this.physics.aimLaunch(b); }
+    if (this.state === 'ready') { this.journal.record({type:'launch',level:this.levels.current.number,...(this.journal.events.length===0&&this.physics.trajectoryVersion===1?{trajectoryVersion:1 as const}:{}),...(this.journal.events.length===0&&this.mode==='campaign'?{...(this.physics.tripleRuleVersion===2?{tripleRuleVersion:2 as const}:{}),...(this.physics.brickPowerVersion===2&&this.levels.current.brickPowers?{brickPowerVersion:2 as const}:{})}:{})}); this.roundActive = true; for (const b of this.physics.balls) this.physics.aimLaunch(b); }
     // Endless relief after a pressure death: clear the rows nearest the line, then a random effect ball.
     const field=this.physics.endless;
     if(this.pendingRelief&&field&&this.state==='ready'){

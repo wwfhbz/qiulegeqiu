@@ -1,3 +1,4 @@
+import {validateTrajectoryMarkers} from '../../shared/Challenge.js';
 import {allocateBrickPowers,brickPowerCounts,brickPowerKind,type BrickPowerVersion} from '../../src/BrickPowerRules.js';
 import {LEGACY_LEVELS} from '../../src/LegacyLevels.js';
 import {verifyEndlessTrace} from './endlessVerifier.js';
@@ -14,6 +15,7 @@ import type { ChallengeEvent, ChallengeSummary } from '../../shared/Challenge.js
 import { ApiError } from './moderation.js';
 /** Event/rule replay, not authoritative physical replay. Client seed is a declared run parameter, not a secret. */
 export function verifyTrace(events: ChallengeEvent[], wallMs: number,seed=1,rulesVersion:string=LEGACY_RULES_VERSION): { summary: ChallengeSummary; suspicious: string[] } {
+  try{validateTrajectoryMarkers(events);}catch{throw new ApiError(422,'轨迹版本标记无效');}
   // Each endless version replays with its own frozen variant.
   if(rulesVersion===ENDLESS_RULES_VERSION)return verifyEndlessTrace(events,wallMs,seed,ENDLESS_V4);
   if(rulesVersion===ENDLESS_V3_RULES_VERSION)return verifyEndlessTrace(events,wallMs,seed,ENDLESS_V3);

@@ -1,3 +1,4 @@
+import {resetMotion,motionWall,motionContact,motionProgress,advanceMotion,type MotionState} from './BallMotion';
 import {allocateBrickPowers,brickPowerCounts,brickPowerKind,BRICK_POWER_VERSION,type BrickPowerVersion} from './BrickPowerRules';
 import {LEGACY_LEVELS} from './LegacyLevels';
 import {powerProfile, type LevelConfig } from './Levels';
@@ -12,12 +13,13 @@ import { Effects } from './Effects';
 import { PowerUps, type PowerKind } from './PowerUps';
 import { EndlessField } from './endless/EndlessField';
 import { ENDLESS,ENDLESS_CURRENT,endlessPower,endlessBonus,dropEvery,endlessSpeed,DROP_SALT,BONUS_SALT,type BonusKind } from './endless/EndlessRules';
-export interface Ball { x: number; y: number; vx: number; vy: number; radius: number; alive: boolean; previousX?: number; previousY?: number; outsideArena?: boolean }
+export interface Ball { x: number; y: number; vx: number; vy: number; radius: number; alive: boolean; previousX?: number; previousY?: number; outsideArena?: boolean; motion?:MotionState }
 export function reflect(b: Ball, nx: number, ny: number) {
   const dot = b.vx * nx + b.vy * ny;
-  if (dot < 0) { b.vx -= 2 * dot * nx; b.vy -= 2 * dot * ny; }
+  if (dot < 0) { b.vx -= 2 * dot * nx; b.vy -= 2 * dot * ny; return true; }
+  return false;
 }
-export function boundary(b: Ball, wall=ARENA_WALL) {
+export function boundary(b: Ball, wall=ARENA_WALL,onWall?:(b:Ball,side:number,nx:number,ny:number)=>void) {
   const a = C.arena;
   let dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy);
   const contact = b.radius + wall.halfWidth;
@@ -32,7 +34,7 @@ export function boundary(b: Ball, wall=ARENA_WALL) {
       if (distance > 1e-8) { nx /= distance; ny /= distance; }
       else { nx = dx < 0 ? 1 : -1; ny = 0; }
       b.x = endpointX + nx * (contact + .01); b.y = wall.endpointY + ny * (contact + .01);
-      reflect(b, nx, ny);
+      if(reflect(b, nx, ny))onWall?.(b,0,nx,ny);
       dx = b.x - a.x; dy = b.y - a.y; d = Math.hypot(dx, dy);
     }
     // Hysteresis preserves which wall face to use until the whole disk clears it.
@@ -46,16 +48,16 @@ export function boundary(b: Ball, wall=ARENA_WALL) {
     const nx = d > 0 ? sign * dx / d : 0, ny = d > 0 ? sign * dy / d : sign;
     b.x = a.x + (d > 0 ? dx / d : 0) * (limit + sign * .01);
     b.y = a.y + (d > 0 ? dy / d : 1) * (limit + sign * .01);
-    reflect(b, nx, ny);
+    if(reflect(b, nx, ny))onWall?.(b,Math.abs(dx)>a.radius*.7&&Math.abs(nx)>.7?(dx<0?-1:1):0,nx,ny);
   }
 }
 /** Three solid sides; no segment is ever drawn or simulated across the bottom. */
-export function frameCollision(b: Ball) {
+export function frameCollision(b: Ball,onWall?:(b:Ball,side:number,nx:number,ny:number)=>void) {
   const contact = b.radius + FRAME.halfWidth;
   if (b.y <= FRAME.deathY) {
-    if (b.x < FRAME.left + contact) { b.x = FRAME.left + contact + .01; reflect(b, 1, 0); }
-    else if (b.x > FRAME.right - contact) { b.x = FRAME.right - contact - .01; reflect(b, -1, 0); }
-    if (b.y < FRAME.top + contact) { b.y = FRAME.top + contact + .01; reflect(b, 0, 1); }
+    if (b.x < FRAME.left + contact) { b.x = FRAME.left + contact + .01; if(reflect(b, 1, 0))onWall?.(b,-1,1,0); }
+    else if (b.x > FRAME.right - contact) { b.x = FRAME.right - contact - .01; if(reflect(b, -1, 0))onWall?.(b,1,-1,0); }
+    if (b.y < FRAME.top + contact) { b.y = FRAME.top + contact + .01; if(reflect(b, 0, 1))onWall?.(b,0,0,1); }
   } else {
     // The finite side segments have the same rounded lower tips as the renderer.
     const endpoint = b.x < C.arena.x ? FRAME.left : FRAME.right;
@@ -64,7 +66,7 @@ export function frameCollision(b: Ball) {
     if (distance < contact) {
       nx /= distance; ny /= distance;
       b.x = endpoint + nx * (contact + .01); b.y = FRAME.deathY + ny * (contact + .01);
-      reflect(b, nx, ny);
+      if(reflect(b, nx, ny))onWall?.(b,0,nx,ny);
     }
   }
 }
@@ -78,7 +80,7 @@ export function paddleCollision(b: Ball, x: number, width: number = C.paddle.wid
   const speed = Math.hypot(b.vx, b.vy);
   b.vx = Math.sin(angle) * speed; b.vy = -Math.cos(angle) * speed; return true;
 }
-export function blockCollision(b: Ball, blocks: Blocks) {
+export function blockCollision(b: Ball, blocks: Blocks,onContact?:(b:Ball,nx:number,ny:number)=>void) {
   const s = blocks.step, size = blocks.size;
   const minC = Math.max(0, Math.floor((b.x - b.radius - blocks.left) / s));
   const maxC = Math.min(blocks.cols - 1, Math.floor((b.x + b.radius - blocks.left) / s));
@@ -98,11 +100,15 @@ export function blockCollision(b: Ball, blocks: Blocks) {
       d = -distance;
     } else { nx /= d; ny /= d; }
     b.x += nx * (b.radius - d + .01); b.y += ny * (b.radius - d + .01);
-    reflect(b, nx, ny); blocks.hit(i); return true;
+    reflect(b, nx, ny);onContact?.(b,nx,ny); blocks.hit(i); return true;
   }
   return false;
 }
 export class Physics {
+  trajectoryVersion:0|1=1;
+  private readonly wallContact=(ball:Ball,side:number,nx:number,ny:number)=>{if(this.trajectoryVersion===1)motionWall(ball,side,nx,ny);};
+  private readonly blockContact=(ball:Ball,nx:number,ny:number)=>{if(this.trajectoryVersion===1)motionContact(ball,true,nx,ny);};
+  private readonly obstacleContact=(ball:Ball,nx:number,ny:number)=>{if(this.trajectoryVersion===1)motionContact(ball,false,nx,ny);};
   blocks:Blocks = new Blocks(); balls: Ball[] = [];
   /** Endless mode swaps in a descending field; everything else reads it through the Blocks interface. */
   get endless(){return this.blocks instanceof EndlessField?this.blocks:undefined;}
@@ -242,8 +248,8 @@ export class Physics {
     if (!source.outsideArena && d > limit) { b.x = C.arena.x + dx / d * limit; b.y = C.arena.y + dy / d * limit; }
     if (this.overlapsBlocks(b)) { b.x = source.x; b.y = source.y + sign * .1; }
     if(this.obstacles.overlaps(b)){b.x=source.x;b.y=source.y;}
-    b.outsideArena = source.outsideArena; boundary(b,this.wall); frameCollision(b); b.previousX = b.x; b.previousY = b.y;
-    return b;
+    b.outsideArena = source.outsideArena; boundary(b,this.wall,this.wallContact); frameCollision(b,this.wallContact); b.previousX = b.x; b.previousY = b.y;
+    if(this.trajectoryVersion===1)resetMotion(b);return b;
   }
   triple() {
     this.recycleDead(); const count = this.balls.length,target=tripleTarget(count,this.tripleRuleVersion);
@@ -261,7 +267,7 @@ export class Physics {
         // Nearby solids: keep the child at the safe parent position with a small directional separation.
         if (this.overlapsBlocks(b)) { b.x = source.x; b.y = source.y + sign * .1; }
         if(this.obstacles.overlaps(b)){b.x=source.x;b.y=source.y;}
-        b.outsideArena = source.outsideArena; boundary(b,this.wall); frameCollision(b); b.previousX = b.x; b.previousY = b.y;
+        b.outsideArena = source.outsideArena; boundary(b,this.wall,this.wallContact); frameCollision(b,this.wallContact); b.previousX = b.x; b.previousY = b.y;if(this.trajectoryVersion===1)resetMotion(b);
         this.balls.push(b);
       }
     }
@@ -307,7 +313,7 @@ export class Physics {
   aimLaunch(b: Ball) {
     const dx = C.arena.x - b.x, dy = C.arena.y + C.arena.radius - 12 - b.y;
     const length = Math.hypot(dx, dy);
-    b.vx = dx / length * this.launchSpeed; b.vy = dy / length * this.launchSpeed; b.outsideArena = true;
+    b.vx = dx / length * this.launchSpeed; b.vy = dy / length * this.launchSpeed; b.outsideArena = true;if(this.trajectoryVersion===1)resetMotion(b);else b.motion=undefined;
   }
   setTarget(x: number) {
     const extent = Math.min(C.arena.radius, C.width / 2 - C.paddle.margin) - this.paddleWidth / 2;
@@ -341,16 +347,17 @@ export class Physics {
       const steps = Math.ceil(C.ball.maxSpeed * dt / C.maxTravel), h = dt / steps;
       for (let i = 0; i < steps && b.alive; i++) {
         b.x += b.vx * h; b.y += b.vy * h;
-        boundary(b,this.wall); frameCollision(b);
-        if (paddleCollision(b, this.paddleX, this.paddleWidth)) { this.effects.emit('paddle', b.x, C.paddle.y); this.onSound?.('paddle'); }
+        boundary(b,this.wall,this.wallContact); frameCollision(b,this.wallContact);
+        if (paddleCollision(b, this.paddleX, this.paddleWidth)) {if(this.trajectoryVersion===1)motionContact(b,true,0,-1); this.effects.emit('paddle', b.x, C.paddle.y); this.onSound?.('paddle'); }
         // Resolve a bounded number of simultaneous contacts before the next movement.
-        if(this.pierceRemaining>0)this.pierce(b);
-        else for (let contact = 0; contact < 3; contact++) {const before=this.blocks.destroyed.length;if (!blockCollision(b, this.blocks)) break;if(this.fireRemaining>0&&this.blocks.destroyed.length>before)this.burn(this.blocks.destroyed[before]);}
-        for(let contact=0;contact<3;contact++)if(!this.obstacles.collide(b,obstacleStart+(i+1)*h))break;
-        boundary(b,this.wall); frameCollision(b);
+        if(this.pierceRemaining>0){const before=this.blocks.removed;this.pierce(b);if(this.trajectoryVersion===1&&this.blocks.removed>before)motionProgress(b);}
+        else for (let contact = 0; contact < 3; contact++) {const before=this.blocks.destroyed.length;if (!blockCollision(b, this.blocks,this.blockContact)) break;if(this.fireRemaining>0&&this.blocks.destroyed.length>before)this.burn(this.blocks.destroyed[before]);}
+        for(let contact=0;contact<3;contact++){if(!this.obstacles.collide(b,obstacleStart+(i+1)*h,this.obstacleContact))break;}
+        boundary(b,this.wall,this.wallContact); frameCollision(b,this.wallContact);
         // The only gameplay removal condition, evaluated after all contact corrections.
         if (isBallInDeathZone(b)) { b.alive = false; this.effects.emit('lost', b.x, FRAME.deathY); this.onBallLost?.(); }
       }
+      if(b.alive&&this.trajectoryVersion===1)advanceMotion(b,dt);
     }
     this.obstacles.time=obstacleStart+dt;this.obstacles.sync();
     this.recycleDead();

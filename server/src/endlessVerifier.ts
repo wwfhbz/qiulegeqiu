@@ -1,3 +1,4 @@
+import {validateTrajectoryMarkers} from '../../shared/Challenge.js';
 import {EndlessField} from '../../src/endless/EndlessField.js';
 import {ENDLESS,ENDLESS_CURRENT,dropEvery,endlessPower,endlessBonus,endlessStage,DROP_SALT,BONUS_SALT,type EndlessVariant} from '../../src/endless/EndlessRules.js';
 import {ScoreSystem} from '../../src/ScoreSystem.js';
@@ -13,6 +14,7 @@ import {ApiError} from './moderation.js';
  * verifier this is a rule replay, not a physical trajectory replay.
  */
 export function verifyEndlessTrace(events:ChallengeEvent[],wallMs:number,seed:number,variant:EndlessVariant=ENDLESS_CURRENT):{summary:ChallengeSummary;suspicious:string[]}{
+  try{validateTrajectoryMarkers(events);}catch{throw new ApiError(422,'轨迹版本标记无效');}
   const field=new EndlessField();field.start(seed,variant);
   const score=new ScoreSystem('unbounded'),drops:{id:number;kind:PowerKind;tick:number;y:number}[]=[],suspicious=new Set<string>();
   const dropRandom=seededRandom((seed>>>0^DROP_SALT)>>>0),bonusRandom=seededRandom((seed>>>0^BONUS_SALT)>>>0);let pendingRelief=false,expectBonus=false;let nextDropAt=dropEvery(0,variant),dropSequence=0;
