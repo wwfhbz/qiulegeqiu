@@ -40,13 +40,6 @@ export function mountGame(root: HTMLElement) {
           <h2 id="result-title"></h2><p id="result-tip"></p>
           <div class="result-total"><span id="result-label"></span><strong id="result-score">0</strong></div><p id="score-details"></p>
         </section>
-        <section id="mode-picker" class="mode-picker" aria-label="选择游戏模式">
-          <div class="picker-logo">${GAME_NAME}</div>
-          <h2>选择游戏模式</h2>
-          <button type="button" data-pick="campaign"><i class="pick-icon">${iconSvg('flag')}</i><span class="pick-text"><strong>闯关模式</strong><span>12 关逐关突破 · 5 条命</span></span><b class="pick-go">${iconSvg('play')}</b></button>
-          <button type="button" data-pick="endless"><i class="pick-icon">${iconSvg('infinity')}</i><span class="pick-text"><strong>无尽模式</strong><span>砖墙不断下沉 · 3 条命</span></span><b class="pick-go">${iconSvg('play')}</b></button>
-          <p>每局结束后可重新选择模式</p>
-        </section>
         <div id="central-layer" class="central-layer" hidden><button id="start" class="central-start" type="button" aria-controls="arena-canvas">开始游戏</button></div>
       </div>
       <div class="touch-pad" id="touch-pad" role="presentation" data-fill><div class="power-info"><span id="wide"></span><span id="combo"></span></div><div class="pad-track"><i id="pad-knob"></i></div><span class="pad-hint">左右滑动控制挡板</span></div>
@@ -57,6 +50,16 @@ export function mountGame(root: HTMLElement) {
         <div class="ts-hero" aria-hidden="true"><div class="ts-ring"><div class="ts-bricks">${heroBricks}</div><i class="ts-orbit"><b></b></i><span class="ts-ball"></span><span class="ts-paddle"></span></div></div>
         <div class="ts-logo" role="heading" aria-level="1">${GAME_NAME}</div>
         <p class="ts-tag">圆形弹球 · 击碎星际砖墙</p>
+        <div class="ts-result" aria-live="polite">
+          <div class="tr-medal" aria-hidden="true">${iconSvg('trophy')}</div>
+          <span class="tr-mode" id="tr-mode"></span>
+          <div class="tr-title" id="tr-title" role="heading" aria-level="2">挑战结束</div>
+          <div class="tr-score-label">本次总分</div>
+          <div class="tr-score" id="tr-score">0</div>
+          <div class="tr-stats"><span><i id="tr-level-label">关卡</i><b id="tr-level"></b></span><span><i>消除砖块</i><b id="tr-bricks"></b></span><span><i id="tr-extra-label">用时</i><b id="tr-extra"></b></span></div>
+          <button type="button" id="tr-submit" class="tr-submit">${iconSvg('trophy')}<span>提交成绩</span></button>
+        </div>
+        <div class="ts-again">再来一局 · 选择模式</div>
         <div class="ts-cards">
           <button type="button" class="ts-card ts-campaign" data-pick="campaign"><span class="ts-icon">${iconSvg('flag')}</span><span class="ts-text"><strong>闯关模式</strong><span class="ts-desc">12 关逐关突破，冲击闯关榜</span><span class="ts-chips"><em>5 条命</em><em>12 关</em><em>闯关榜</em></span></span><span class="ts-go">${iconSvg('play')}</span><span class="ts-last">上次玩过</span></button>
           <button type="button" class="ts-card ts-endless" data-pick="endless"><span class="ts-icon">${iconSvg('infinity')}</span><span class="ts-text"><strong>无尽模式</strong><span class="ts-desc">砖墙不断下沉，坚持越久分越高</span><span class="ts-chips"><em>3 条命</em><em>无限阶段</em><em>无尽榜</em></span></span><span class="ts-go">${iconSvg('play')}</span><span class="ts-last">上次玩过</span></button>
@@ -70,6 +73,18 @@ export function mountGame(root: HTMLElement) {
   const button = (id: string) => el(id) as HTMLButtonElement;
   let online: LeaderboardUI | undefined;
   let picking = true;
+  // Fill the result page once per finished run (update runs every frame).
+  let resultKey='';
+  const showResult=(g:Game)=>{
+    const key=`${g.journal.generation}:${g.state}:${g.score.total}`;if(key===resultKey)return;resultKey=key;
+    const endless=g.mode==='endless',s=g.journal.summary(g.score.total,g.reachedLevel,g.state==='victory');
+    el('tr-mode').textContent=endless?'无尽模式':'闯关模式';el('tr-mode').dataset.mode=g.mode;
+    el('tr-title').textContent=g.state==='victory'?'全部关卡突破！':endless?'挑战结束':'生命耗尽';
+    el('tr-score').textContent=g.score.total.toLocaleString('zh-CN');
+    el('tr-level-label').textContent=endless?'到达阶段':'到达关卡';el('tr-level').textContent=endless?`第${g.reachedLevel}阶段`:`第${s.reachedLevel}关`;
+    el('tr-bricks').textContent=s.bricksDestroyed.toLocaleString('zh-CN');
+    const field=g.physics.endless;el('tr-extra-label').textContent=endless?'砖墙下沉':'挑战用时';el('tr-extra').textContent=endless?`${field?.descents??0} 行`:`${Math.round(s.durationMs/1000)} 秒`;
+  };
   const update = (g: Game) => {
     online?.observe(g);
     const blocks = g.physics.blocks, level = g.levels.current;
@@ -95,8 +110,10 @@ export function mountGame(root: HTMLElement) {
     for(const b of Array.from(root.querySelectorAll<HTMLButtonElement>('[data-mode]'))){b.setAttribute('aria-pressed',String(b.dataset.mode===g.mode));b.disabled=locked&&b.dataset.mode!==g.mode;b.title=locked?'本局结束后可切换模式':'';}
     // The mode picker owns the screen before the first run and after every finished run.
     const ended = g.state === 'gameOver' || g.state === 'victory';
-    el('title-screen').hidden = !picking;
-    el('mode-picker').hidden = picking || !ended;
+    // The same full-screen page doubles as the result page after every finished run.
+    el('title-screen').hidden = !picking && !ended;
+    el('title-screen').classList.toggle('result', ended && !picking);
+    if (ended && !picking) showResult(g);
     const muted=g.audio.muted;if(el('ts-sound').getAttribute('aria-pressed')!==String(muted)){el('ts-sound').setAttribute('aria-pressed',String(muted));el('ts-sound').innerHTML=`${iconSvg(muted?'soundOff':'soundOn')}<span>${muted?'音效关':'音效开'}</span>`;}
     for(const b of Array.from(root.querySelectorAll<HTMLElement>('[data-pick]')))b.classList.toggle('last',b.dataset.pick===g.mode);
     el('status').textContent = STATE_LABELS[g.state];
@@ -163,6 +180,7 @@ export function mountGame(root: HTMLElement) {
   for(const type of ['selectstart','contextmenu','gesturestart','dragstart'])document.addEventListener(type,e=>{if(!editable(e.target))e.preventDefault();});
   online = new LeaderboardUI(root,game);
   // Title-screen shortcuts reuse the real controls (leaderboard trophy and mute).
+  button('tr-submit').onclick=()=>online?.showResult();
   button('ts-board').onclick=()=>root.querySelector<HTMLButtonElement>('header .trophy')?.click();
   button('ts-sound').onclick=()=>{button('mute').click();update(game);};
   update(game); return game;
