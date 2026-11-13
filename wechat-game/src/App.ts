@@ -1,3 +1,4 @@
+import {touchPoint} from './TouchPoint';
 import {drawHud} from './GameChrome';
 import {HapticTracker} from '../../src/Haptics';
 import {VIEW,viewX,viewFraction} from '../../src/Viewport';
@@ -104,9 +105,22 @@ export class MiniGameApp {
   this.panel.pickerAnchor={top:v.arena.y,centerY:v.arena.y+(C.arena.y-VIEW.y)*v.scale};
   this.panel.draw(c,v.width,v.top,v.bottom,now,g.state!=='paused',this.lowDevice||v.width<360,this.rankingArt,this.dpr);
  }
- private down(e:TouchEvent){if(this.touch)return;const t=e.changedTouches[0];if(!t)return;this.game.audio.unlock();this.touch={id:t.identifier,x:t.clientX,y:t.clientY,moved:false,lastY:t.clientY,drag:!this.panel.open&&(inside(this.view.arena,t.clientX,t.clientY)||inside(this.view.pad,t.clientX,t.clientY))&&!this.actions.some(a=>inside(a.rect,t.clientX,t.clientY))};if(this.touch.drag){this.target(t.clientX);if(!this.busy&&!this.boardLoading)startFromPlayfield(this.game,()=>void this.activate());}}
- private move(e:TouchEvent){const active=this.touch;if(!active)return;const t=e.touches.find(t=>t.identifier===active.id);if(!t)return;if(Math.hypot(t.clientX-active.x,t.clientY-active.y)>8)active.moved=true;if(this.panel.open)this.panel.scroll(t.clientY-active.lastY,active.x,active.y);else if(active.drag)this.target(t.clientX);active.lastY=t.clientY;}
- private up(e:TouchEvent){const active=this.touch;if(!active||!e.changedTouches.some(t=>t.identifier===active.id))return;this.touch=undefined;if(active.moved||active.drag)return;if(this.panel.open){this.panel.tap(active.x,active.y);return;}this.actions.find(a=>inside(a.rect,active.x,active.y))?.run();}
+ private down(e:TouchEvent){
+  if(this.touch)return;const t=e.changedTouches[0],point=t&&touchPoint(t);if(!point)return;this.game.audio.unlock();const {x,y}=point;
+  this.touch={id:t.identifier,x,y,moved:false,lastY:y,drag:!this.panel.open&&(inside(this.view.arena,x,y)||inside(this.view.pad,x,y))&&!this.actions.some(a=>inside(a.rect,x,y))};
+  if(this.touch.drag){this.target(x);if(!this.busy&&!this.boardLoading)startFromPlayfield(this.game,()=>void this.activate());}
+ }
+ private move(e:TouchEvent){
+  const active=this.touch;if(!active)return;const t=e.touches.find(t=>t.identifier===active.id),point=t&&touchPoint(t);if(!point)return;
+  if(Math.hypot(point.x-active.x,point.y-active.y)>(this.panel.title==='选择游戏模式'?18:8))active.moved=true;
+  if(this.panel.open)this.panel.scroll(point.y-active.lastY,active.x,active.y);else if(active.drag)this.target(point.x);active.lastY=point.y;
+ }
+ private up(e:TouchEvent){
+  const active=this.touch;if(!active)return;const t=e.changedTouches.find(t=>t.identifier===active.id);if(!t)return;this.touch=undefined;
+  const point=touchPoint(t);if(!point||active.moved||active.drag)return;
+  if(this.panel.open){this.panel.tap(active.x,active.y,point.x,point.y);return;}
+  this.actions.find(a=>inside(a.rect,active.x,active.y)&&inside(a.rect,point.x,point.y))?.run();
+ }
  private hapticTracker=new HapticTracker();
  /** Short vibration on decisive moments only (shared policy with Web); silent when muted. */
  private haptics(){const type=this.hapticTracker.next(this.game.physics.effects,this.game.state!=='running',Date.now());if(type&&!this.game.audio.muted){try{this.wx.vibrateShort?.({type,fail:()=>{}});}catch{/* Optional device capability. */}}}
@@ -139,7 +153,9 @@ export class MiniGameApp {
  picking=true;
  /** Start a fresh run in the chosen mode (the only way to change modes). */
  chooseMode(mode:GameMode){
-  const g=this.game;this.picking=false;if(mode===g.mode)g.reset();else g.setMode(mode);
+  const g=this.game;if(this.busy||this.boardLoading)return;
+  if(g.journal.events.length>0&&g.state!=='gameOver'&&g.state!=='victory'){this.toast('本局结束后可切换模式');return;}
+  this.picking=false;if(mode===g.mode)g.reset();else g.setMode(mode);
   this.rankingBoard=mode==='endless'?'endless':'global';this.platform.write(MODE_KEY,mode);this.panel.close();
   this.toast(mode==='endless'?'无尽模式：砖墙会不断下沉，3条命':'闯关模式：12关挑战');
  }

@@ -12,11 +12,11 @@ export class Panel {
  pickerAnchor?:{top:number;centerY:number};
  title='';lines:string[]=[];actions:Action[]=[];hits:{rect:Rect;run:()=>void}[]=[];
  get open(){return !!this.title;}
- show(title:string,lines:string[],actions:Action[]){this.ranking=undefined;this.title=title;this.lines=lines;this.actions=actions;}
+ show(title:string,lines:string[],actions:Action[]){this.hits=[];this.ranking=undefined;this.title=title;this.lines=lines;this.actions=actions;}
  close(){this.title='';this.hits=[];this.ranking=undefined;}
  showRanking(view:RankingView,actions:RankingAction[],inspect?:(row:import('../../src/online/ranking/Presentation').RankingScore)=>void){this.show('全球历史排行榜',[view.note||'',...view.items.map(row=>`${row.rank}. ${row.display_name} ${row.score}`)],actions);this.ranking=new RankingCanvas(view,actions,inspect,this.canvasFactory?()=>this.rankSurface??=this.canvasFactory!():undefined);}
  scroll(dy:number,x:number,startY:number){if(this.ranking&&inside(this.ranking.body,x,startY))this.ranking.scroll(dy);}
- tap(x:number,y:number){if(this.ranking){this.ranking.tap(x,y);return;}const hit=this.hits.find(h=>inside(h.rect,x,y));hit?.run();}
+ tap(x:number,y:number,endX=x,endY=y){if(this.ranking){this.ranking.tap(x,y);return;}const hit=this.hits.find(h=>inside(h.rect,x,y)&&inside(h.rect,endX,endY));hit?.run();}
  /** Accent per action, from its label: campaign cyan, endless pink, submitting gold, closing dim. */
  private accentFor(label:string):NeonAccent{const text=label.replace('▶ ','');return text.includes('闯关')?'cyan':text.includes('无尽')?'pink':text.startsWith('提交')?'gold':text.startsWith('关闭')||text.startsWith('取消')?'dim':'cyan';}
  draw(c:CanvasRenderingContext2D,width:number,top:number,bottom:number,now=0,animate=true,lowDevice=false,art?:CanvasImageSource,pixelRatio=1){
