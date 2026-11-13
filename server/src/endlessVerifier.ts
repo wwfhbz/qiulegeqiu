@@ -59,6 +59,7 @@ export function verifyEndlessTrace(events:ChallengeEvent[],wallMs:number,seed:nu
         else if(e.kind==='life')lives=Math.min(ENDLESS.lives,lives+1);
         else if(e.kind==='fire')fireUntil=e.tick+Math.ceil(ENDLESS.fireSeconds/C.step);
         else if(e.kind==='lightning'){if(lightningTick!==e.tick){lightningTick=e.tick;lightnings=0;}lightnings++;}
+        if(variant.powerPoints)score.addPowerPoints();
         break;
       }
       case 'ballLost':if(phase!=='running'||balls<=0)throw new ApiError(422,'重复弹球死亡');balls--;break;

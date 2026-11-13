@@ -4,7 +4,7 @@ import {C} from '../../src/GameConfig';
 import {LevelManager} from '../../src/LevelManager';
 import {LEVELS,V13_LEVELS,V15_LEVELS,V16_LEVELS,LATER_DROP_EVERY,type LevelConfig} from '../../src/Levels';
 import {POWER_WEIGHTS,weightedPower,seededRandom} from '../../src/PowerRules';
-import {RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,SUPPORTED_RULES_VERSIONS,GLOBAL_BOARD_RULES_VERSIONS,LEGACY_RULES_VERSION,ENDLESS_RULES_VERSION,ENDLESS_BOARD_RULES_VERSIONS} from '../../shared/Challenge';
+import {RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,V17_RULES_VERSION,SUPPORTED_RULES_VERSIONS,GLOBAL_BOARD_RULES_VERSIONS,LEGACY_RULES_VERSION,ENDLESS_RULES_VERSION,ENDLESS_BOARD_RULES_VERSIONS} from '../../shared/Challenge';
 import {verifyTrace} from '../src/verifier';
 
 /** Clear the two tutorial levels, then the first later level, and lose all lives on level 4. */
@@ -20,8 +20,8 @@ const seasons=[
  {rules:V15_RULES_VERSION,levels:V15_LEVELS,bricks:600+1200+1500},
  {rules:V13_RULES_VERSION,levels:V13_LEVELS,bricks:600+1200+4203},
 ];
-it('赛季登记：V1.7为当前规则，V1.6/V1.5/V1.3冻结后仍受支持',()=>{
- expect(GLOBAL_BOARD_RULES_VERSIONS.at(-1)).toBe(RULES_VERSION);expect(SUPPORTED_RULES_VERSIONS).toContain(ENDLESS_RULES_VERSION);expect(RULES_VERSION).toBe('1.7.0-arcade-5l-12lv-scarce-v5');
+it('赛季登记：V1.8为当前规则，V1.7/V1.6/V1.5/V1.3冻结后仍受支持',()=>{
+ expect(GLOBAL_BOARD_RULES_VERSIONS.at(-1)).toBe(RULES_VERSION);expect(SUPPORTED_RULES_VERSIONS).toContain(ENDLESS_RULES_VERSION);expect(RULES_VERSION).toBe('1.8.0-arcade-5l-12lv-powerpts-v6');expect(V17_RULES_VERSION).toBe('1.7.0-arcade-5l-12lv-scarce-v5');
  for(const {rules} of seasons)expect(SUPPORTED_RULES_VERSIONS).toContain(rules);
 });
 it.each(seasons)('$rules：服务端按本赛季关卡验证，且日志不能冒充其他赛季',({rules,levels,bricks})=>{

@@ -4,7 +4,7 @@ import {C} from '../../src/GameConfig';
 import {PREVIOUS_RULES_VERSION as RULES_VERSION} from '../../shared/Challenge';
 import {verifyTrace} from '../src/verifier';
 function run(version:1|2){
- const g=new Game();g.physics.brickPowerVersion=1;g.physics.tripleRuleVersion=version;g.physics.reset();g.journal.seed=4;g.physics.setSeed(4);g.start();
+ const g=new Game();g.powerPointsEnabled=false;g.physics.brickPowerVersion=1;g.physics.tripleRuleVersion=version;g.physics.reset();g.journal.seed=4;g.physics.setSeed(4);g.start();
  const cells=Array.from(g.physics.blocks.alive.keys()).filter(i=>g.physics.blocks.alive[i]);let index=0;const counts:number[]=[];
  for(let wave=0;wave<20;wave++){
   for(let n=0;n<14;n++){g.physics.onStep?.(C.step);g.physics.blocks.hit(cells[index++]);}

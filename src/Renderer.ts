@@ -205,7 +205,7 @@ export class Renderer {
       case 'paddle':this.paddlePulse=now;this.ring(e.x,e.y,now,260,4,26,OCEAN.colors.accent,2);break;
       case 'lost':this.ring(e.x,e.y,now,420,6,46,OCEAN.colors.danger,3);if(this.roundOver){this.dangerUntil=now+520;this.shake(6,now);}break;
       case 'power':{const kind=e.power??'triple',style=OCEAN.powers[kind];this.ring(e.x,e.y,now,420,10,90,style.color,3);
-        this.popup('power',POWER_LABELS[kind],style.good?'':'小心！球数减半',a.x,a.y+a.radius+70,now,style.color,30);
+        this.popup('power',POWER_LABELS[kind],(style.good?'':'小心！球数减半 · ')+(e.value?`+${e.value} 分`:''),a.x,a.y+a.radius+70,now,style.color,30);
         if(!style.good){this.shake(6,now);this.flash(OCEAN.colors.danger,.18,now,260);}else this.flash(style.color,.10,now,200);break;}
       case 'bomb':this.shake(12,now);this.ring(e.x,e.y,now,520,10,220,OCEAN.colors.warning,5);this.flash('#FFFFFF',.22,now,180);break;
       case 'combo':{const mult=ARCADE.multipliers.find(t=>e.value>=t.combo)?.value??1,color=e.value>=20?OCEAN.colors.heart:e.value>=10?OCEAN.colors.warning:OCEAN.colors.accent;

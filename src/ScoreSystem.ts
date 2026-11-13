@@ -29,6 +29,8 @@ export class ScoreSystem {
     this.total += points; return points;
   }
   addBombCompensation() { if(!this.completed)this.total+=ARCADE.emptyBombPoints; }
+  /** Flat reward for catching a power-up; not multiplied by combo. */
+  addPowerPoints() { if(!this.completed)this.total+=ARCADE.powerPoints; }
   complete(lives: number): Readonly<LevelScore> {
     if (this.completed) return this.completed;
     const blockScore = this.levelPoints;

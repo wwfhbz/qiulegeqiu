@@ -39,6 +39,9 @@ try{
   const result=await page.evaluate(async()=>{
    const app=module.exports.app,g=app.game;const click=(x,y)=>{const t={identifier:1,clientX:x,clientY:y};__touch.down({touches:[t],changedTouches:[t]});__touch.up({touches:[],changedTouches:[t]});};
    // Use the same central hit target and wx touch callbacks as a real host.
+   // The mode picker is up on launch: tap its first button (闯关模式) like a player would.
+   await new Promise(r=>setTimeout(r,60));const pick=app.panel.hits[0];if(!pick)throw Error('Mode picker not shown');
+   click(pick.rect.x+pick.rect.width/2,pick.rect.y+pick.rect.height/2);if(app.game.mode!=='campaign'||app.picking)throw Error('Mode picker did not start campaign');
    const v=app.view;click(innerWidth/2,v.arena.y+492*v.scale);
    const deadline=Date.now()+5000;while(g.state!=='running'&&Date.now()<deadline)await new Promise(r=>setTimeout(r,20));
    if(g.state!=='running')throw Error('Central touch did not start');

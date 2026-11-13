@@ -38,3 +38,15 @@ h1{font-size:18px;font-weight:900;letter-spacing:4px;background:linear-gradient(
 .touch-pad span{font-size:12px;color:var(--o-muted);letter-spacing:1px;pointer-events:none}
 @media(pointer:fine) and (min-width:700px){.touch-pad{height:44px}}
 @media(max-width:600px){h1{font-size:15px;letter-spacing:2px}.mode-switch button{padding:5px 8px}}
+
+/* 模式选择（开局与每局结束后） */
+.mode-picker{position:absolute;left:50%;top:58%;transform:translate(-50%,-50%);z-index:3;width:min(86%,360px);padding:16px 14px 12px;border-radius:18px;background:linear-gradient(180deg,rgba(22,52,86,.97),rgba(8,20,36,.97));border:1px solid rgba(79,227,255,.4);box-shadow:0 0 30px rgba(79,227,255,.25),0 14px 34px rgba(0,0,0,.55);text-align:center}
+.mode-picker h2{margin:0 0 10px;font-size:18px;font-weight:900;letter-spacing:2px;color:var(--o-text)}
+.mode-picker button{display:flex;flex-direction:column;gap:3px;width:100%;margin:8px 0;padding:12px 14px;border-radius:14px;border:1px solid rgba(79,227,255,.35);background:rgba(10,24,42,.75);color:var(--o-text);text-align:left}
+.mode-picker button strong{font-size:17px;font-weight:900;color:#7FEFFF}
+.mode-picker button[data-pick=endless] strong{color:#FFB547}
+.mode-picker button span{font-size:12px;color:var(--o-secondary)}
+.mode-picker button.last{border-color:rgba(127,239,255,.9);box-shadow:0 0 0 2px rgba(79,227,255,.25)}
+.mode-picker button:active{transform:scale(.98)}
+.mode-picker p{margin:6px 0 0;font-size:11px;color:var(--o-muted)}
+.canvas-wrap[data-state=gameOver] .mode-picker,.canvas-wrap[data-state=victory] .mode-picker{top:72%}

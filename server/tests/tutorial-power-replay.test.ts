@@ -9,7 +9,7 @@ const apps:Awaited<ReturnType<typeof createApp>>[]=[];
 afterEach(async()=>{for(const s of apps.splice(0))await s.app.close();});
 /** Real drop, pickup, score and journal callbacks; deterministic collision scheduling. */
 function run(level:number,seed=4,version:1|2=2){
- const g=new Game();g.physics.brickPowerVersion=version;g.journal.seed=seed;g.physics.setSeed(seed);g.physics.reset();g.start();
+ const g=new Game();g.powerPointsEnabled=version===2;g.physics.brickPowerVersion=version;g.journal.seed=seed;g.physics.setSeed(seed);g.physics.reset();g.start();
  const advance=()=>{g.physics.onStep?.(C.step);g.physics.wideRemaining=Math.max(0,g.physics.wideRemaining-C.step);};
  if(level===2){for(let i=0;i<g.physics.blocks.alive.length;i++)if(g.physics.blocks.alive[i]){advance();g.physics.blocks.hit(i);}g.update(0);g.start();}
  const cells=Array.from(g.physics.blocks.alive.keys()).filter(i=>g.physics.blocks.alive[i]);let hit=0;

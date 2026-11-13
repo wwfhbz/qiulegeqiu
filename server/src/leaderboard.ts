@@ -1,5 +1,5 @@
 import type { Db } from './db.js';
-import {LEGACY_RULES_VERSION,PREVIOUS_RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,SUPPORTED_RULES_VERSIONS,GLOBAL_BOARD_RULES_VERSIONS,ENDLESS_BOARD_RULES_VERSIONS} from '../../shared/Challenge.js';
+import {LEGACY_RULES_VERSION,PREVIOUS_RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,V17_RULES_VERSION,SUPPORTED_RULES_VERSIONS,GLOBAL_BOARD_RULES_VERSIONS,ENDLESS_BOARD_RULES_VERSIONS} from '../../shared/Challenge.js';
 const fields='s.id,s.score,s.reached_level,s.bricks_destroyed,s.duration_ms,s.completed_all_levels,s.achieved_at,p.id AS player_id,p.nickname,r.prefix AS region_label,r.code AS region_code';
 const ordering='s.score DESC,s.reached_level DESC,s.duration_ms ASC,s.achieved_at ASC,s.id ASC';
 function board(rules:string){
@@ -48,5 +48,5 @@ export function endlessPersonalBest(db:Db,playerId:string){const row=db.prepare(
 export function historicalBests(db:Db,playerId:string){
  // One placeholder: each old season is ranked on its own here as a personal history line.
  const single=ranking(['season']);
- return [V16_RULES_VERSION,V15_RULES_VERSION,V13_RULES_VERSION,PREVIOUS_RULES_VERSION,LEGACY_RULES_VERSION].flatMap(rules=>{const row=db.prepare(single+'SELECT * FROM ranked WHERE player_id=?').get(rules,playerId);return row?[globalRow(row)]:[];});
+ return [V17_RULES_VERSION,V16_RULES_VERSION,V15_RULES_VERSION,V13_RULES_VERSION,PREVIOUS_RULES_VERSION,LEGACY_RULES_VERSION].flatMap(rules=>{const row=db.prepare(single+'SELECT * FROM ranked WHERE player_id=?').get(rules,playerId);return row?[globalRow(row)]:[];});
 }

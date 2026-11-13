@@ -9,7 +9,6 @@ import {rankingElement,boardStatus} from './ranking/WebCards';
 import {motionQuality,personalRanking,RANKING_THEME,RankingMotion,type RankingScore} from './ranking/Presentation';
 import { GAME_NAME } from '../../shared/Brand';
 import type { Game } from '../Game';
-import { activateCentralAction } from '../CentralAction';
 import { ApiClient,type Me } from './ApiClient';
 import { ChallengeSync } from './ChallengeSync';
 import { RegionPicker } from './RegionPicker';
@@ -30,7 +29,7 @@ export class LeaderboardUI {
         <details id="region-details"><summary id="region-label">地区：中国</summary><div id="region-picker"></div></details>
         <p id="bound-region" hidden></p><p id="nickname-check" role="status"></p><p class="identity-note">身份由本浏览器安全会话保留。清除浏览器数据后，不能仅凭昵称找回。</p>
         <button type="submit" id="submit-score">提交成绩</button></form>
-        <div class="ranking-actions"><button type="button" id="view-board">查看排行榜</button><button type="button" id="skip-score">跳过提交，重新挑战</button></div>
+        <div class="ranking-actions"><button type="button" id="view-board">查看排行榜</button><button type="button" id="skip-score">跳过提交，选择模式</button></div>
       </section>
       <section id="board-content"><div class="board-tabs" role="tablist" aria-label="榜单"><button type="button" role="tab" data-board="global" aria-selected="true">闯关榜</button><button type="button" role="tab" data-board="endless" aria-selected="false">无尽榜</button></div><p class="ranking-caption"><span id="board-caption">★ 全球 TOP100</span><span>历史最高有效成绩</span></p><div class="reference-head">${REFERENCE.labels.map(label=>`<span>${label}</span>`).join('')}</div><div id="ranking-rows" role="list" aria-label="全球排名"></div><div class="ranking-actions ranking-pagination"><button type="button" id="previous-page">上一页</button><button type="button" id="refresh-board">↻ 刷新</button><button type="button" id="next-page">下一页</button></div><button type="button" id="return-score" hidden>本次挑战成绩</button><details class="ranking-account"><summary>账号与历史记录</summary><button type="button" id="wechat-link">生成微信账号绑定码</button><p id="historical-best"></p></details></section>
       <p id="online-message" role="status"></p><details class="appeal"><summary>昵称或账号申诉</summary><label>申诉说明<textarea id="appeal-text" maxlength="500" placeholder="请说明问题，不要填写密码或联系方式"></textarea></label><button id="appeal-send" type="button">提交申诉</button></details></div><aside class="my-ranking"><span class="ball-avatar" role="img" aria-label="统一球球默认头像">${BALL_SVG}</span><div class="my-ranking-content"><p id="my-best">我的排名：正在读取</p><span id="my-name"></span><div id="my-stats"></div></div></aside>`;
@@ -44,7 +43,8 @@ export class LeaderboardUI {
     trophy.onclick=()=>{if(game.state==='running')game.pause();this.open(false);};
     this.dialog.querySelector<HTMLButtonElement>('[data-online-close]')!.onclick=()=>this.dialog.close();
     this.el('score-form').onsubmit=e=>{e.preventDefault();void this.submit();};
-    this.button('skip-score').onclick=()=>{this.dialog.close();activateCentralAction(game);};
+    // Closing returns to the mode picker shown after every finished run.
+    this.button('skip-score').onclick=()=>this.dialog.close();
     this.button('return-score').onclick=()=>this.open(true);
     this.button('view-board').onclick=()=>{this.dialog.classList.remove('submission-view');this.selectBoard(this.board);this.el('challenge-entry').hidden=true;this.button('return-score').hidden=false;this.el('board-content').hidden=false;void this.loadBoard(0);};
     this.input('nickname').oninput=()=>{const revision=++this.checking;window.setTimeout(()=>{if(revision===this.checking)void this.checkNickname();},350);};

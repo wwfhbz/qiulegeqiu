@@ -7,6 +7,8 @@ export class LevelManager {
     if (configurations.length === 0) throw new Error('关卡配置不能为空');
   }
   private index = 0;
+  /** True for the current campaign table (the one new runs use); frozen tables replay older seasons. */
+  get isStandard() { return this.configurations === ARCADE.levels; }
   get current() { return this.configurations[this.index]; }
   get powerUpDropMultiplier() { return dropMultiplier(this.current); }
   get count() { return this.configurations.length; }

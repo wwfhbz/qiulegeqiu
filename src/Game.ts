@@ -40,10 +40,14 @@ export class Game {
     // Endless bricks move, so the journal stores their stable world id instead of the grid slot.
     this.physics.onBlockDestroyed = index => { const id=this.physics.endless?.worldId(index)??index; if (this.state === 'running' && this.score.hit(id)>0) this.journal.record({type:'hit',level:this.levels.current.number,index:id}); };
     this.physics.onBallLost = () => { if(this.state==='running')this.journal.record({type:'ballLost',level:this.levels.current.number}); };
-    this.physics.onPowerCollected = (kind,dropId) => { if(this.state==='running'&&this.roundActive&&this.physics.balls.some(ball=>ball.alive)){if(kind==='life')this.remainingLives=Math.min(this.maxLives,this.remainingLives+1);this.journal.record({type:'power',level:this.levels.current.number,kind,...(dropId===undefined?{}:{dropId})});} };
+    this.physics.onPowerCollected = (kind,dropId) => { if(this.state==='running'&&this.roundActive&&this.physics.balls.some(ball=>ball.alive)){if(kind==='life')this.remainingLives=Math.min(this.maxLives,this.remainingLives+1);if(this.powerPoints)this.score.addPowerPoints();this.journal.record({type:'power',level:this.levels.current.number,kind,...(dropId===undefined?{}:{dropId})});} };
     this.physics.onBomb = target => { if(this.state==='running'){if(target===null)this.score.addBombCompensation();this.journal.record({type:'bomb',level:this.levels.current.number,target});} };
     if(host)this.stopHost=host.mount(this);
   }
+  /** +100 per caught power applies to the current campaign table and to endless variants that enable it. */
+  /** Replays of seasons before +100-per-power turn this off, like the other per-season flags. */
+  powerPointsEnabled = true;
+  get powerPoints(){if(!this.powerPointsEnabled)return false;const field=this.physics.endless;return field?!!field.variant.powerPoints:this.levels.isStandard;}
   get rulesVersion(){return this.mode==='endless'?ENDLESS_RULES_VERSION:RULES_VERSION;}
   get maxLives():number{return this.mode==='endless'?ENDLESS.lives:ARCADE.maxLives;}
   /** Level for campaign; stage (+1 per 10 descended rows) for endless. Stored as the score's reached level. */
@@ -103,6 +107,7 @@ export class Game {
     this.start();
   }
   update(dt: number) {
+    this.physics.powerPointsShown = this.powerPoints ? ARCADE.powerPoints : 0;
     if (this.state === 'running') {
       this.physics.advance(dt);
       // Clear is checked first, including when the final ball leaves on the same tick.

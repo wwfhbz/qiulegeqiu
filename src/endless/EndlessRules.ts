@@ -51,6 +51,8 @@ export interface EndlessVariant {
  readonly floor:'legacy'|'bowl'|'raised';
  /** 1.3+: pressing the floor for `ENDLESS.crushTicks` costs a life (earlier versions just paused the wall). */
  readonly crush?:boolean;
+ /** 1.3+: +100 points for every power-up caught. */
+ readonly powerPoints?:boolean;
 }
 /** endless-1.0.0: drops every 8 → 30 bricks; the wall stopped 80% down the bowl. */
 export const ENDLESS_V1:EndlessVariant={drops:{start:8,growEvery:250,max:30},floor:'legacy'};
@@ -59,7 +61,7 @@ export const ENDLESS_V2:EndlessVariant={drops:{start:16,growEvery:125,max:60},fl
 /** endless-1.2.0: same drops; the floor sits 64px above the bowl bottom so the exit always stays open. */
 export const ENDLESS_V3:EndlessVariant={drops:{start:16,growEvery:125,max:60},floor:'raised'};
 /** endless-1.3.0: same field; 10s on the death line costs a life, then 5-row relief plus a random effect ball. */
-export const ENDLESS_V4:EndlessVariant={drops:{start:16,growEvery:125,max:60},floor:'raised',crush:true};
+export const ENDLESS_V4:EndlessVariant={drops:{start:16,growEvery:125,max:60},floor:'raised',crush:true,powerPoints:true};
 export const ENDLESS_CURRENT=ENDLESS_V4;
 /** Relief reward: one of the four ball effects, equally likely, from its own seeded stream. */
 export const BONUS_KINDS=['plus3','pierce','fire','lightning'] as const;

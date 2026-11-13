@@ -1,6 +1,7 @@
 import {expect,it} from 'vitest';
 import {Game} from '../src/Game';
 import {C} from '../src/GameConfig';
+import type {PowerKind} from '../src/PowerRules';
 import {ENDLESS,descentInterval} from '../src/endless/EndlessRules';
 import {ENDLESS_RULES_VERSION,RULES_VERSION} from '../shared/Challenge';
 
@@ -86,4 +87,12 @@ it('压线计时只在游戏进行中累计，清掉底线砖块后归零；普�
  g.pause();for(let n=0;n<2000;n++)g.update(C.step);expect(f.pressure).toBeLessThan(700);g.start();
  for(let i=f.floorRow*f.cols;i<(f.floorRow+1)*f.cols;i++)f.hit(i);g.update(C.step);expect(f.pressure).toBe(0);
  loseRound(g);expect(g.lives).toBe(2);expect(g.pendingRelief).toBe(false);
+});
+it('吃道具加分：闯关与无尽每接住一个道具+100分（不乘连击），旧赛季回放不加',()=>{
+ for(const mode of ['campaign','endless'] as const){
+  const g=new Game();if(mode==='endless')g.setMode('endless');g.start();const before=g.score.total;
+  const kinds:PowerKind[]=mode==='endless'?['plus3','wide','halve','pierce','fire','life']:['triple','wide','halve','life'];for(const kind of kinds)g.physics.collect(kind);
+  expect(g.score.total-before).toBe(mode==='endless'?600:400);
+  const old=new Game();old.powerPointsEnabled=false;old.start();old.physics.collect('wide');expect(old.score.total).toBe(0);
+ }
 });

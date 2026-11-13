@@ -109,6 +109,8 @@ export class Physics {
   useField(field:Blocks){this.blocks=field;field.onHit=this.destroyed;}
   // Endless-only timed powers and drop schedule (own seeded stream, mirrored by the server verifier).
   pierceRemaining=0;fireRemaining=0;
+  /** Visual only: points shown with a pickup popup (the Game sets this from its rules). */
+  powerPointsShown=0;
   private endlessDrops=seededRandom(1);private endlessBonuses=seededRandom(1);private nextDropAt:number=ENDLESS_CURRENT.drops.start;
 
   paddleX: number = C.arena.x; targetX: number = C.arena.x;
@@ -169,7 +171,7 @@ export class Physics {
     // Lightning strikes after the pickup is journaled, so its brick hits follow the power event.
     else if(kind==='halve')this.halve();
     else if(kind==='bomb'){const target=this.obstacles.destroyNearest(C.arena.x,C.arena.y);this.effects.explode(target?.x??C.arena.x,target?.y??C.arena.y);bombTarget=target?.config.id??null;}
-    this.effects.power(kind);this.effects.emit('power',this.paddleX,C.paddle.y,0,kind);
+    this.effects.power(kind);this.effects.emit('power',this.paddleX,C.paddle.y,this.powerPointsShown,kind);
     this.onPowerCollected?.(kind,dropId);
     if(kind==='bomb')this.onBomb?.(bombTarget);
     if(kind==='lightning')this.lightning();

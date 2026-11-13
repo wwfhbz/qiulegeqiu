@@ -2,7 +2,7 @@ import {allocateBrickPowers,brickPowerCounts,brickPowerKind,type BrickPowerVersi
 import {LEGACY_LEVELS} from '../../src/LegacyLevels.js';
 import {verifyEndlessTrace} from './endlessVerifier.js';
 import {ENDLESS_V1,ENDLESS_V2,ENDLESS_V3,ENDLESS_V4} from '../../src/endless/EndlessRules.js';
-import {ENDLESS_RULES_VERSION,ENDLESS_V1_RULES_VERSION,ENDLESS_V2_RULES_VERSION,ENDLESS_V3_RULES_VERSION,RULES_VERSION,V16_RULES_VERSION,V15_RULES_VERSION,V13_RULES_VERSION,PREVIOUS_RULES_VERSION,LEGACY_RULES_VERSION,usesBrickPowers} from '../../shared/Challenge.js';
+import {V17_RULES_VERSION,ENDLESS_RULES_VERSION,ENDLESS_V1_RULES_VERSION,ENDLESS_V2_RULES_VERSION,ENDLESS_V3_RULES_VERSION,RULES_VERSION,V16_RULES_VERSION,V15_RULES_VERSION,V13_RULES_VERSION,PREVIOUS_RULES_VERSION,LEGACY_RULES_VERSION,usesBrickPowers} from '../../shared/Challenge.js';
 import { Blocks } from '../../src/Blocks.js';
 import { ScoreSystem } from '../../src/ScoreSystem.js';
 import { ARCADE } from '../../src/ArcadeRules.js';
@@ -19,7 +19,7 @@ export function verifyTrace(events: ChallengeEvent[], wallMs: number,seed=1,rule
   if(rulesVersion===ENDLESS_V3_RULES_VERSION)return verifyEndlessTrace(events,wallMs,seed,ENDLESS_V3);
   if(rulesVersion===ENDLESS_V2_RULES_VERSION)return verifyEndlessTrace(events,wallMs,seed,ENDLESS_V2);
   if(rulesVersion===ENDLESS_V1_RULES_VERSION)return verifyEndlessTrace(events,wallMs,seed,ENDLESS_V1);
-  const levels=rulesVersion===RULES_VERSION?LEVELS:rulesVersion===V16_RULES_VERSION?V16_LEVELS:rulesVersion===V15_RULES_VERSION?V15_LEVELS:rulesVersion===V13_RULES_VERSION?V13_LEVELS:rulesVersion===PREVIOUS_RULES_VERSION?PREVIOUS_LEVELS:rulesVersion===LEGACY_RULES_VERSION?LEGACY_LEVELS:undefined;if(!levels)throw new ApiError(422,'不支持的规则版本');
+  const levels=rulesVersion===RULES_VERSION||rulesVersion===V17_RULES_VERSION?LEVELS:rulesVersion===V16_RULES_VERSION?V16_LEVELS:rulesVersion===V15_RULES_VERSION?V15_LEVELS:rulesVersion===V13_RULES_VERSION?V13_LEVELS:rulesVersion===PREVIOUS_RULES_VERSION?PREVIOUS_LEVELS:rulesVersion===LEGACY_RULES_VERSION?LEGACY_LEVELS:undefined;if(!levels)throw new ApiError(422,'不支持的规则版本');
   const blocks=new Blocks(),score=new ScoreSystem(blocks.alive.length),obstacles=new Obstacles(),random=seededRandom(seed);
   blocks.reset(levels[0].obstacles??[],levels[0]);obstacles.load(levels[0].obstacles??[]);
   let valid=blocks.alive.slice(),level=1,lives:number=ARCADE.initialLives,phase='ready',balls=0,lastTick=0,bricks=0,finished=false,levelStartTick=0;
@@ -63,7 +63,7 @@ export function verifyTrace(events: ChallengeEvent[], wallMs: number,seed=1,rule
         if(e.kind==='halve'&&balls>0)balls=Math.max(1,Math.ceil(balls/2));
         if(e.kind==='life')lives=Math.min(ARCADE.maxLives,lives+1);
         if(e.kind==='bomb')expectedBomb=obstacles.destroyNearest(C.arena.x,C.arena.y)?.config.id??null;
-        break;
+        if(rulesVersion===RULES_VERSION)score.addPowerPoints();break;
       }
       case 'bomb':if(expectedBomb===undefined||e.target!==expectedBomb)throw new ApiError(422,'炸弹目标无效');if(expectedBomb===null)score.addBombCompensation();expectedBomb=undefined;break;
       case 'ballLost':if(phase!=='running'||balls<=0)throw new ApiError(422,'重复弹球死亡');balls--;break;
