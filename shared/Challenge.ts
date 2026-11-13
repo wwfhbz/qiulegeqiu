@@ -1,4 +1,4 @@
-export type ChallengeEvent = {type:'launch';tick:number;level:number;tripleRuleVersion?:2;brickPowerVersion?:2} | { type: 'ballLost' | 'lost' | 'clear' | 'next' | 'finish'; tick: number; level: number } | { type: 'hit'; tick: number; level: number; index: number } | { type: 'power'; tick: number; level: number; kind: 'halve'|'triple'|'wide'|'life'|'bomb'|'plus3'|'pierce'|'fire'|'lightning'; dropId?:number } | { type:'bomb'; tick:number; level:number; target:string|null } | { type:'crushed'; tick:number; level:number } | { type:'bonus'; tick:number; level:number; kind:'plus3'|'pierce'|'fire'|'lightning' };
+export type ChallengeEvent = {type:'launch';tick:number;level:number;tripleRuleVersion?:2;brickPowerVersion?:2;trajectoryVersion?:1} | { type: 'ballLost' | 'lost' | 'clear' | 'next' | 'finish'; tick: number; level: number } | { type: 'hit'; tick: number; level: number; index: number } | { type: 'power'; tick: number; level: number; kind: 'halve'|'triple'|'wide'|'life'|'bomb'|'plus3'|'pierce'|'fire'|'lightning'; dropId?:number } | { type:'bomb'; tick:number; level:number; target:string|null } | { type:'crushed'; tick:number; level:number } | { type:'bonus'; tick:number; level:number; kind:'plus3'|'pierce'|'fire'|'lightning' };
 export interface ChallengeSummary { score: number; reachedLevel: number; bricksDestroyed: number; durationMs: number; completedAllLevels: boolean }
 export const LEGACY_RULES_VERSION = '0.8.0-arcade-5l-10lv-v1';
 export const PREVIOUS_RULES_VERSION = '1.2.0-arcade-5l-12lv-v1';
@@ -56,7 +56,13 @@ export function assertChallengeProtocol(data:{challengeProtocolVersion?:unknown}
 /** Additive capability keeps the protocol-2 handshake compatible with existing clients. */
 export const TRIPLE_RULE_FEATURE='triple-threshold20-v1';
 export const BRICK_POWER_FEATURE='tutorial-brick-powers-v1';
-export const CHALLENGE_FEATURES=[TRIPLE_RULE_FEATURE,BRICK_POWER_FEATURE] as const;
+export const TRAJECTORY_FEATURE='deterministic-trajectory-v1';
+export const CHALLENGE_FEATURES=[TRIPLE_RULE_FEATURE,BRICK_POWER_FEATURE,TRAJECTORY_FEATURE] as const;
 export function assertTripleRuleSupport(data:{challengeFeatures?:unknown}){if(!Array.isArray(data.challengeFeatures)||!data.challengeFeatures.includes(TRIPLE_RULE_FEATURE))throw Error('排行榜后端尚不支持新版X3规则，请先更新后端；本轮仍可单机游玩');}
 
 export function assertBrickPowerSupport(data:{challengeFeatures?:unknown}){if(!Array.isArray(data.challengeFeatures)||!data.challengeFeatures.includes(BRICK_POWER_FEATURE))throw Error('排行榜后端尚不支持新手关预分配道具，请先更新后端；本轮仍可单机游玩');}
+
+/** Trajectory version is orthogonal to scoring rules: missing means frozen legacy physics (0). */
+export function trajectoryVersionFor(events:readonly ChallengeEvent[]):0|1{return events.find(e=>e.type==='launch')?.trajectoryVersion??0;}
+export function assertTrajectorySupport(data:{challengeFeatures?:unknown}){if(!Array.isArray(data.challengeFeatures)||!data.challengeFeatures.includes(TRAJECTORY_FEATURE))throw Error('排行榜后端需要更新以支持弹球防卡死轨迹；本轮仍可单机游玩');}
+export function validateTrajectoryMarkers(events:readonly ChallengeEvent[]){let launched=false;for(const e of events)if(e.type==='launch'){if(e.trajectoryVersion!==undefined&&(e.trajectoryVersion!==1||launched))throw Error('轨迹版本标记只能在首次发射声明为1');launched=true;}}

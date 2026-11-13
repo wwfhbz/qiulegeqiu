@@ -1,0 +1,21 @@
+/** Deterministic trajectory version 1. Version 0 bypasses this module for historical simulations. */
+export const MOTION={verticalRatio:.2,escapeRatio:.65,wallHits:6,timeout:8,cooldown:2,sampleEvery:.5,samples:8,localSpan:200,horizontalSpan:32,returnRadius:64} as const;
+export interface MovingBall {x:number;y:number;vx:number;vy:number;motion?:MotionState}
+export interface MotionState {time:number;lastProgress:number;nextCorrection:number;sideHits:number;lastSide:number;directionX:number;directionY:number;turns:number;xTurns:number;loop:boolean;corrections:number;reason?:'walls'|'timeout';nextSample:number;count:number;cursor:number;samples:Float64Array}
+const direction=(value:number)=>value>0?1:value<0?-1:0;
+export function resetMotion(b:MovingBall){const samples=b.motion?.samples??new Float64Array(MOTION.samples*5);b.motion={time:0,lastProgress:0,nextCorrection:0,sideHits:0,lastSide:0,directionX:direction(b.vx),directionY:direction(b.vy),turns:0,xTurns:0,loop:false,corrections:0,nextSample:MOTION.sampleEvery,count:0,cursor:0,samples};return b.motion;}
+function observe(b:MovingBall,s:MotionState){const x=direction(b.vx),y=direction(b.vy);if(x&&s.directionX&&x!==s.directionX){s.xTurns++;s.turns++;}if(y&&s.directionY&&y!==s.directionY)s.turns++;if(x)s.directionX=x;if(y)s.directionY=y;}
+/** Preserve both speed and a known vertical sign. Exact horizontal / -0 deterministically falls downward. */
+export function ensureVertical(b:MovingBall,nx?:number,ny?:number){const speed=Math.hypot(b.vx,b.vy);if(!(speed>0)||Math.abs(b.vy)/speed>=MOTION.verticalRatio)return false;const ratio=MOTION.verticalRatio+1e-12;b.vy=(b.vy<0?-1:1)*speed*ratio;b.vx=(b.vx<0?-1:1)*speed*Math.sqrt(1-ratio*ratio);if(nx!==undefined&&ny!==undefined&&b.vx*nx+b.vy*ny<0)b.vy=-b.vy;return true;}
+function escape(b:MovingBall,s:MotionState,reason:'walls'|'timeout'){if(s.time+1e-9<s.nextCorrection)return;const speed=Math.hypot(b.vx,b.vy);if(!(speed>0))return;b.vx=(b.vx<0?-1:b.vx>0?1:s.lastSide===1?-1:1)*speed*Math.sqrt(1-MOTION.escapeRatio**2);b.vy=speed*MOTION.escapeRatio;s.loop=true;s.corrections++;s.reason=reason;s.nextCorrection=s.time+MOTION.cooldown;s.sideHits=0;s.lastSide=0;s.count=0;s.cursor=0;s.nextSample=s.time+MOTION.sampleEvery;observe(b,s);}
+export function motionWall(b:MovingBall,side:number,nx?:number,ny?:number){const s=b.motion??resetMotion(b);ensureVertical(b,nx,ny);observe(b,s);if(!side){s.sideHits=0;s.lastSide=0;return;}s.sideHits=s.lastSide===-side?s.sideHits+1:1;s.lastSide=side;if(s.sideHits>=MOTION.wallHits)escape(b,s,'walls');}
+/** Bricks/paddle advance the game. An obstacle interrupts a wall streak but can itself form a local loop. */
+export function motionContact(b:MovingBall,progress=true,nx?:number,ny?:number){const s=b.motion??resetMotion(b);ensureVertical(b,nx,ny);observe(b,s);s.sideHits=0;s.lastSide=0;if(progress){s.lastProgress=s.time;s.loop=false;s.count=0;s.cursor=0;s.nextSample=s.time+MOTION.sampleEvery;}}
+export function advanceMotion(b:MovingBall,dt:number){const s=b.motion??resetMotion(b);s.time+=dt;observe(b,s);if(s.time+1e-9<s.nextSample)return;s.nextSample+=MOTION.sampleEvery;const p=s.cursor*5;s.samples[p]=s.time;s.samples[p+1]=b.x;s.samples[p+2]=b.y;s.samples[p+3]=s.turns;s.samples[p+4]=s.xTurns;s.cursor=(s.cursor+1)%MOTION.samples;s.count=Math.min(MOTION.samples,s.count+1);
+ if(s.time-s.lastProgress+1e-9<MOTION.timeout||s.count<MOTION.samples)return;
+ let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;for(let i=0;i<MOTION.samples;i++){minX=Math.min(minX,s.samples[i*5+1]);maxX=Math.max(maxX,s.samples[i*5+1]);minY=Math.min(minY,s.samples[i*5+2]);maxY=Math.max(maxY,s.samples[i*5+2]);}
+ const oldest=s.cursor*5,spanX=maxX-minX,spanY=maxY-minY,horizontal=spanY<=MOTION.horizontalSpan&&s.xTurns-s.samples[oldest+4]>=2,local=spanX<=MOTION.localSpan&&spanY<=MOTION.localSpan&&s.turns-s.samples[oldest+3]>=4&&Math.hypot(b.x-s.samples[oldest+1],b.y-s.samples[oldest+2])<=MOTION.returnRadius;
+ if(horizontal||local)escape(b,s,'timeout');
+}
+
+export function motionProgress(b:MovingBall){const s=b.motion??resetMotion(b);s.lastProgress=s.time;s.sideHits=0;s.lastSide=0;s.loop=false;s.count=0;s.cursor=0;s.nextSample=s.time+MOTION.sampleEvery;}
