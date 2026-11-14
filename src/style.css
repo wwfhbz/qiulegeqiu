@@ -127,8 +127,6 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 .stage-room{align-items:stretch}
 .game-panel{display:flex;flex-direction:column;height:100%}
 .touch-pad{flex:1 1 auto;min-height:56px;height:auto;justify-content:center;gap:10px}
-.touch-pad .pad-track{margin-top:0;height:3px}
-.touch-pad .pad-track i{width:48px;height:8px;border-radius:4px}
 .touch-pad .pad-hint{font-size:11px}
 @media (pointer:fine) and (min-width:700px){.touch-pad{min-height:36px}}
 /* Nothing on the play screen can be selected, long-pressed or zoomed by accident. */
@@ -221,3 +219,20 @@ input,textarea,select,[contenteditable]{-webkit-user-select:text;user-select:tex
 .title-screen.result .ts-text strong{font-size:19px}
 .title-screen.result .ts-chips{display:none}
 @media (max-height:700px){.title-screen.result .ts-desc{display:none}.title-screen.result .ts-card{min-height:66px}.tr-score{font-size:40px}.title-screen.result .ts-result{gap:4px;padding:14px 14px 12px}}
+
+/* Touch strip: no duplicate paddle — a quiet swipe hint with arrows drifting outward, over a soft glass band. */
+.touch-pad{background:radial-gradient(70% 120% at 50% 0%,rgba(79,227,255,.10),transparent 70%),linear-gradient(180deg,rgba(12,20,46,.96),rgba(5,8,20,.96))}
+.touch-pad::before{content:'';position:absolute;left:12%;right:12%;top:0;height:1px;background:linear-gradient(90deg,transparent,rgba(79,227,255,.55),transparent);pointer-events:none}
+.pad-swipe{display:flex;align-items:center;justify-content:center;gap:14px;pointer-events:none}
+.touch-pad .pad-hint{font-size:12px;letter-spacing:4px;color:#8FA6C8}
+.chev{display:flex;gap:3px;font-style:normal}
+.chev b{width:8px;height:8px;border:solid #4FE3FF;border-width:2px 2px 0 0;opacity:.25;animation:chev-wave 1.6s ease-in-out infinite}
+.chev.left b{transform:rotate(-135deg)}
+.chev.right b{transform:rotate(45deg)}
+.chev.left b:nth-child(3),.chev.right b:nth-child(1){animation-delay:0s}
+.chev.left b:nth-child(2),.chev.right b:nth-child(2){animation-delay:.2s}
+.chev.left b:nth-child(1),.chev.right b:nth-child(3){animation-delay:.4s}
+@keyframes chev-wave{0%,100%{opacity:.2}40%{opacity:.95}}
+.touch-pad:active .chev b{border-color:#FFE27A}
+@media (prefers-reduced-motion:reduce){.chev b{animation:none;opacity:.6}}
+@media (max-width:360px){.pad-swipe{gap:8px}.touch-pad .pad-hint{letter-spacing:2px}}

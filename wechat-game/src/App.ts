@@ -96,14 +96,23 @@ export class MiniGameApp {
   if(ended&&!this.busy&&!this.panel.open){const centerY=v.arena.y+(C.arena.y-VIEW.y)*v.scale;button({x:v.width/2-70,y:centerY-22,width:140,height:44},'选择模式',()=>this.modePicker());}
   else if(action&&g.state!=='ready'&&!this.busy){const centerY=v.arena.y+(C.arena.y-VIEW.y)*v.scale;button({x:v.width/2-70,y:centerY-22,width:140,height:44},action.label.replace('▶ ',''),()=>void this.activate());}
   // Touch strip under the arena: a quiet hint; dragging here steers the paddle (see down/move).
-  // Joined to the arena's bottom edge: same width, rounded bottom corners, a track and a knob that follows the paddle.
+  // Joined to the arena's bottom edge: same width, rounded bottom corners, and a swipe hint (the real paddle is the only paddle).
   if((!this.panel.open||this.picking)&&v.pad.height>=30){const p={x:v.arena.x,y:v.pad.y,width:v.arena.width,height:v.pad.height};// Fills to the screen bottom: the whole strip steers.
    c.save();c.beginPath();c.roundRect(p.x,p.y,p.width,p.height,[0,0,10,10]);c.fillStyle='rgba(6,10,24,.95)';c.fill();
    c.beginPath();c.roundRect(v.arena.x-.5,v.arena.y-.5,v.arena.width+1,p.y+p.height-v.arena.y+1,10);c.strokeStyle='rgba(120,200,255,.2)';c.lineWidth=1;c.stroke();
-   const ty=p.y+Math.min(p.height/2-5,p.height*.42),tx=p.x+20,tw=p.width-40;c.fillStyle='rgba(120,200,255,.16)';c.fillRect(tx,ty-1,tw,2);
-   const kx=Math.max(tx+20,Math.min(tx+tw-20,p.x+viewFraction(g.physics.paddleX,0).x*p.width));// Cheap glow: a wide translucent pill behind the knob (shadowBlur is costly every frame).
-   c.fillStyle='rgba(79,227,255,.25)';c.beginPath();c.roundRect(kx-24,ty-6,48,12,6);c.fill();c.fillStyle=NEON.cyan;c.beginPath();c.roundRect(kx-20,ty-3,40,6,3);c.fill();c.restore();
-   canvasText(c,'左右滑动控制挡板',v.width/2,ty+14,v.width-40,9,OCEAN.colors.muted,'center');}
+   // A quiet swipe hint (no duplicate paddle): a top highlight line, then ‹‹‹ 左右滑动控制挡板 ››› with arrows drifting outward.
+   const cy=p.y+Math.min(p.height/2,p.height*.45),glow=c.createLinearGradient(p.x+p.width*.12,0,p.x+p.width*.88,0);glow?.addColorStop(0,'rgba(79,227,255,0)');glow?.addColorStop(.5,'rgba(79,227,255,.55)');glow?.addColorStop(1,'rgba(79,227,255,0)');
+   c.fillStyle=glow||'rgba(79,227,255,.3)';c.fillRect(p.x+p.width*.12,p.y,p.width*.76,1);c.restore();
+   c.font=`500 12px ${OCEAN.fonts.body}`;const label='左右滑动控制挡板',half=Math.min(c.measureText(label).width,v.width-120)/2+16;
+   canvasText(c,label,v.width/2,cy,v.width-120,12,'#8FA6C8','center');
+   const pressed=this.touch?.drag&&inside(v.pad,this.touch.x,this.touch.y);
+   c.save();c.lineWidth=2;c.lineCap='round';c.lineJoin='round';
+   for(const side of [-1,1])for(let i=0;i<3;i++){
+    // Outermost arrow lights last, so the wave reads as "slide outward".
+    const phase=((now/1600-i*.125)%1+1)%1,alpha=.2+.75*Math.max(0,Math.sin(Math.min(1,phase/.8)*Math.PI));
+    const x=v.width/2+side*(half+i*11);c.strokeStyle=pressed?`rgba(255,226,122,${alpha})`:`rgba(79,227,255,${alpha})`;
+    c.beginPath();c.moveTo(x-side*3.5,cy-5);c.lineTo(x+side*1.5,cy);c.lineTo(x-side*3.5,cy+5);c.stroke();}
+   c.restore();}
   // Compact native-style utility controls stay below the capsule safe area.
   // Top bar: small ghost icon buttons sharing the capsule menu's row (left of it), so no row is spent on them.
   const bs=40,tool=(x:number)=>({x,y:v.top,width:bs,height:v.barHeight});
