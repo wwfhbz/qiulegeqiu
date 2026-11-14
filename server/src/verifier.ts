@@ -3,12 +3,13 @@ import {allocateBrickPowers,brickPowerCounts,brickPowerKind,type BrickPowerVersi
 import {LEGACY_LEVELS} from '../../src/LegacyLevels.js';
 import {verifyEndlessTrace} from './endlessVerifier.js';
 import {ENDLESS_VARIANTS} from '../../src/endless/EndlessRules.js';
-import {V17_RULES_VERSION,RULES_VERSION,V16_RULES_VERSION,V15_RULES_VERSION,V13_RULES_VERSION,PREVIOUS_RULES_VERSION,LEGACY_RULES_VERSION,usesBrickPowers} from '../../shared/Challenge.js';
+import {V17_RULES_VERSION,V18_RULES_VERSION,RULES_VERSION,V16_RULES_VERSION,V15_RULES_VERSION,V13_RULES_VERSION,PREVIOUS_RULES_VERSION,LEGACY_RULES_VERSION,usesBrickPowers} from '../../shared/Challenge.js';
 import { Blocks } from '../../src/Blocks.js';
 import { ScoreSystem } from '../../src/ScoreSystem.js';
 import { ARCADE } from '../../src/ArcadeRules.js';
+import { ENDLESS } from '../../src/endless/EndlessRules.js';
 import { C } from '../../src/GameConfig.js';
-import {LEVELS,V16_LEVELS,V15_LEVELS,V13_LEVELS,PREVIOUS_LEVELS,dropMultiplier,powerProfile}  from '../../src/Levels.js';
+import {LEVELS,V17_LEVELS,V16_LEVELS,V15_LEVELS,V13_LEVELS,PREVIOUS_LEVELS,dropMultiplier,powerProfile}  from '../../src/Levels.js';
 import { seededRandom,weightedPower,tripleTarget,type TripleRuleVersion,type PowerKind } from '../../src/PowerRules.js';
 import { Obstacles } from '../../src/Obstacles.js';
 import type { ChallengeEvent, ChallengeSummary } from '../../shared/Challenge.js';
@@ -18,7 +19,7 @@ export function verifyTrace(events: ChallengeEvent[], wallMs: number,seed=1,rule
   try{validateTrajectoryMarkers(events);}catch{throw new ApiError(422,'轨迹版本标记无效');}
   // Each endless version replays with its own frozen variant.
   if(Object.hasOwn(ENDLESS_VARIANTS,rulesVersion))return verifyEndlessTrace(events,wallMs,seed,ENDLESS_VARIANTS[rulesVersion]);
-  const levels=rulesVersion===RULES_VERSION||rulesVersion===V17_RULES_VERSION?LEVELS:rulesVersion===V16_RULES_VERSION?V16_LEVELS:rulesVersion===V15_RULES_VERSION?V15_LEVELS:rulesVersion===V13_RULES_VERSION?V13_LEVELS:rulesVersion===PREVIOUS_RULES_VERSION?PREVIOUS_LEVELS:rulesVersion===LEGACY_RULES_VERSION?LEGACY_LEVELS:undefined;if(!levels)throw new ApiError(422,'不支持的规则版本');
+  const levels=rulesVersion===RULES_VERSION?LEVELS:rulesVersion===V18_RULES_VERSION||rulesVersion===V17_RULES_VERSION?V17_LEVELS:rulesVersion===V16_RULES_VERSION?V16_LEVELS:rulesVersion===V15_RULES_VERSION?V15_LEVELS:rulesVersion===V13_RULES_VERSION?V13_LEVELS:rulesVersion===PREVIOUS_RULES_VERSION?PREVIOUS_LEVELS:rulesVersion===LEGACY_RULES_VERSION?LEGACY_LEVELS:undefined;if(!levels)throw new ApiError(422,'不支持的规则版本');
   const blocks=new Blocks(),score=new ScoreSystem(blocks.alive.length),obstacles=new Obstacles(),random=seededRandom(seed);
   blocks.reset(levels[0].obstacles??[],levels[0]);obstacles.load(levels[0].obstacles??[]);
   let valid=blocks.alive.slice(),level=1,lives:number=ARCADE.initialLives,phase='ready',balls=0,lastTick=0,bricks=0,finished=false,levelStartTick=0;
@@ -28,6 +29,8 @@ export function verifyTrace(events: ChallengeEvent[], wallMs: number,seed=1,rule
   let tripleRule:TripleRuleVersion=1,hasLaunched=false;let dropSequence=0;let destroyedThisLevel=0;const suspicious=new Set<string>(),drops:{id:number;kind:PowerKind;tick:number;y:number}[]=[];
   let peakBalls=1,budgetTick=-1,tickBallMax=0;
   let tickHits=0,hitTick=-1,expectedBomb:string|null|undefined;
+  // 1.9+: lightning/pierce/fire windows (ticks) widen the per-tick budget and legitimately break bricks inside the wall.
+  let pierceUntil=-1,fireUntil=-1,lightningTick=-1,lightnings=0;
   for(const e of events){
     if(finished||!Number.isSafeInteger(e.tick)||e.tick<lastTick||e.tick>6*3600/C.step||e.level!==level)throw new ApiError(422,'挑战事件顺序或关卡无效');
     if(expectedBomb!==undefined&&e.type!=='bomb')throw new ApiError(422,'缺少炸弹目标事件');
@@ -49,8 +52,8 @@ export function verifyTrace(events: ChallengeEvent[], wallMs: number,seed=1,rule
         // standing cannot come from real play (campaign has no pierce, fire or lightning). Flag it for review.
         {const cols=blocks.cols,row=Math.floor(e.index/cols),col=e.index%cols;let open=false;
          for(let dr=-1;dr<=1&&!open;dr++)for(let dc=-1;dc<=1;dc++){if(!dr&&!dc)continue;const r=row+dr,c=col+dc;if(r<0||c<0||r>=blocks.rows||c>=cols||!valid[r*cols+c]){open=true;break;}}
-         if(!open)suspicious.add('击碎了四周无空隙的砖块');}valid[e.index]=0;score.hit(e.index);bricks++;destroyedThisLevel++;
-        if(hitTick!==e.tick){hitTick=e.tick;tickHits=0;}if(++tickHits>Math.max(tickBallMax,balls)*12)suspicious.add('单步击碎数量异常');
+         if(!open&&e.tick>pierceUntil&&e.tick>fireUntil&&e.tick!==lightningTick)suspicious.add('击碎了四周无空隙的砖块');}valid[e.index]=0;score.hit(e.index);bricks++;destroyedThisLevel++;
+        if(hitTick!==e.tick){hitTick=e.tick;tickHits=0;}if(++tickHits>Math.max(tickBallMax,balls)*12*(e.tick<=fireUntil?9:1)+(e.tick===lightningTick?lightnings*ENDLESS.lightningBricks:0))suspicious.add('单步击碎数量异常');
         const interval=Math.round(C.power.dropEvery/dropMultiplier(levels[level-1]));
         const legacyKind=destroyedThisLevel%interval===0?weightedPower(powerProfile(levels[level-1]),random):undefined;
         const kind=brickPowerVersion===2&&levels[level-1].brickPowers?brickPowerKind(blocks.powerKinds[e.index]):legacyKind;
@@ -67,7 +70,10 @@ export function verifyTrace(events: ChallengeEvent[], wallMs: number,seed=1,rule
         if(e.kind==='halve'&&balls>0)balls=Math.max(1,Math.ceil(balls/2));
         if(e.kind==='life')lives=Math.min(ARCADE.maxLives,lives+1);
         if(e.kind==='bomb')expectedBomb=obstacles.destroyNearest(C.arena.x,C.arena.y)?.config.id??null;
-        if(rulesVersion===RULES_VERSION)score.addPowerPoints();break;
+        if(e.kind==='pierce')pierceUntil=e.tick+Math.ceil(ENDLESS.pierceSeconds/C.step)+1;
+        if(e.kind==='fire')fireUntil=e.tick+Math.ceil(ENDLESS.fireSeconds/C.step)+1;
+        if(e.kind==='lightning'){if(lightningTick!==e.tick){lightningTick=e.tick;lightnings=0;}lightnings++;}
+        if(rulesVersion===RULES_VERSION||rulesVersion===V18_RULES_VERSION)score.addPowerPoints();break;
       }
       case 'bomb':if(expectedBomb===undefined||e.target!==expectedBomb)throw new ApiError(422,'炸弹目标无效');if(expectedBomb===null)score.addBombCompensation();expectedBomb=undefined;break;
       case 'ballLost':if(phase!=='running'||balls<=0)throw new ApiError(422,'重复弹球死亡');balls--;break;

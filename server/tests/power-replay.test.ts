@@ -11,11 +11,13 @@ function run(seed:number,initialLevel=3,ticks=4800,spacing=2,levels:readonly Lev
  const g=new Game(undefined,undefined,new LevelManager(levels)),random=seededRandom(seed);g.journal.seed=seed;g.physics.setSeed(seed);g.start();
  for(let level=1;level<initialLevel;level++){for(let i=0;i<g.physics.blocks.alive.length;i++)if(g.physics.blocks.alive[i])g.physics.blocks.hit(i);g.update(C.step);if(g.state==='levelComplete')g.nextLevel();g.start();}
  const cells=Array.from(g.physics.blocks.alive.keys()).filter(i=>g.physics.blocks.alive[i]);
+ // Keep 40% of the level standing: lightning drops (V1.9) also break bricks, and must not clear the level here.
+ const keep=Math.ceil(cells.length*.4);
  // Controlled collision fixture: real block-destroy/drop/pickup/journal callbacks,
  // while positions and hit scheduling are deterministic instead of playing a GUI.
  for(let tick=1;tick<=ticks;tick++){
   g.journal.tick++;g.score.update(C.step);
-  if(tick%spacing===0&&cells.length>1){const n=Math.floor(random()*cells.length);g.physics.blocks.hit(cells.splice(n,1)[0]);}
+  if(tick%spacing===0&&cells.length>keep){const n=Math.floor(random()*cells.length);g.physics.blocks.hit(cells.splice(n,1)[0]);}
   // The level-3 sweep uses a scripted paddle target; do not allocate/sort
   // 4800 arrays per seed for a nearest drop that only levels 4+ consume.
   const nearest=initialLevel>=4?g.physics.powers.items.filter(p=>p.alive).sort((a,b)=>Math.abs(a.y-C.paddle.y)-Math.abs(b.y-C.paddle.y))[0]:undefined;

@@ -24,9 +24,9 @@ it('有纹理工厂时：六种斜面砖只预渲染一次，缓存逐砖盖章�
 it.each([20,50,100])('连续渲染%i球不改变Physics、Effects、ChallengeJournal、得分或生命',count=>{
  const g=new Game();g.journal.seed=42;g.physics.setSeed(42);g.start();while(g.physics.balls.length<count)g.physics.balls.push(g.physics.newBall());for(let n=0;n<20;n++)g.update(C.step);const snapshot=JSON.stringify(g),{r}=renderer();for(let frame=0;frame<60;frame++)r.draw(g.physics,false,frame*16);expect(JSON.stringify(g)).toBe(snapshot);r.dispose();g.dispose();
 });
-it('Web及微信同样保留600/120、1200/86/58配置、五命与新版规则日志',()=>{
+it('Web及微信同样保留600/120、1446/87/58配置（V1.9第二关铺满）、五命与新版规则日志',()=>{
  const f=wxFixture(),wx=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false}),web=new Game();
- try{for(const level of [1,2]){for(const g of [wx.game,web]){g.journal.seed=42;g.physics.setSeed(42);g.start();expect(g.lives).toBe(5);expect(g.physics.blocks.total).toBe(level===1?600:1200);expect(Array.from(g.physics.blocks.powerKinds).filter(n=>n===1)).toHaveLength(level===1?96:86);expect(Array.from(g.physics.blocks.powerKinds).filter(n=>n===2)).toHaveLength(level===1?24:58);}expect(wx.game.journal.events).toEqual(web.journal.events);for(const g of [wx.game,web]){for(let i=0;i<g.physics.blocks.alive.length;i++)g.physics.blocks.hit(i);g.update(0);}}}
+ try{for(const level of [1,2]){for(const g of [wx.game,web]){g.journal.seed=42;g.physics.setSeed(42);g.start();expect(g.lives).toBe(5);expect(g.physics.blocks.total).toBe(level===1?600:1446);expect(Array.from(g.physics.blocks.powerKinds).filter(n=>n===1)).toHaveLength(level===1?96:87);expect(Array.from(g.physics.blocks.powerKinds).filter(n=>n===2)).toHaveLength(level===1?24:58);}expect(wx.game.journal.events).toEqual(web.journal.events);for(const g of [wx.game,web]){for(let i=0;i<g.physics.blocks.alive.length;i++)g.physics.blocks.hit(i);g.update(0);}}}
  finally{wx.dispose();web.dispose();}
 });
 

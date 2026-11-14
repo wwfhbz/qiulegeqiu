@@ -52,8 +52,8 @@ test('V1.7可从线上的V1.6、V1.5或V1.3经--api-only桥接；V1.2不能直�
 });
 
 test('V1.8（吃道具+100分）可从线上任一十二关赛季经--api-only桥接；V1.2不能直接跳到V1.8',()=>{
- const current='1.8.0-arcade-5l-12lv-powerpts-v6',all=['1.2.0-arcade-5l-12lv-v1','1.3.0-arcade-5l-12lv-drops-v2','1.5.0-arcade-5l-12lv-short-v3','1.6.0-arcade-5l-12lv-full-v4','1.7.0-arcade-5l-12lv-scarce-v5',current];
- for(const previous of all.slice(1,5)){assert.throws(()=>verifyRollbackCompatibility(current,previous),/--api-only/);assert.doesNotThrow(()=>verifyRollbackCompatibility(current,previous,{apiOnly:true}));}
+ const current='1.9.0-arcade-5l-12lv-fullskills-v7',all=['1.2.0-arcade-5l-12lv-v1','1.3.0-arcade-5l-12lv-drops-v2','1.5.0-arcade-5l-12lv-short-v3','1.6.0-arcade-5l-12lv-full-v4','1.7.0-arcade-5l-12lv-scarce-v5','1.8.0-arcade-5l-12lv-powerpts-v6',current];
+ for(const previous of all.slice(1,6)){assert.throws(()=>verifyRollbackCompatibility(current,previous),/--api-only/);assert.doesNotThrow(()=>verifyRollbackCompatibility(current,previous,{apiOnly:true}));}
  assert.throws(()=>verifyRollbackCompatibility(current,all[0],{apiOnly:true}));
  const health={ok:true,database:'ready',rulesVersion:current,supportedRulesVersions:all,challengeProtocolVersion:2,challengeFeatures:['triple-threshold20-v1','tutorial-brick-powers-v1','deterministic-trajectory-v1'],leaderboard:{board:'global',rankingRulesVersion:current,rankingScope:'all-campaign-versions'}};
  assert.doesNotThrow(()=>verifyCompatibilityBridgeHealth(health,current));

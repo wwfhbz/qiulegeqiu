@@ -2,7 +2,7 @@ import {it,expect,afterEach} from 'vitest';
 import {randomUUID} from 'node:crypto';
 import {createApp} from '../src/app';
 import {refreshBest,globalLeaderboard,globalPersonalBest} from '../src/leaderboard';
-import {RULES_VERSION,LEGACY_RULES_VERSION,type ChallengeEvent} from '../../shared/Challenge';
+import {GLOBAL_BOARD_COMPAT_VERSION,RULES_VERSION,LEGACY_RULES_VERSION,type ChallengeEvent} from '../../shared/Challenge';
 import {Game} from '../../src/Game';
 import {C} from '../../src/GameConfig';
 import {verifyTrace} from '../src/verifier';
@@ -20,7 +20,7 @@ it('统一榜单与真实个人排名一致，按玩家最高有效记录去重�
  record(s,ids[0],0);record(s,ids[104],999999,12,1,1,RULES_VERSION,'quarantined');record(s,ids[104],999998,12,1,1,RULES_VERSION,'verified',1);
  const legacyId=record(s,ids[104],999997,10,1,1,LEGACY_RULES_VERSION);refreshBest(s.db,ids[104],LEGACY_RULES_VERSION);
  const snapshot=s.db.prepare('SELECT * FROM scores ORDER BY id').all(),oldPointer=s.db.prepare('SELECT * FROM player_bests').all();
- const result=await s.app.inject({url:'/api/leaderboard?board=global&limit=20'});expect(result.json().board).toBe('global');expect(result.json().rankingRulesVersion).toBe(RULES_VERSION);expect(result.json().items.map((r:{rank:number})=>r.rank)).toEqual(Array.from({length:20},(_,i)=>i+1));
+ const result=await s.app.inject({url:'/api/leaderboard?board=global&limit=20'});expect(result.json().board).toBe('global');expect(result.json().rankingRulesVersion).toBe(GLOBAL_BOARD_COMPAT_VERSION);expect(result.json().items.map((r:{rank:number})=>r.rank)).toEqual(Array.from({length:20},(_,i)=>i+1));
  const all=[];let offset:number|null=0;while(offset!==null){const page=(await s.app.inject({url:`/api/leaderboard?board=global&limit=20&offset=${offset}`})).json();all.push(...page.items);offset=page.nextOffset;}expect(all).toHaveLength(100);expect(new Set(all.map(r=>r.player_id)).size).toBe(100);
  for(const row of all)expect(globalPersonalBest(s.db,row.player_id)!.rank).toBe(row.rank);
  expect(globalPersonalBest(s.db,ids[104])).toMatchObject({score:999997,rank:1});expect(globalPersonalBest(s.db,ids[103])).toMatchObject({score:2,rank:105});

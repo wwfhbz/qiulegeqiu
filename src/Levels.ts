@@ -6,7 +6,7 @@ export interface ObstacleConfig {
   readonly id:string;readonly kind:ObstacleKind;readonly x:number;readonly y:number;readonly length:number;readonly thickness:number;readonly angle:number;
   readonly amplitude?:number;readonly speed?:number;readonly phase?:number;readonly angularSpeed?:number;
 }
-export interface LevelConfig {readonly brickPowers?:BrickPowerConfig;readonly number:number;readonly name:string;readonly speedScale:number;readonly obstacles?:readonly ObstacleConfig[];readonly legacyNumber?:number;readonly brickCount?:number;readonly gridStep?:number;readonly gridSize?:number;readonly exitWidth?:number;readonly paddleScale?:number;readonly powerProfile?:PowerProfile;readonly powerDropMultiplier?:number;readonly autoAdvance?:boolean}
+export interface LevelConfig {readonly brickPowers?:BrickPowerConfig;readonly number:number;readonly name:string;readonly speedScale:number;readonly obstacles?:readonly ObstacleConfig[];readonly legacyNumber?:number;readonly brickCount?:number;readonly gridStep?:number;readonly gridSize?:number;readonly exitWidth?:number;/** V1.9+: bricks fill the whole bowl down to this many px above its bottom (instead of the top 80%). */readonly fullFloorGap?:number;readonly paddleScale?:number;readonly powerProfile?:PowerProfile;readonly powerDropMultiplier?:number;readonly autoAdvance?:boolean}
 
 /** Frozen V1.3 twelve levels (rules 1.3.0): full ~4100-brick grids for levels 3–12. */
 export const V13_LEVELS:readonly LevelConfig[]=[
@@ -43,12 +43,24 @@ export const V16_LEVELS:readonly LevelConfig[]=V13_LEVELS.map(level=>{
 export const LATER_DROP_EVERY=[14,18,22,26,30,34,38,42,46,50] as const;
 /** Mirrors C.power.dropEvery (14); not imported because GameConfig → ArcadeRules → Levels is circular. */
 export const BASE_DROP_EVERY=14;
-/** Current twelve levels (rules 1.7.0). Layouts, obstacles, speeds, exits and paddles match V1.6. */
-export const LEVELS:readonly LevelConfig[]=V16_LEVELS.map(level=>level.number<3?level:{
+/** Frozen twelve levels for rules 1.7.0 and 1.8.0. Layouts, obstacles, speeds, exits and paddles match V1.6. */
+export const V17_LEVELS:readonly LevelConfig[]=V16_LEVELS.map(level=>level.number<3?level:{
  ...level,
  powerDropMultiplier:BASE_DROP_EVERY/LATER_DROP_EVERY[level.number-3],
  // Level 3 keeps the gentle ×3/wide-only mix as the bridge out of the tutorials.
  powerProfile:level.number===3?'first':'scarce',
+});
+/** Same clear band as endless mode's raised floor: the exit always stays open. */
+export const FULL_FLOOR_GAP=64;
+/**
+ * Current twelve levels (rules 1.9.0): level 1 unchanged; levels 2–12 fill the whole bowl (every cell down to the
+ * floor, obstacles keep their swept area clear); level 2 keeps its ×3/wide counts; levels 3–12 add lightning/pierce/fire drops.
+ */
+export const LEVELS:readonly LevelConfig[]=V17_LEVELS.map(level=>{
+ if(level.number===1)return level;
+ const full={...level,brickCount:undefined,fullFloorGap:FULL_FLOOR_GAP};
+ if(level.number===2)return {...full,brickPowers:TUTORIAL_POWERS.secondV19};
+ return {...full,powerProfile:level.number===3?'firstSkills':'scarceSkills'};
 });
 export function dropMultiplier(level:LevelConfig){return level.powerDropMultiplier??((level.legacyNumber??level.number)===1?1:.5);}
 export function powerProfile(level:LevelConfig){return level.powerProfile??((level.legacyNumber??level.number)===1?'first':'later');}
