@@ -8,9 +8,13 @@ export const POWER_WEIGHTS={
   later:[{kind:'halve',weight:30},{kind:'triple',weight:30},{kind:'wide',weight:30},{kind:'life',weight:5},{kind:'bomb',weight:5}],
   /** V1.7 levels 4–12: +1 life and bomb are each 0.3% of random drops; the rest split ÷2/×3/wide. */
   scarce:[{kind:'halve',weight:330},{kind:'triple',weight:330},{kind:'wide',weight:334},{kind:'life',weight:3},{kind:'bomb',weight:3}],
+  /** V1.9 level 3: ×3/wide, plus lightning, pierce and fire at 1% of drops each. */
+  firstSkills:[{kind:'triple',weight:485},{kind:'wide',weight:485},{kind:'lightning',weight:10},{kind:'pierce',weight:10},{kind:'fire',weight:10}],
+  /** V1.9 levels 4–12: the V1.7 mix with lightning, pierce and fire at 1% of drops each (taken evenly from ÷2/×3/wide). */
+  scarceSkills:[{kind:'halve',weight:320},{kind:'triple',weight:320},{kind:'wide',weight:324},{kind:'life',weight:3},{kind:'bomb',weight:3},{kind:'lightning',weight:10},{kind:'pierce',weight:10},{kind:'fire',weight:10}],
 } as const;
 export type PowerProfile=keyof typeof POWER_WEIGHTS;
-export function weightedPower(level:number|PowerProfile,random:()=>number=Math.random):PowerKind{const rows:readonly {kind:PowerKind;weight:number}[]=(level===1||level==='first')?POWER_WEIGHTS.first:level==='scarce'?POWER_WEIGHTS.scarce:POWER_WEIGHTS.later;let value=random()*rows.reduce((sum,row)=>sum+row.weight,0);for(const row of rows){value-=row.weight;if(value<0)return row.kind;}return rows[rows.length-1].kind;}
+export function weightedPower(level:number|PowerProfile,random:()=>number=Math.random):PowerKind{const rows:readonly {kind:PowerKind;weight:number}[]=typeof level==='number'?(level===1?POWER_WEIGHTS.first:POWER_WEIGHTS.later):POWER_WEIGHTS[level];let value=random()*rows.reduce((sum,row)=>sum+row.weight,0);for(const row of rows){value-=row.weight;if(value<0)return row.kind;}return rows[rows.length-1].kind;}
 export {seededRandom} from './Random';
 export function newSeed(){if(typeof crypto!=='undefined'&&crypto.getRandomValues)return crypto.getRandomValues(new Uint32Array(1))[0];return Math.floor(Math.random()*4294967296);}
 

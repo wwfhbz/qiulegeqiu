@@ -2,9 +2,9 @@ import {expect,it} from 'vitest';
 import {Game} from '../../src/Game';
 import {C} from '../../src/GameConfig';
 import {LevelManager} from '../../src/LevelManager';
-import {LEVELS,V13_LEVELS,V15_LEVELS,V16_LEVELS,LATER_DROP_EVERY,type LevelConfig} from '../../src/Levels';
+import {LEVELS,V17_LEVELS,V13_LEVELS,V15_LEVELS,V16_LEVELS,LATER_DROP_EVERY,type LevelConfig} from '../../src/Levels';
 import {POWER_WEIGHTS,weightedPower,seededRandom} from '../../src/PowerRules';
-import {RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,V17_RULES_VERSION,SUPPORTED_RULES_VERSIONS,GLOBAL_BOARD_RULES_VERSIONS,LEGACY_RULES_VERSION,ENDLESS_RULES_VERSION} from '../../shared/Challenge';
+import {RULES_VERSION,V18_RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,V17_RULES_VERSION,SUPPORTED_RULES_VERSIONS,GLOBAL_BOARD_RULES_VERSIONS,LEGACY_RULES_VERSION,ENDLESS_RULES_VERSION} from '../../shared/Challenge';
 import {verifyTrace} from '../src/verifier';
 
 /** Clear the two tutorial levels, then the first later level, and lose all lives on level 4. */
@@ -15,13 +15,14 @@ function run(levels:readonly LevelConfig[]){
  expect(g.state).toBe('gameOver');expect(g.levels.current.number).toBe(4);return g;
 }
 const seasons=[
- {rules:RULES_VERSION,levels:LEVELS,bricks:600+1200+1320},
+ {rules:RULES_VERSION,levels:LEVELS,bricks:600+1446+1634},
+ {rules:V18_RULES_VERSION,levels:V17_LEVELS,bricks:600+1200+1320},
  {rules:V16_RULES_VERSION,levels:V16_LEVELS,bricks:600+1200+1320},
  {rules:V15_RULES_VERSION,levels:V15_LEVELS,bricks:600+1200+1500},
  {rules:V13_RULES_VERSION,levels:V13_LEVELS,bricks:600+1200+4203},
 ];
-it('赛季登记：V1.8为当前规则，V1.7/V1.6/V1.5/V1.3冻结后仍受支持',()=>{
- expect(GLOBAL_BOARD_RULES_VERSIONS.at(-1)).toBe(RULES_VERSION);expect(SUPPORTED_RULES_VERSIONS).toContain(ENDLESS_RULES_VERSION);expect(RULES_VERSION).toBe('1.8.0-arcade-5l-12lv-powerpts-v6');expect(V17_RULES_VERSION).toBe('1.7.0-arcade-5l-12lv-scarce-v5');
+it('赛季登记：V1.9为当前规则，V1.8/V1.7/V1.6/V1.5/V1.3冻结后仍受支持',()=>{
+ expect(GLOBAL_BOARD_RULES_VERSIONS.at(-1)).toBe(RULES_VERSION);expect(SUPPORTED_RULES_VERSIONS).toContain(ENDLESS_RULES_VERSION);expect(RULES_VERSION).toBe('1.9.0-arcade-5l-12lv-fullskills-v7');expect(V18_RULES_VERSION).toBe('1.8.0-arcade-5l-12lv-powerpts-v6');expect(V17_RULES_VERSION).toBe('1.7.0-arcade-5l-12lv-scarce-v5');
  for(const {rules} of seasons)expect(SUPPORTED_RULES_VERSIONS).toContain(rules);
 });
 it.each(seasons)('$rules：服务端按本赛季关卡验证，且日志不能冒充其他赛季',({rules,levels,bricks})=>{
@@ -36,7 +37,7 @@ it('V1.7道具：随机掉落间隔逐关增加，第4～12关生命与炸弹各
  for(let i=1;i<LATER_DROP_EVERY.length;i++)expect(LATER_DROP_EVERY[i]).toBeGreaterThan(LATER_DROP_EVERY[i-1]);
  const total=(rows:readonly {weight:number}[])=>rows.reduce((s,r)=>s+r.weight,0),share=(rows:readonly {kind:string;weight:number}[],kind:string)=>rows.find(r=>r.kind===kind)!.weight/total(rows);
  for(const kind of ['life','bomb']){expect(share(POWER_WEIGHTS.scarce,kind)).toBeCloseTo(.003,6);expect(share(POWER_WEIGHTS.later,kind)).toBeCloseTo(.05,6);}
- expect(LEVELS[2].powerProfile).toBe('first');expect(LEVELS.slice(3).every(l=>l.powerProfile==='scarce')).toBe(true);
+ expect(V17_LEVELS[2].powerProfile).toBe('first');expect(V17_LEVELS.slice(3).every(l=>l.powerProfile==='scarce')).toBe(true);
  expect(V16_LEVELS.slice(3).every(l=>l.powerProfile==='later')).toBe(true);
  // Empirical draw over a fixed stream stays inside the requested 0.1%–0.5% band.
  const random=seededRandom(2026),counts:Record<string,number>={};for(let i=0;i<200000;i++){const k=weightedPower('scarce',random);counts[k]=(counts[k]??0)+1;}

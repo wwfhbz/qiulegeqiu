@@ -11,7 +11,9 @@ export const V16_RULES_VERSION = '1.6.0-arcade-5l-12lv-full-v4';
 /** Frozen V1.7 season: same layouts; random drops thin out per level (1/14 → 1/50), +1 life and bomb 0.3% each. */
 export const V17_RULES_VERSION = '1.7.0-arcade-5l-12lv-scarce-v5';
 /** V1.8: same levels and drops as 1.7; every power-up caught is worth +100 points. Only this season ranks as current. */
-export const RULES_VERSION = '1.8.0-arcade-5l-12lv-powerpts-v6';
+export const V18_RULES_VERSION = '1.8.0-arcade-5l-12lv-powerpts-v6';
+/** Twelve-level campaign 1.9: levels 2–12 fill the whole bowl (about 20% more bricks), lightning/pierce/fire at 1% of random drops on levels 3–12. */
+export const RULES_VERSION = '1.9.0-arcade-5l-12lv-fullskills-v7';
 /** Endless mode ("压迫下沉"): its own ruleset and its own board; never mixed into the campaign board. */
 /** Frozen endless 1.0: drops every 8 → 30 bricks, wall stopped 80% down the bowl. */
 export const ENDLESS_V1_RULES_VERSION = 'endless-1.0.0-3l-sink-v1';
@@ -36,11 +38,11 @@ export const ENDLESS_RANKING_SCOPE='all-endless-versions';
 /** Classification for supported challenge versions, not a leaderboard season filter. */
 export function isEndlessRules(rules:string){return rules.startsWith('endless-');}
 export function assertEndlessBoard(data:LeaderboardMetadata){if(data.board!==ENDLESS_BOARD||data.rankingScope!==ENDLESS_RANKING_SCOPE)throw Error('排行榜后端需更新为永久统一无尽榜；历史成绩仍保留');}
-export const SUPPORTED_RULES_VERSIONS=[LEGACY_RULES_VERSION,PREVIOUS_RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,V17_RULES_VERSION,RULES_VERSION,ENDLESS_V1_RULES_VERSION,ENDLESS_V2_RULES_VERSION,ENDLESS_V3_RULES_VERSION,ENDLESS_V4_RULES_VERSION,ENDLESS_V5_RULES_VERSION,ENDLESS_V6_RULES_VERSION,ENDLESS_RULES_VERSION] as const;
+export const SUPPORTED_RULES_VERSIONS=[LEGACY_RULES_VERSION,PREVIOUS_RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,V17_RULES_VERSION,V18_RULES_VERSION,RULES_VERSION,ENDLESS_V1_RULES_VERSION,ENDLESS_V2_RULES_VERSION,ENDLESS_V3_RULES_VERSION,ENDLESS_V4_RULES_VERSION,ENDLESS_V5_RULES_VERSION,ENDLESS_V6_RULES_VERSION,ENDLESS_RULES_VERSION] as const;
 /** Compatibility/audit inventory only. Live ranking uses mode, never a version whitelist. */
-export const GLOBAL_BOARD_RULES_VERSIONS=[LEGACY_RULES_VERSION,PREVIOUS_RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,V17_RULES_VERSION,RULES_VERSION] as const;
+export const GLOBAL_BOARD_RULES_VERSIONS=[LEGACY_RULES_VERSION,PREVIOUS_RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,V17_RULES_VERSION,V18_RULES_VERSION,RULES_VERSION] as const;
 /** Seasons whose first launch must declare preassigned tutorial powers and the X3 threshold rule. */
-export function usesBrickPowers(rules:string){return rules===RULES_VERSION||rules===V17_RULES_VERSION||rules===V16_RULES_VERSION||rules===V15_RULES_VERSION||rules===V13_RULES_VERSION;}
+export function usesBrickPowers(rules:string){return rules===RULES_VERSION||rules===V18_RULES_VERSION||rules===V17_RULES_VERSION||rules===V16_RULES_VERSION||rules===V15_RULES_VERSION||rules===V13_RULES_VERSION;}
 
 export const GLOBAL_BOARD='global';
 export const CAMPAIGN_RANKING_SCOPE='all-campaign-versions';

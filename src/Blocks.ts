@@ -21,9 +21,11 @@ export class Blocks {
     this.destroyed.length = 0; this.generation++;
     this.alive.fill(0); this.powerKinds.fill(0); this.total = 0;
     const { x: cx, y: cy, radius: r } = C.arena;
+    // Lowest allowed brick edge: the top 80% of the bowl, or (V1.9+) the whole bowl down to a fixed floor.
+    const floorY = level?.fullFloorGap !== undefined ? cy + r - level.fullFloorGap : this.top + 2 * r * (1 - C.grid.emptyFraction);
     for (let row = 0; row < this.rows; row++) for (let col = 0; col < this.cols; col++) {
       const x = this.left + col * this.step, y = this.top + row * this.step;
-      if (y + this.size > this.top + 2 * r * (1 - C.grid.emptyFraction)) continue;
+      if (y + this.size > floorY) continue;
       let inside = true;
       for (const dx of [0, this.size]) for (const dy of [0, this.size])
         if ((x + dx - cx) ** 2 + (y + dy - cy) ** 2 > r * r) inside = false;
