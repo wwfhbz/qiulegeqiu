@@ -7,7 +7,7 @@ import { iconSvg } from '../shared/Icons';
 import { Game, type GameMode } from './Game';
 import { ENDLESS } from './endless/EndlessRules';
 import { C } from './GameConfig';
-import { VIEW, ARENA_IN_VIEW, viewFraction } from './Viewport';
+import { VIEW, ARENA_IN_VIEW } from './Viewport';
 import { activateCentralAction, centralActionFor } from './CentralAction';
 import { START_HINT, startFromPlayfield } from './PlayfieldStart';
 import { STATE_LABELS } from './GameState';
@@ -42,7 +42,7 @@ export function mountGame(root: HTMLElement) {
         </section>
         <div id="central-layer" class="central-layer" hidden><button id="start" class="central-start" type="button" aria-controls="arena-canvas">开始游戏</button></div>
       </div>
-      <div class="touch-pad" id="touch-pad" role="presentation" data-fill><div class="power-info"><span id="wide"></span><span id="combo"></span><span id="limit-warn"></span></div><div class="pad-track"><i id="pad-knob"></i></div><span class="pad-hint">左右滑动控制挡板</span></div>
+      <div class="touch-pad" id="touch-pad" role="presentation" data-fill><div class="power-info"><span id="wide"></span><span id="combo"></span><span id="limit-warn"></span></div><div class="pad-swipe" aria-hidden="true"><i class="chev left"><b></b><b></b><b></b></i><span class="pad-hint">左右滑动控制挡板</span><i class="chev right"><b></b><b></b><b></b></i></div></div>
     </section></div>
     <button id="stress" class="debug" hidden>百球压力测试</button>
     <section id="title-screen" class="title-screen" aria-label="选择游戏模式">
@@ -115,8 +115,6 @@ export function mountGame(root: HTMLElement) {
     text('progress-label', field ? (pressed !== undefined ? `压线 ${pressed.toFixed(1)}秒` : field.blocked ? '压到底线' : '下沉') : '进度');
     const percent=field?Math.round(field.descentProgress*100):Math.round(blocks.removed/Math.max(1,blocks.total)*100);text('progress-value', field?`已下沉${field.descents}行`:percent+'%');el('progress-meter').setAttribute('aria-valuenow',String(percent));el('progress-meter').style.setProperty('--fill',percent+'%');
     wrap.dataset.state=g.state;
-    // The strip's knob follows the paddle so the strip reads as part of the arena.
-    el('pad-knob').style.left=`${viewFraction(g.physics.paddleX,0).x*100}%`;
     // Header switch: usable before a run starts and after it ends; locked while a run is in progress.
     const locked = g.journal.events.length > 0 && g.state !== 'gameOver' && g.state !== 'victory';
     for(const b of modeButtons){b.setAttribute('aria-pressed',String(b.dataset.mode===g.mode));b.disabled=locked&&b.dataset.mode!==g.mode;b.title=locked?'本局结束后可切换模式':'';}
