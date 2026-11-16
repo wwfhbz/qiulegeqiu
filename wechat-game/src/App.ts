@@ -181,7 +181,7 @@ export class MiniGameApp {
  readonly ads:WechatAds;private vibrationOn=true;private guide=false;private lastInterstitial=0;
  /** Lives ran out and a rewarded video can bring the run back (up to MAX_REVIVES per run, still ranked). */
  private revivePanel(){const g=this.game,endless=g.mode==='endless';
-  this.panel.showRevive(REVIVE_TITLE,[`本局得分 ${g.score.total}`,`看完一段视频即可复活：+1 条命继续本局${endless?'，并一次清掉最底部 20 行砖':''}`,`本局还可复活 ${g.revivesLeft} 次（共 ${MAX_REVIVES} 次）· 复活后成绩照常上榜`],[
+  this.panel.showRevive(REVIVE_TITLE,[`本局得分 ${g.score.total}`,`看完一段视频即可复活：+1 条命继续本局${endless?'，并一次清掉最底部 20 行砖':'，下一球随机送一种特效（×3球 / 闪电 / 火球 / 穿透）'}`,`本局还可复活 ${g.revivesLeft} 次（共 ${MAX_REVIVES} 次）· 复活后成绩照常上榜`],[
    {label:'▶ 看视频复活',run:()=>void this.watchReward('revive')},
    {label:'放弃，查看结算',run:()=>{this.panel.close();g.endRun();}},
   ],{score:g.score.total,left:g.revivesLeft,max:MAX_REVIVES,endless});}

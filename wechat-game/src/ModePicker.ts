@@ -153,7 +153,7 @@ export interface ReviveView {score:number;left:number;max:number;endless:boolean
 /** Revive card over the dimmed game: glowing heart, score, a gold "watch video" button and a quiet "give up". */
 export function drawReviveCard(c:CanvasRenderingContext2D,width:number,height:number,view:ReviveView,now=0){
  c.save();c.fillStyle='rgba(3,5,12,.78)';c.fillRect(0,0,width,height);
- const w=Math.min(340,width-40),h=view.endless?372:352,x=(width-w)/2,y=Math.max(40,(height-h)/2-20),cx=width/2;
+ const w=Math.min(340,width-40),h=372,x=(width-w)/2,y=Math.max(40,(height-h)/2-20),cx=width/2;
  c.fillStyle='#5A2AB8';c.beginPath();c.roundRect(x,y+6,w,h,26);c.fill();
  const bg=c.createLinearGradient(0,y,0,y+h);bg?.addColorStop(0,'#2A2266');bg?.addColorStop(.6,'#151A46');bg?.addColorStop(1,'#0E1236');c.fillStyle=bg||'#151A46';c.beginPath();c.roundRect(x,y,w,h,26);c.fill();
  c.strokeStyle='rgba(255,255,255,.14)';c.lineWidth=1;c.stroke();
@@ -163,8 +163,8 @@ export function drawReviveCard(c:CanvasRenderingContext2D,width:number,height:nu
  c.fillStyle='rgba(255,255,255,.55)';c.beginPath();c.ellipse(cx-hr*.45,hy-hr*.35,hr*.18,hr*.12,-.6,0,Math.PI*2);c.fill();
  c.font=`900 24px ${OCEAN.fonts.body}`;c.textAlign='center';c.textBaseline='middle';c.fillStyle='#FFFFFF';c.fillText('生命耗尽',cx,y+98,w-32);
  canvasText(c,'看完一段视频，+1 条命继续本局',cx,y+126,w-32,13,'#C9D6EE','center');
- if(view.endless)canvasText(c,'并一次清掉最底部 20 行砖',cx,y+146,w-32,12,'#8FA6C8','center');
- const sy=y+(view.endless?176:164);canvasText(c,'本局得分',cx,sy,w-32,12,'#A9C1DE','center');
+ canvasText(c,view.endless?'并一次清掉最底部 20 行砖':'下一球随机送：×3球 / 闪电 / 火球 / 穿透',cx,y+146,w-32,12,view.endless?'#8FA6C8':'#FFD98A','center');
+ const sy=y+176;canvasText(c,'本局得分',cx,sy,w-32,12,'#A9C1DE','center');
  const score=view.score.toLocaleString('zh-CN');c.font=`900 34px ${OCEAN.fonts.numbers}`;c.fillStyle='rgba(140,60,0,.7)';c.fillText(score,cx,sy+30,w-32);
  const gold=c.createLinearGradient(0,sy+14,0,sy+46);gold?.addColorStop(0,'#FFFFFF');gold?.addColorStop(.5,'#FFE27A');gold?.addColorStop(1,'#FFB31F');c.fillStyle=gold||'#FFE27A';c.fillText(score,cx,sy+28,w-32);
  const watch={x:x+20,y:y+h-106,width:w-40,height:50},skip={x:x+20,y:y+h-48,width:w-40,height:34};

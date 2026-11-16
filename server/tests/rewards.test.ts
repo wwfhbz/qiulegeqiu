@@ -55,3 +55,15 @@ it('无尽1.7：看视频复活后下一次发射清掉最底部20行（压线�
  while(g.state!=='gameOver'||g.awaitingRevive){if(g.awaitingRevive){g.endRun();break;}if(g.state==='ready')g.start();loseRound(g);}
  const v=verifyTrace(g.journal.events,1e9,9,g.rulesVersion);expect(v.summary).toEqual(g.journal.summary(g.score.total,g.reachedLevel,false));
 });
+it('闯关1.10：看视频复活后下一球随机送一种特效（×3/闪电/火球/穿透），服务端按种子校验，伪造种类被拒绝',()=>{
+ const kinds=new Set<string>();
+ for(let seed=1;seed<=24;seed++){const g=play('campaign',seed),events=g.journal.events;
+  const revives=events.flatMap((e,i)=>e.type==='revive'?[i]:[]);expect(revives).toHaveLength(2);
+  for(const r of revives){const launch=events.findIndex((e,i)=>i>r&&e.type==='launch'),bonus=events[launch+1] as {type:string;kind:string;tick:number};expect(bonus.type).toBe('bonus');expect(bonus.tick).toBe(events[launch].tick);expect(['triple','lightning','fire','pierce']).toContain(bonus.kind);kinds.add(bonus.kind);}
+  const v=verifyTrace(events,1e9,seed,RULES_VERSION);expect(v.summary).toEqual(g.journal.summary(g.score.total,g.reachedLevel,false));expect(v.suspicious).toEqual([]);
+  if(seed===1){const i=events.findIndex(e=>e.type==='bonus'),other=(['triple','lightning','fire','pierce'] as const).find(k=>k!==(events[i] as {kind:string}).kind)!;
+   expect(()=>verifyTrace(events.map((e,j)=>j===i?{...e,kind:other}:e) as ChallengeEvent[],1e9,seed,RULES_VERSION)).toThrow('复活特效奖励无效');
+   expect(()=>verifyTrace(events.filter((_,j)=>j!==i),1e9,seed,RULES_VERSION)).toThrow();}
+ }
+ expect([...kinds].sort()).toEqual(['fire','lightning','pierce','triple']);
+},120000);

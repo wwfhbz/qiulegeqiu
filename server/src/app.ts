@@ -30,7 +30,7 @@ export const challengeEvent=z.discriminatedUnion('type',[
  z.object({...base,type:z.literal('bomb'),target:z.string().max(50).nullable()}).strict(),
  z.object({...base,type:z.literal('crushed')}).strict(),
  z.object({...base,type:z.enum(['revive','boost'])}).strict(),
- z.object({...base,type:z.literal('bonus'),kind:z.enum(['plus3','pierce','fire','lightning'])}).strict()
+ z.object({...base,type:z.literal('bonus'),kind:z.enum(['plus3','pierce','fire','lightning','triple'])}).strict()
 ]);
 type Session={id:string;player_id:string|null;csrf_token:string};
 type Challenge={id:string;session_id:string;rules_version:string;created_at:number;expires_at:number;finished_at:number|null;next_sequence:number;event_count:number;state:string;unranked:number;seed:number};

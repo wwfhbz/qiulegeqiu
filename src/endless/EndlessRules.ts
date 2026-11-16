@@ -108,6 +108,11 @@ export type BonusKind=typeof BONUS_KINDS[number];
 export function endlessBonus(random:()=>number):BonusKind{return BONUS_KINDS[Math.min(BONUS_KINDS.length-1,Math.floor(random()*BONUS_KINDS.length))];}
 /** Seed salts for the independent drop and bonus streams (shared by client and verifier). */
 export const DROP_SALT=0x5bd1e995,BONUS_SALT=0x2545f491;
+/** Campaign 1.10: a rewarded revive grants one random effect on the next launch, drawn from its own seeded stream. */
+export const REVIVE_BONUS_KINDS=['triple','lightning','fire','pierce'] as const;
+export type ReviveBonusKind=typeof REVIVE_BONUS_KINDS[number];
+export const REVIVE_BONUS_SALT=0x68e31da4;
+export function reviveBonus(random:()=>number):ReviveBonusKind{return REVIVE_BONUS_KINDS[Math.min(REVIVE_BONUS_KINDS.length-1,Math.floor(random()*REVIVE_BONUS_KINDS.length))];}
 export function dropEvery(destroyed:number,variant:EndlessVariant=ENDLESS_CURRENT){const d=variant.drops;return Math.min(d.max,d.start+Math.floor(destroyed/d.growEvery));}
 export function endlessStage(descents:number){return Math.min(100,1+Math.floor(descents/ENDLESS.rowsPerStage));}
 
