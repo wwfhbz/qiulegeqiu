@@ -32,13 +32,19 @@ const POPUP_CHANNELS={combo:0,power:1,clear:2} as const;
  * Shared Canvas renderer for Web and WeChat. It only reads Physics; every animation clock here is
  * the wall clock passed to draw(), so presentation can never alter simulation, scoring or replays.
  */
-/** Ball trail skins: 'comet' = 星光 (twinkling stars), heart (floating pink hearts), rainbow = 彩虹桥 (arched bands). */
+/** Ball trail skins (ids kept for saved unlocks): 'comet' = 流星 meteor, heart = 爱心, 'rainbow' = 花瓣 blossoms. */
 export type TrailSkin='none'|'comet'|'heart'|'rainbow';
 /** Paddle skins: default, neon light-saber, burning flame, royal gold. */
 export type PaddleSkin='default'|'neon'|'flame'|'gold';
 const PADDLE_GLOW:Record<Exclude<PaddleSkin,'default'>,string>={neon:'#C46CFF',flame:'#FF7A2E',gold:'#FFD24D'};
-const TRAIL_GLOW:Record<Exclude<TrailSkin,'none'>,string>={comet:'#FFE27A',heart:'#FF6FB1',rainbow:'#8EE6FF'};
-function starPath(c:CanvasRenderingContext2D,x:number,y:number,r:number,rot:number){c.beginPath();for(let i=0;i<10;i++){const a=rot-Math.PI/2+i*Math.PI/5,rr=i%2?r*.45:r;const px=x+Math.cos(a)*rr,py=y+Math.sin(a)*rr;if(i)c.lineTo(px,py);else c.moveTo(px,py);}c.closePath();}
+const TRAIL_GLOW:Record<Exclude<TrailSkin,'none'>,string>={comet:'#BDEBFF',heart:'#FF6FB1',rainbow:'#FFB3D4'};
+/** One petal: a pointed teardrop of length 2r around (x,y), turned by rot. */
+function petalPath(c:CanvasRenderingContext2D,x:number,y:number,r:number,rot:number){const cs=Math.cos(rot),sn=Math.sin(rot),P=(u:number,v:number)=>[x+u*cs-v*sn,y+u*sn+v*cs] as const;
+ const [ax,ay]=P(0,-r),[bx,by]=P(r*.8,0),[cx,cy]=P(0,r),[dx,dy]=P(-r*.8,0);c.beginPath();c.moveTo(ax,ay);c.quadraticCurveTo(bx,by,cx,cy);c.quadraticCurveTo(dx,dy,ax,ay);c.closePath();}
+/** A five-petal blossom: round petals, a lighter inner ring and a golden centre. */
+function flowerPath(c:CanvasRenderingContext2D,x:number,y:number,r:number,rot:number,petal:string,inner:string,centre:string){
+ c.fillStyle=petal;for(let i=0;i<5;i++){const a=rot+i*Math.PI*2/5;c.beginPath();c.arc(x+Math.cos(a)*r*.55,y+Math.sin(a)*r*.55,r*.48,0,Math.PI*2);c.fill();}
+ c.fillStyle=inner;c.beginPath();c.arc(x,y,r*.42,0,Math.PI*2);c.fill();c.fillStyle=centre;c.beginPath();c.arc(x,y,r*.26,0,Math.PI*2);c.fill();}
 function heartPath(c:CanvasRenderingContext2D,x:number,y:number,r:number){c.beginPath();c.moveTo(x,y+r*.9);c.bezierCurveTo(x-r*1.5,y-r*.1,x-r*.7,y-r*1.15,x,y-r*.35);c.bezierCurveTo(x+r*.7,y-r*1.15,x+r*1.5,y-r*.1,x,y+r*.9);}
 export class Renderer {
   private ctx: Ctx;
@@ -53,16 +59,16 @@ export class Renderer {
   private ratio = 1;
   private arenaFill?:CanvasGradient|string;private paddleFill?:CanvasGradient|string;
   /**
-   * Balls styled to match their trail: comet = white-hot core with a gold ring; heart = pink ball with a white heart
-   * highlight; rainbow = a spinning seven-colour ball. Detail is only drawn for the first 24 balls (the rest get the
-   * matching flat colour) so a hundred-ball screen stays smooth.
+   * Balls styled to match their trail: heart = a solid pink heart head (a little larger than the ball); meteor = a
+   * white-hot head with an icy rim; flower = a turning five-petal blossom. Detail is only drawn for the first 24
+   * balls (the rest get the matching flat shape) so a hundred-ball screen stays smooth.
    */
   private drawSkinBalls(c:CanvasRenderingContext2D,p:Physics,highlights:boolean,now:number){
-   let detailed=0;const rainbow=['#FF5E6E','#FF9F43','#FFE45C','#4CD9A0','#4FC3FF','#6C7BFF','#B07CFF'],spin=now/320;
+   let detailed=0;
    for(const ball of p.balls)if(ball.alive){const r=ball.radius+.6,x=ball.x,y=ball.y,rich=highlights&&++detailed<=24;
-    if(this.trail==='comet'){const g=c.createRadialGradient?.(x-r*.3,y-r*.3,0,x,y,r+.6);g?.addColorStop(0,'#FFFBE6');g?.addColorStop(.55,'#FFE27A');g?.addColorStop(1,'#E8A21A');c.fillStyle=g||'#FFD24D';c.beginPath();c.arc(x,y,r+.6,0,Math.PI*2);c.fill();if(rich){c.fillStyle='#FFFFFF';starPath(c,x,y,r*.55,now/500);c.fill();}}
-    else if(this.trail==='heart'){c.fillStyle='#FF5E8A';c.beginPath();c.arc(x,y,r+.4,0,Math.PI*2);c.fill();if(rich){c.fillStyle='#FFB3CF';c.beginPath();c.arc(x,y,r-.8,Math.PI*1.05,Math.PI*1.95);c.fill();c.fillStyle='#FFFFFF';heartPath(c,x,y+.3,r*.42);c.fill();}}
-    else{c.fillStyle='#FFFFFF';c.beginPath();c.arc(x,y,r+.2,0,Math.PI*2);c.fill();if(rich){c.lineWidth=1.6;for(let k=0;k<rainbow.length;k++){const a0=spin+k*Math.PI*2/rainbow.length,a1=a0+Math.PI*2/rainbow.length+.03;c.strokeStyle=rainbow[k];c.beginPath();c.arc(x,y,r+.4,a0,a1);c.stroke();}c.fillStyle='rgba(180,220,255,.7)';c.beginPath();c.arc(x-r*.3,y-r*.3,r*.3,0,Math.PI*2);c.fill();}}
+    if(this.trail==='comet'){c.fillStyle='#BDEBFF';c.beginPath();c.arc(x,y,r+.8,0,Math.PI*2);c.fill();c.fillStyle='#FFFFFF';c.beginPath();c.arc(x,y,r-.2,0,Math.PI*2);c.fill();if(rich){c.fillStyle='#FFF4C2';c.beginPath();c.arc(x+r*.15,y+r*.15,r*.45,0,Math.PI*2);c.fill();}}
+    else if(this.trail==='heart'){const hr=r*1.6;c.fillStyle='#FF4F8E';heartPath(c,x,y+hr*.12,hr);c.fill();if(rich){c.fillStyle='rgba(255,255,255,.85)';c.beginPath();c.arc(x-hr*.45,y-hr*.3,hr*.2,0,Math.PI*2);c.fill();}}
+    else{const rot=now/700+x*.01;if(rich)flowerPath(c,x,y,r*1.5,rot,'#FF8FC0','#FFE0EE','#FFD24D');else{c.fillStyle='#FF8FC0';c.beginPath();c.arc(x,y,r+.4,0,Math.PI*2);c.fill();}}
    }
   }
   /** Cosmetic paddle skin (no gameplay effect; the hit box is unchanged). */
@@ -109,39 +115,60 @@ export class Renderer {
   /** Back-compat for the 2.7 WeChat setting (comet on/off). */
   get cometTail(){return this.trail==='comet';}
   set cometTail(on:boolean){this.trail=on?'comet':'none';}
-  /** Heart: floating pink hearts. 星光: twinkling stars. 彩虹桥: seven bands along the real path (12 balls). At most 24 balls. */
-  /** Recent head positions per ball, for trails that bend along the real path (rainbow bridge). */
-  private trailHistory=new WeakMap<object,{x:number;y:number}[]>();
+  /**
+   * Trail skins (cosmetic only, wall clock): 爱心 = a stream of hearts; 流星 = a tapered meteor streak with a swarm of
+   * little meteors flowing out behind it; 花瓣 = small blossoms and loose petals drifting behind. At most 24 balls.
+   */
   private drawSkinTrail(c:CanvasRenderingContext2D,p:Physics,base:number,now:number){
-   let drawn=0;c.save();c.lineCap='round';c.lineJoin='round';
-   const bands=['#FF5E6E','#FF9F43','#FFE45C','#4CD9A0','#4FC3FF','#6C7BFF','#B07CFF'];
-   for(const ball of p.balls)if(ball.alive){if(++drawn>(this.trail==='rainbow'?12:24))break;
-    const speed=Math.hypot(ball.vx,ball.vy)||1,ux=ball.vx/speed,uy=ball.vy/speed,px=-uy,py=ux;
+   let drawn=0;c.save();c.lineCap='round';
+   for(const ball of p.balls)if(ball.alive){if(++drawn>24)break;
+    const speed=Math.hypot(ball.vx,ball.vy)||1,ux=ball.vx/speed,uy=ball.vy/speed,px=-uy,py=ux,r=ball.radius;
     if(this.trail==='heart'){
-     for(let k=0;k<4;k++){const d=9+k*11,sway=Math.sin(now/140+k*1.7+ball.x*.05)*2.6*k/3,x=ball.x-ux*d+px*sway,y=ball.y-uy*d+py*sway,r=ball.radius*(1.5-k*.22);
-      c.globalAlpha=.92-k*.2;c.fillStyle=k%2?'#FF9BCB':'#FF5E8A';heartPath(c,x,y,r);c.fill();}
+     for(let k=0;k<4;k++){const d=r*2.6+k*12,sway=Math.sin(now/140+k*1.7+ball.x*.05)*2.6*k/3,x=ball.x-ux*d+px*sway,y=ball.y-uy*d+py*sway,hr=r*(1.3-k*.18);
+      c.globalAlpha=.85-k*.18;c.fillStyle=k%2?'#FF9BCB':'#FF5E8A';heartPath(c,x,y,hr);c.fill();}
     }else if(this.trail==='comet'){
-     // 星光: twinkling five-pointed stars, gold and white, slowly turning and shrinking toward the tail.
-     for(let k=0;k<5;k++){const d=ball.radius*1.6+k*10.5,wobble=Math.sin(now/170+k*1.3+ball.y*.03)*2.2*(k/4),x=ball.x-ux*d+px*wobble,y=ball.y-uy*d+py*wobble,r=ball.radius*(1.55-k*.2),tw=.75+.25*Math.sin(now/90+k*2.1);
-      c.globalAlpha=(.95-k*.17)*tw;c.fillStyle=k%2?'#FFF8DC':'#FFD24D';starPath(c,x,y,r,now/600+k*.7);c.fill();}
-     // A few sparkle dots drifting off the line.
-     c.fillStyle='#FFFFFF';for(let k=0;k<3;k++){const d=14+k*16,side=k%2?1:-1,off=(4+((now/60+k*37)%6))*side;c.globalAlpha=.5*(1-k/3)*(.5+.5*Math.sin(now/110+k));c.beginPath();c.arc(ball.x-ux*d+px*off,ball.y-uy*d+py*off,1.1,0,Math.PI*2);c.fill();}
+     // Main streak: a tapered wedge from the head backwards, white → pale gold → icy blue.
+     const len=Math.max(56,base*3),tx=ball.x-ux*len,ty=ball.y-uy*len,w=r*1.05;
+     const g=c.createLinearGradient?.(ball.x,ball.y,tx,ty);
+     if(g){g.addColorStop(0,'rgba(255,255,255,.95)');g.addColorStop(.3,'rgba(255,226,122,.7)');g.addColorStop(1,'rgba(79,195,255,0)');c.fillStyle=g;c.globalAlpha=1;}else{c.fillStyle='#FFE27A';c.globalAlpha=.6;}
+     c.beginPath();c.moveTo(ball.x+px*w,ball.y+py*w);c.lineTo(tx,ty);c.lineTo(ball.x-px*w,ball.y-py*w);c.closePath();c.fill();
+     // A swarm of little meteors flowing out behind, each a short bright streak with a white head.
+     for(let k=0;k<5;k++){const ph=(now/520+k*.2+(ball.x+ball.y)*.002)%1,side=k%2?1:-1,d=r*2+ph*62,off=side*(3+ph*11+k),hx=ball.x-ux*d+px*off,hy=ball.y-uy*d+py*off,sl=6+4*(1-ph);
+      c.globalAlpha=.9*(1-ph);c.strokeStyle=k%2?'#8EE6FF':'#FFE27A';c.lineWidth=1.6;c.beginPath();c.moveTo(hx,hy);c.lineTo(hx-ux*sl,hy-uy*sl);c.stroke();
+      c.fillStyle='#FFFFFF';c.beginPath();c.arc(hx,hy,1.3,0,Math.PI*2);c.fill();}
     }else{
-     // 彩虹桥: seven bands side by side bending along the ball's real path into an arch, ending in two little clouds.
-     let history=this.trailHistory.get(ball);const last=history?.[0];
-     if(!history||!last||Math.hypot(ball.x-last.x,ball.y-last.y)>80){history=[{x:ball.x,y:ball.y}];this.trailHistory.set(ball,history);}
-     else if(Math.hypot(ball.x-last.x,ball.y-last.y)>4){history.unshift({x:ball.x,y:ball.y});if(history.length>9)history.length=9;}
-     const pts=[{x:ball.x,y:ball.y},...history.filter((q,i)=>i>0||Math.hypot(q.x-ball.x,q.y-ball.y)>1)];
-     if(pts.length<2){const len=Math.max(40,base*2.2);pts.push({x:ball.x-ux*len*.5,y:ball.y-uy*len*.5},{x:ball.x-ux*len,y:ball.y-uy*len});}
-     const n=pts.length-1;
-     for(let i=0;i<n;i++){const a=pts[i],b=pts[i+1],dx=b.x-a.x,dy=b.y-a.y,dl=Math.hypot(dx,dy)||1,nx=-dy/dl,ny=dx/dl,t=i/Math.max(1,n),w=ball.radius*.5*(1-t*.55);
-      c.globalAlpha=.9*(1-t*.75);c.lineWidth=w+.6;
-      for(let k=0;k<bands.length;k++){const o=(k-3)*w;c.strokeStyle=bands[k];c.beginPath();c.moveTo(a.x+nx*o,a.y+ny*o);c.lineTo(b.x+nx*o,b.y+ny*o);c.stroke();}}
-     const tail=pts[n],before=pts[Math.max(0,n-1)],tdx=tail.x-before.x,tdy=tail.y-before.y,tl=Math.hypot(tdx,tdy)||1;
-     c.globalAlpha=.55;c.fillStyle='#FFFFFF';for(const [ox,oy,rr] of [[0,0,ball.radius*1.15],[-tdy/tl*ball.radius*1.4,tdx/tl*ball.radius*1.4,ball.radius*.85],[tdy/tl*ball.radius*1.4,-tdx/tl*ball.radius*1.4,ball.radius*.8]] as const){c.beginPath();c.arc(tail.x+ox,tail.y+oy,rr,0,Math.PI*2);c.fill();}
+     // Small blossoms in a gentle sway, plus a few loose petals tumbling off the line.
+     const tones=[['#FF8FC0','#FFE0EE'],['#FFFFFF','#FFE0EE'],['#FFB38A','#FFF1E0'],['#C9A2FF','#F1E6FF']];
+     for(let k=0;k<4;k++){const d=r*2.4+k*12,sway=Math.sin(now/180+k*1.5+ball.x*.04)*3*(k+1)/4,x=ball.x-ux*d+px*sway,y=ball.y-uy*d+py*sway,fr=r*(1.05-k*.15),t=tones[k];
+      c.globalAlpha=.92-k*.17;flowerPath(c,x,y,fr,now/500+k,t[0],t[1],'#FFD24D');}
+     for(let k=0;k<3;k++){const ph=(now/700+k/3+ball.x*.003)%1,side=k%2?1:-1,d=r*2+ph*48,off=side*(5+ph*12),x=ball.x-ux*d+px*off,y=ball.y-uy*d+py*off+ph*6;
+      c.globalAlpha=.8*(1-ph);c.fillStyle=k%2?'#FFB3D4':'#FF8FC0';petalPath(c,x,y,r*.75,now/260+k*2);c.fill();}
     }
    }
    c.restore();
+  }
+  /** Paddle-hit rain for the trail skins: hearts, meteors or petals drift down across the play field. */
+  private rain=Array.from({length:96},()=>({x:0,y:0,vx:0,vy:0,rot:0,vr:0,size:0,start:-1e9,life:0,sway:0,tone:0}));
+  private rainCursor=0;private rainLast=-1e9;
+  private spawnRain(now:number){
+   if(this.trail==='none'||now-this.rainLast<140)return;this.rainLast=now;
+   const count=this.lowDevice||this.host.lowPerformance?.()===true?6:14,span=FRAME.right-FRAME.left;
+   for(let i=0;i<count;i++){const q=this.rain[this.rainCursor++%this.rain.length],rnd=Math.random;
+    q.start=now+rnd()*260;q.x=FRAME.left+rnd()*span;q.y=VIEW.y-10-rnd()*80;q.rot=rnd()*Math.PI*2;q.sway=rnd()*Math.PI*2;q.tone=Math.floor(rnd()*4);
+    if(this.trail==='comet'){q.vx=-170-rnd()*80;q.vy=420+rnd()*160;q.vr=0;q.size=12+rnd()*12;q.life=1300+rnd()*500;q.x+=span*.25;}
+    else if(this.trail==='heart'){q.vx=0;q.vy=150+rnd()*90;q.vr=(rnd()-.5)*2;q.size=6+rnd()*5;q.life=2300+rnd()*700;}
+    else{q.vx=20+rnd()*30;q.vy=110+rnd()*70;q.vr=(rnd()-.5)*5;q.size=7+rnd()*5;q.life=2600+rnd()*800;}}
+  }
+  private drawRain(c:CanvasRenderingContext2D,now:number){
+   if(this.trail==='none')return;let any=false;
+   for(const q of this.rain){const ms=now-q.start;if(ms<0||ms>q.life)continue;
+    const t=ms/1000,k=ms/q.life,x=q.x+q.vx*t+(this.trail==='comet'?0:Math.sin(t*2.4+q.sway)*14),y=q.y+q.vy*t;if(y>FRAME.deathY+20)continue;
+    if(!any){c.save();c.lineCap='round';any=true;}
+    c.globalAlpha=Math.min(1,ms/180)*(k>.7?(1-k)/.3:1)*.9;
+    if(this.trail==='comet'){const sp=Math.hypot(q.vx,q.vy),ux=q.vx/sp,uy=q.vy/sp,l=q.size*2.4;c.strokeStyle=q.tone%2?'#8EE6FF':'#FFE27A';c.lineWidth=3;c.beginPath();c.moveTo(x,y);c.lineTo(x-ux*l,y-uy*l);c.stroke();c.strokeStyle='#FFFFFF';c.lineWidth=1.4;c.beginPath();c.moveTo(x,y);c.lineTo(x-ux*l*.45,y-uy*l*.45);c.stroke();c.fillStyle='#FFFFFF';c.beginPath();c.arc(x,y,2.6,0,Math.PI*2);c.fill();}
+    else if(this.trail==='heart'){c.fillStyle=['#FF5E8A','#FF9BCB','#FF3D7F','#FFC2DA'][q.tone];heartPath(c,x,y,q.size);c.fill();}
+    else{c.fillStyle=['#FF6FAE','#FF8FC0','#FFFFFF','#FF9E7A'][q.tone];petalPath(c,x,y,q.size,q.rot+q.vr*t);c.fill();c.strokeStyle='rgba(255,255,255,.7)';c.lineWidth=.8;c.stroke();}}
+   if(any)c.restore();
   }
   private lowDevice=false;private sampleCount=0;private sampleTime=0;private previousDraw=0;
   private generation = -1; private cleared = 0;
@@ -311,7 +338,7 @@ export class Renderer {
   private react(e:FxEvent,now:number){
     const a=C.arena;
     switch(e.kind){
-      case 'paddle':this.paddlePulse=now;this.ring(e.x,e.y,now,260,4,26,OCEAN.colors.accent,2);break;
+      case 'paddle':this.paddlePulse=now;this.spawnRain(now);this.ring(e.x,e.y,now,260,4,26,OCEAN.colors.accent,2);break;
       case 'lost':this.ring(e.x,e.y,now,420,6,46,OCEAN.colors.danger,3);if(this.roundOver){this.dangerUntil=now+520;this.shake(6,now);}break;
       case 'power':{const kind=e.power??'triple',style=OCEAN.powers[kind];this.ring(e.x,e.y,now,420,10,90,style.color,3);
         this.popup('power',POWER_LABELS[kind],(style.good?'':'小心！球数减半 · ')+(e.value?`+${e.value} 分`:''),a.x,a.y+a.radius+70,now,style.color,30);
@@ -431,7 +458,7 @@ export class Renderer {
     const piercing=p.pierceRemaining>0,burning=p.fireRemaining>0;
     this.powerFx.track(p.balls,piercing,burning,now,low);this.powerFx.drawUnder(c,this.glowFor,piercing,burning,now);
     // Balls: comet trail, additive glow (budgeted), solid core.
-    // Trail skins (星光 / 爱心 / 彩虹桥; unlocked by a rewarded video on WeChat). Plain balls keep the short trail.
+    // Trail skins (流星 / 爱心 / 花瓣; unlocked by a rewarded video on WeChat). Plain balls keep the short trail.
     if(this.trail!=='none'){this.drawSkinTrail(c,p,budget.trailLength,now);}
     else if(budget.trailLength){c.lineCap='round';for(const ball of p.balls)if(ball.alive){const speed=Math.hypot(ball.vx,ball.vy)||1,ux=ball.vx/speed,uy=ball.vy/speed;for(let k=0;k<3;k++){const s0=k*budget.trailLength/3,s1=(k+1)*budget.trailLength/3;c.globalAlpha=budget.trailAlpha*(1.6-k*.5);c.lineWidth=ball.radius*(1.5-k*.4);c.strokeStyle=p.fireRemaining>0?OCEAN.powers.fire.color:p.pierceRemaining>0?OCEAN.powers.pierce.color:OCEAN.ball.trail;c.beginPath();c.moveTo(ball.x-ux*s0,ball.y-uy*s0);c.lineTo(ball.x-ux*s1,ball.y-uy*s1);c.stroke();}}c.lineCap='butt';c.globalAlpha=1;}
     // Burning balls glow orange, piercing balls cyan; colours make the active power readable at a glance.
@@ -439,8 +466,9 @@ export class Renderer {
     const bg=budget.highlights?this.glow(ballGlow):undefined;
     if(bg){c.globalAlpha=.55;for(const ball of p.balls)if(ball.alive){const r=ball.radius*4.2;c.drawImage(bg as CanvasImageSource,ball.x-r,ball.y-r,r*2,r*2);}c.globalAlpha=1;}
     // The ball wears its trail's colours: plain white without a trail; comet / heart / rainbow balls match their tails.
-    if(this.trail==='none')for(const ball of p.balls)if(ball.alive){c.fillStyle=OCEAN.ball.body;c.beginPath();c.arc(ball.x,ball.y,ball.radius+.4,0,Math.PI*2);c.fill();if(budget.highlights){c.strokeStyle=OCEAN.ball.edge;c.lineWidth=.8;c.beginPath();c.arc(ball.x,ball.y,ball.radius,0,Math.PI*2);c.stroke();}}
+    if(this.trail==='none'){for(const ball of p.balls)if(ball.alive){c.fillStyle=OCEAN.ball.body;c.beginPath();c.arc(ball.x,ball.y,ball.radius+.4,0,Math.PI*2);c.fill();if(budget.highlights){c.strokeStyle=OCEAN.ball.edge;c.lineWidth=.8;c.beginPath();c.arc(ball.x,ball.y,ball.radius,0,Math.PI*2);c.stroke();}}}
     else this.drawSkinBalls(c,p,budget.highlights,now);
+    this.drawRain(c,now);
 
     this.powerFx.drawHeads(c,this.glowFor,p.balls,piercing,burning,now);
     // Brick break: bright flash plus coloured shards that inherit the brick's band colour.
