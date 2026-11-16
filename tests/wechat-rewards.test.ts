@@ -60,3 +60,7 @@ it('第二局结束后只出现一次"添加到我的小程序"引导，点任�
    p.chooseMode('campaign');a.frame(200*run+32);}
  }finally{a.dispose();}
 });
+it('2.9 的冰晶挡板已改为烈焰燃烧：已解锁/已选择冰晶的玩家自动得到火焰挡板',()=>{
+ const f=wxFixture();f.storage.set('qiulegeqiu:wechat-paddles:v1',['crystal']);f.storage.set('qiulegeqiu:wechat-paddle:v1','crystal');
+ const a=app(f,false),p=a as unknown as Private;try{expect(p.renderer.paddleSkin).toBe('flame');p.skins();expect(a.panel.actions.some(x=>x.label==='烈焰燃烧：使用中')).toBe(true);}finally{a.dispose();}
+});

@@ -9,7 +9,9 @@ export function isTrailSkin(value:unknown):value is TrailSkin{return value==='no
 /** Permanent paddle skins (cosmetic only, same hit box). Web: free. WeChat: each unlocked once by a rewarded video. */
 export const PADDLE_SKINS:readonly {id:Exclude<PaddleSkin,'default'>;name:string;desc:string}[]=[
  {id:'neon',name:'霓虹光剑',desc:'粉紫到青色的能量光刃'},
- {id:'crystal',name:'星河冰晶',desc:'多面冰晶，流光闪烁'},
+ {id:'flame',name:'烈焰燃烧',desc:'熊熊火焰，火星飞溅'},
  {id:'gold',name:'黄金荣耀',desc:'金色宝石，扫光闪耀'},
 ];
 export function isPaddleSkin(value:unknown):value is PaddleSkin{return value==='default'||PADDLE_SKINS.some(s=>s.id===value);}
+/** V2.9 shipped an ice-crystal paddle that became the flame paddle: keep anyone's unlock and choice. */
+export function migratePaddle(value:unknown){return value==='crystal'?'flame':value;}

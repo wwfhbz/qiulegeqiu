@@ -34,7 +34,7 @@ import {Panel,type Action} from './Panel';
 import {WechatAds} from './Ads';
 import {AD_UNITS} from './AdConfig';
 import {MAX_REVIVES} from '../../shared/Challenge';
-import {TRAIL_SKINS,PADDLE_SKINS,isTrailSkin,isPaddleSkin} from '../../shared/Skins';
+import {TRAIL_SKINS,PADDLE_SKINS,isTrailSkin,isPaddleSkin,migratePaddle} from '../../shared/Skins';
 import type {TrailSkin,PaddleSkin} from '../../src/Renderer';
 import {privacy,agreement} from './Policies';
 import type {Wx,Canvas,Config,TouchEvent} from './Platform';
@@ -222,10 +222,10 @@ export class MiniGameApp {
   if(paddles.length&&paddle!=='default')actions.push({label:'默认挡板',half:true,run:()=>{this.usePaddle('default');this.skins();}});
   actions.push({label:'返回设置',run:()=>this.settings()});
   const any=this.unlockedTrails().length+paddles.length>0||this.ads.rewardedAvailable;
-  this.panel.show('皮肤',any?['拖尾：彗星 · 爱心 · 彩虹    挡板：霓虹光剑 · 星河冰晶 · 黄金荣耀','每款看一次视频永久解锁，只改外观，不影响成绩。']:['开通广告后可看视频解锁皮肤。'],actions);
+  this.panel.show('皮肤',any?['拖尾：彗星 · 爱心 · 彩虹    挡板：霓虹光剑 · 烈焰燃烧 · 黄金荣耀','每款看一次视频永久解锁，只改外观，不影响成绩。']:['开通广告后可看视频解锁皮肤。'],actions);
  }
- private unlockedPaddles():Exclude<PaddleSkin,'default'>[]{const list=this.platform.read(SETTING.paddles);return Array.isArray(list)?list.filter((v):v is Exclude<PaddleSkin,'default'>=>isPaddleSkin(v)&&v!=='default'):[];}
- private selectedPaddle():PaddleSkin{const v=this.platform.read(SETTING.paddle);return isPaddleSkin(v)&&(v==='default'||this.unlockedPaddles().includes(v))?v:'default';}
+ private unlockedPaddles():Exclude<PaddleSkin,'default'>[]{const list=this.platform.read(SETTING.paddles);return Array.isArray(list)?[...new Set(list.map(migratePaddle))].filter((v):v is Exclude<PaddleSkin,'default'>=>isPaddleSkin(v)&&v!=='default'):[];}
+ private selectedPaddle():PaddleSkin{const v=migratePaddle(this.platform.read(SETTING.paddle));return isPaddleSkin(v)&&(v==='default'||this.unlockedPaddles().includes(v))?v:'default';}
  private usePaddle(id:PaddleSkin){this.platform.write(SETTING.paddle,id);this.renderer.paddleSkin=id;}
  /** Unlocked trail skins (the 2.7 comet setting counts as an unlocked comet). */
  private unlockedTrails():Exclude<TrailSkin,'none'>[]{const list=this.platform.read(SETTING.trails),legacy=this.platform.read(SETTING.trail);

@@ -34,9 +34,10 @@ const POPUP_CHANNELS={combo:0,power:1,clear:2} as const;
  */
 /** Ball trail skins: comet (gold→cyan), heart (floating pink hearts), rainbow (seven-colour ribbon). */
 export type TrailSkin='none'|'comet'|'heart'|'rainbow';
-/** Paddle skins: default, neon light-saber, ice crystal, royal gold. */
-export type PaddleSkin='default'|'neon'|'crystal'|'gold';
-const PADDLE_GLOW:Record<Exclude<PaddleSkin,'default'>,string>={neon:'#C46CFF',crystal:'#8EE6FF',gold:'#FFD24D'};
+/** Paddle skins: default, neon light-saber, burning flame, royal gold. */
+export type PaddleSkin='default'|'neon'|'flame'|'gold';
+const PADDLE_GLOW:Record<Exclude<PaddleSkin,'default'>,string>={neon:'#C46CFF',flame:'#FF7A2E',gold:'#FFD24D'};
+const TRAIL_GLOW:Record<Exclude<TrailSkin,'none'>,string>={comet:'#FFD24D',heart:'#FF6FB1',rainbow:'#B07CFF'};
 function heartPath(c:CanvasRenderingContext2D,x:number,y:number,r:number){c.beginPath();c.moveTo(x,y+r*.9);c.bezierCurveTo(x-r*1.5,y-r*.1,x-r*.7,y-r*1.15,x,y-r*.35);c.bezierCurveTo(x+r*.7,y-r*1.15,x+r*1.5,y-r*.1,x,y+r*.9);}
 export class Renderer {
   private ctx: Ctx;
@@ -50,10 +51,24 @@ export class Renderer {
   private cachedRevision = -1;
   private ratio = 1;
   private arenaFill?:CanvasGradient|string;private paddleFill?:CanvasGradient|string;
+  /**
+   * Balls styled to match their trail: comet = white-hot core with a gold ring; heart = pink ball with a white heart
+   * highlight; rainbow = a spinning seven-colour ball. Detail is only drawn for the first 24 balls (the rest get the
+   * matching flat colour) so a hundred-ball screen stays smooth.
+   */
+  private drawSkinBalls(c:CanvasRenderingContext2D,p:Physics,highlights:boolean,now:number){
+   let detailed=0;const rainbow=['#FF5E6E','#FF9F43','#FFE45C','#4CD9A0','#4FC3FF','#6C7BFF','#B07CFF'],spin=now/320;
+   for(const ball of p.balls)if(ball.alive){const r=ball.radius+.6,x=ball.x,y=ball.y,rich=highlights&&++detailed<=24;
+    if(this.trail==='comet'){c.fillStyle='#FFD24D';c.beginPath();c.arc(x,y,r+.6,0,Math.PI*2);c.fill();c.fillStyle='#FFF8DC';c.beginPath();c.arc(x,y,r-.9,0,Math.PI*2);c.fill();if(rich){c.fillStyle='#FFFFFF';c.beginPath();c.arc(x-r*.25,y-r*.25,r*.4,0,Math.PI*2);c.fill();c.strokeStyle='#8EE6FF';c.lineWidth=.8;c.beginPath();c.arc(x,y,r+1.2,0,Math.PI*2);c.stroke();}}
+    else if(this.trail==='heart'){c.fillStyle='#FF5E8A';c.beginPath();c.arc(x,y,r+.4,0,Math.PI*2);c.fill();if(rich){c.fillStyle='#FFB3CF';c.beginPath();c.arc(x,y,r-.8,Math.PI*1.05,Math.PI*1.95);c.fill();c.fillStyle='#FFFFFF';heartPath(c,x,y+.3,r*.42);c.fill();}}
+    else{if(rich){for(let k=0;k<rainbow.length;k++){const a0=spin+k*Math.PI*2/rainbow.length,a1=a0+Math.PI*2/rainbow.length+.02;c.fillStyle=rainbow[k];c.beginPath();c.moveTo(x,y);c.arc(x,y,r+.4,a0,a1);c.closePath();c.fill();}c.fillStyle='rgba(255,255,255,.85)';c.beginPath();c.arc(x,y,r*.38,0,Math.PI*2);c.fill();}
+     else{c.fillStyle=rainbow[Math.floor(spin+x*.01)%rainbow.length];c.beginPath();c.arc(x,y,r+.4,0,Math.PI*2);c.fill();}}
+   }
+  }
   /** Cosmetic paddle skin (no gameplay effect; the hit box is unchanged). */
   paddleSkin:PaddleSkin='default';
   /**
-   * Paddle skins in the style of mature casual games: a neon light-saber, a faceted ice crystal and a royal gold bar
+   * Paddle skins in the style of mature casual games: a neon light-saber, a burning flame bar and a royal gold bar
    * with a gem and a shine sweep. Same size and position as the normal paddle; only paint changes.
    */
   private drawPaddleSkin(c:CanvasRenderingContext2D,x:number,y:number,w:number,h:number,now:number){
@@ -65,15 +80,17 @@ export class Renderer {
     c.fillStyle='rgba(10,6,30,.55)';c.beginPath();c.roundRect(left+3,y+3,w-6,h-6,r-2);c.fill();
     const beat=.65+.35*Math.sin(now/180);c.globalAlpha=beat;c.fillStyle='#FFFFFF';c.beginPath();c.roundRect(left+6,y+h/2-1.2,w-12,2.4,1.2);c.fill();c.globalAlpha=1;
     for(const [side,color] of [[-1,'#FF4FD8'],[1,'#4FE3FF']] as const){c.fillStyle=color;c.beginPath();c.arc(x+side*(w/2-1),y+h/2,h*.62,0,Math.PI*2);c.fill();c.fillStyle='#FFFFFF';c.beginPath();c.arc(x+side*(w/2-1),y+h/2,h*.25,0,Math.PI*2);c.fill();}
-   }else if(this.paddleSkin==='crystal'){
-    const g=c.createLinearGradient(0,y,0,y+h);g?.addColorStop(0,'#F2FCFF');g?.addColorStop(.45,'#9BE4FF');g?.addColorStop(1,'#3A8CFF');
-    c.fillStyle=g||'#9BE4FF';c.beginPath();c.roundRect(left,y,w,h,3);c.fill();
-    c.save();c.beginPath();c.roundRect(left,y,w,h,3);c.clip();c.strokeStyle='rgba(255,255,255,.55)';c.lineWidth=1;
-    for(let fx=left+6;fx<left+w;fx+=12){c.beginPath();c.moveTo(fx,y);c.lineTo(fx+6,y+h);c.stroke();}
-    c.fillStyle='rgba(255,255,255,.75)';c.fillRect(left+4,y+1,w-8,1.5);c.restore();
-    c.strokeStyle='rgba(255,255,255,.8)';c.lineWidth=1;c.beginPath();c.roundRect(left,y,w,h,3);c.stroke();
-    // A twinkle that glides along the crystal.
-    const t=(now%2600)/2600,sx=left+8+t*(w-16),sy=y+h*.35,s=3.5+1.5*Math.sin(now/120);c.fillStyle='#FFFFFF';c.beginPath();c.moveTo(sx,sy-s);c.lineTo(sx+s*.3,sy-s*.3);c.lineTo(sx+s,sy);c.lineTo(sx+s*.3,sy+s*.3);c.lineTo(sx,sy+s);c.lineTo(sx-s*.3,sy+s*.3);c.lineTo(sx-s,sy);c.lineTo(sx-s*.3,sy-s*.3);c.closePath();c.fill();
+   }else if(this.paddleSkin==='flame'){
+    // Burning bar: glowing ember body, flickering flame tongues along the top and sparks rising off it.
+    const g=c.createLinearGradient(0,y,0,y+h);g?.addColorStop(0,'#FFE45C');g?.addColorStop(.45,'#FF7A2E');g?.addColorStop(1,'#B3200E');
+    c.fillStyle=g||'#FF7A2E';c.beginPath();c.roundRect(left,y,w,h,r);c.fill();
+    c.save();c.beginPath();c.roundRect(left,y,w,h,r);c.clip();c.fillStyle='rgba(255,236,170,.28)';for(let k=0;k<3;k++){const t=((now/1400+k*.33)%1),cx=left+t*w;c.beginPath();c.ellipse(cx,y+h*.6,w*.12,h*.16,0,0,Math.PI*2);c.fill();}c.restore();
+    const tongues=Math.max(5,Math.round(w/14));
+    for(let k=0;k<tongues;k++){const fx=left+w*(k+.5)/tongues,flick=Math.sin(now/90+k*1.9)*.5+Math.sin(now/53+k*3.1)*.5,fh=h*(1.1+.55*flick),fw=w/tongues*.62;
+     const fg=c.createLinearGradient(0,y-fh,0,y+2);fg?.addColorStop(0,'rgba(255,90,20,0)');fg?.addColorStop(.45,'#FF7A2E');fg?.addColorStop(1,'#FFE45C');
+     c.fillStyle=fg||'#FF7A2E';c.beginPath();c.moveTo(fx-fw/2,y+2);c.quadraticCurveTo(fx-fw*.55,y-fh*.45,fx+Math.sin(now/120+k)*fw*.25,y-fh);c.quadraticCurveTo(fx+fw*.55,y-fh*.45,fx+fw/2,y+2);c.closePath();c.fill();}
+    c.fillStyle='#FFE9A8';for(let k=0;k<5;k++){const t=((now/700+k*.2)%1),sx=left+w*((k*.37+.1)%1)+Math.sin(now/200+k)*4,sy=y-4-t*h*2.6;c.globalAlpha=1-t;c.beginPath();c.arc(sx,sy,1.3,0,Math.PI*2);c.fill();}c.globalAlpha=1;
+    c.fillStyle='rgba(255,255,255,.6)';c.fillRect(left+r,y+1,w-r*2,1);
    }else{
     const g=c.createLinearGradient(0,y,0,y+h);g?.addColorStop(0,'#FFF4C2');g?.addColorStop(.5,'#FFD24D');g?.addColorStop(1,'#C9770A');
     c.fillStyle=g||'#FFD24D';c.beginPath();c.roundRect(left,y,w,h,r);c.fill();
@@ -102,7 +119,7 @@ export class Renderer {
       c.globalAlpha=.92-k*.2;c.fillStyle=k%2?'#FF9BCB':'#FF5E8A';heartPath(c,x,y,r);c.fill();}
     }else{
      const len=Math.max(48,base*2.6),colors=['#FF5E6E','#FF9F43','#FFE45C','#4CD9A0','#4FC3FF','#6C7BFF','#B07CFF'];
-     for(let k=0;k<colors.length;k++){const s0=k*len/colors.length,s1=(k+1)*len/colors.length;c.globalAlpha=.9-k*.09;c.lineWidth=ball.radius*(2-k*.18);c.strokeStyle=colors[k];c.beginPath();c.moveTo(ball.x-ux*s0,ball.y-uy*s0);c.lineTo(ball.x-ux*s1,ball.y-uy*s1);c.stroke();}
+     for(let k=0;k<colors.length;k++){const gap=ball.radius*1.1,s0=gap+k*len/colors.length,s1=gap+(k+1)*len/colors.length;c.globalAlpha=.9-k*.09;c.lineWidth=ball.radius*(2-k*.18);c.strokeStyle=colors[k];c.beginPath();c.moveTo(ball.x-ux*s0,ball.y-uy*s0);c.lineTo(ball.x-ux*s1,ball.y-uy*s1);c.stroke();}
     }
    }
    c.restore();
@@ -397,13 +414,15 @@ export class Renderer {
     // Balls: comet trail, additive glow (budgeted), solid core.
     // Comet tail skin (unlocked by a rewarded video on WeChat): a longer gold→cyan tail. Plain balls keep the short trail.
     if(this.trail==='heart'||this.trail==='rainbow'){this.drawSkinTrail(c,p,budget.trailLength,now);}
-    else if(this.trail==='comet'){const len=Math.max(46,budget.trailLength*2.6),segments=6;c.lineCap='round';let drawn=0;for(const ball of p.balls)if(ball.alive){if(++drawn>24)break;const speed=Math.hypot(ball.vx,ball.vy)||1,ux=ball.vx/speed,uy=ball.vy/speed;for(let k=0;k<segments;k++){const s0=k*len/segments,s1=(k+1)*len/segments,f=k/(segments-1);c.globalAlpha=.85*(1-f*.85);c.lineWidth=ball.radius*(2.1-f*1.5);c.strokeStyle=p.fireRemaining>0?OCEAN.powers.fire.color:p.pierceRemaining>0?OCEAN.powers.pierce.color:k<2?'#FFE27A':k<4?'#8EE6FF':'#4FA8FF';c.beginPath();c.moveTo(ball.x-ux*s0,ball.y-uy*s0);c.lineTo(ball.x-ux*s1,ball.y-uy*s1);c.stroke();}}c.lineCap='butt';c.globalAlpha=1;}
+    else if(this.trail==='comet'){const len=Math.max(46,budget.trailLength*2.6),segments=6;c.lineCap='round';let drawn=0;for(const ball of p.balls)if(ball.alive){if(++drawn>24)break;const speed=Math.hypot(ball.vx,ball.vy)||1,ux=ball.vx/speed,uy=ball.vy/speed;for(let k=0;k<segments;k++){const gap=ball.radius*1.1,s0=gap+k*len/segments,s1=gap+(k+1)*len/segments,f=k/(segments-1);c.globalAlpha=.85*(1-f*.85);c.lineWidth=ball.radius*(2.1-f*1.5);c.strokeStyle=p.fireRemaining>0?OCEAN.powers.fire.color:p.pierceRemaining>0?OCEAN.powers.pierce.color:k<2?'#FFE27A':k<4?'#8EE6FF':'#4FA8FF';c.beginPath();c.moveTo(ball.x-ux*s0,ball.y-uy*s0);c.lineTo(ball.x-ux*s1,ball.y-uy*s1);c.stroke();}}c.lineCap='butt';c.globalAlpha=1;}
     else if(budget.trailLength){c.lineCap='round';for(const ball of p.balls)if(ball.alive){const speed=Math.hypot(ball.vx,ball.vy)||1,ux=ball.vx/speed,uy=ball.vy/speed;for(let k=0;k<3;k++){const s0=k*budget.trailLength/3,s1=(k+1)*budget.trailLength/3;c.globalAlpha=budget.trailAlpha*(1.6-k*.5);c.lineWidth=ball.radius*(1.5-k*.4);c.strokeStyle=p.fireRemaining>0?OCEAN.powers.fire.color:p.pierceRemaining>0?OCEAN.powers.pierce.color:OCEAN.ball.trail;c.beginPath();c.moveTo(ball.x-ux*s0,ball.y-uy*s0);c.lineTo(ball.x-ux*s1,ball.y-uy*s1);c.stroke();}}c.lineCap='butt';c.globalAlpha=1;}
     // Burning balls glow orange, piercing balls cyan; colours make the active power readable at a glance.
-    const ballGlow=p.fireRemaining>0?OCEAN.powers.fire.color:p.pierceRemaining>0?OCEAN.powers.pierce.color:OCEAN.ball.glow;
+    const ballGlow=p.fireRemaining>0?OCEAN.powers.fire.color:p.pierceRemaining>0?OCEAN.powers.pierce.color:this.trail==='none'?OCEAN.ball.glow:TRAIL_GLOW[this.trail];
     const bg=budget.highlights?this.glow(ballGlow):undefined;
     if(bg){c.globalAlpha=.55;for(const ball of p.balls)if(ball.alive){const r=ball.radius*4.2;c.drawImage(bg as CanvasImageSource,ball.x-r,ball.y-r,r*2,r*2);}c.globalAlpha=1;}
-    for(const ball of p.balls)if(ball.alive){c.fillStyle=OCEAN.ball.body;c.beginPath();c.arc(ball.x,ball.y,ball.radius+.4,0,Math.PI*2);c.fill();if(budget.highlights){c.strokeStyle=OCEAN.ball.edge;c.lineWidth=.8;c.beginPath();c.arc(ball.x,ball.y,ball.radius,0,Math.PI*2);c.stroke();}}
+    // The ball wears its trail's colours: plain white without a trail; comet / heart / rainbow balls match their tails.
+    if(this.trail==='none')for(const ball of p.balls)if(ball.alive){c.fillStyle=OCEAN.ball.body;c.beginPath();c.arc(ball.x,ball.y,ball.radius+.4,0,Math.PI*2);c.fill();if(budget.highlights){c.strokeStyle=OCEAN.ball.edge;c.lineWidth=.8;c.beginPath();c.arc(ball.x,ball.y,ball.radius,0,Math.PI*2);c.stroke();}}
+    else this.drawSkinBalls(c,p,budget.highlights,now);
 
     this.powerFx.drawHeads(c,this.glowFor,p.balls,piercing,burning,now);
     // Brick break: bright flash plus coloured shards that inherit the brick's band colour.

@@ -3,7 +3,7 @@ import {createWebHost,createWebAudio} from './platform/WebPlatform';
 import {AudioSystem} from './Audio';
 import { LeaderboardUI } from './online/LeaderboardUI';
 import { GAME_NAME, MINIGAME_VERSION } from '../shared/Brand';
-import { TRAIL_SKINS, PADDLE_SKINS, isTrailSkin, isPaddleSkin } from '../shared/Skins';
+import { TRAIL_SKINS, PADDLE_SKINS, isTrailSkin, isPaddleSkin, migratePaddle } from '../shared/Skins';
 import { iconSvg } from '../shared/Icons';
 import { Game, type GameMode } from './Game';
 import { ENDLESS } from './endless/EndlessRules';
@@ -234,7 +234,7 @@ export function mountGame(root: HTMLElement) {
   for(const b of Array.from(root.querySelectorAll<HTMLButtonElement>('[data-trail]')))b.onclick=()=>{const id=b.dataset.trail!;applyTrail(id);try{localStorage.setItem(TRAIL_KEY,id);}catch{/* Preference only. */}};
   const PADDLE_KEY='qiulegeqiu:paddle';
   const applyPaddle=(id:string)=>{if(!isPaddleSkin(id))return;if(game.renderer)(game.renderer as {paddleSkin?:string}).paddleSkin=id;for(const b of Array.from(root.querySelectorAll<HTMLElement>('[data-paddle]')))b.classList.toggle('on',b.dataset.paddle===id);};
-  try{const saved=localStorage.getItem(PADDLE_KEY);applyPaddle(saved&&isPaddleSkin(saved)?saved:'default');}catch{applyPaddle('default');}
+  try{const saved=migratePaddle(localStorage.getItem(PADDLE_KEY));applyPaddle(typeof saved==='string'&&isPaddleSkin(saved)?saved:'default');}catch{applyPaddle('default');}
   for(const b of Array.from(root.querySelectorAll<HTMLButtonElement>('[data-paddle]')))b.onclick=()=>{const id=b.dataset.paddle!;applyPaddle(id);try{localStorage.setItem(PADDLE_KEY,id);}catch{/* Preference only. */}};
   button('ts-skin').onclick=()=>{el('skin-picker').hidden=false;};
   button('sp-close').onclick=()=>{el('skin-picker').hidden=true;};
