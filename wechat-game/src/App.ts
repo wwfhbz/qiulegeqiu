@@ -223,7 +223,7 @@ export class MiniGameApp {
   if(paddles.length&&paddle!=='default')actions.push({label:'默认挡板',half:true,run:()=>{this.usePaddle('default');this.skins();}});
   actions.push({label:'返回菜单',run:()=>this.menu(false)});
   const any=this.unlockedTrails().length+paddles.length>0||this.ads.rewardedAvailable;
-  this.panel.show('皮肤',any?['拖尾：彗星 · 爱心 · 彩虹    挡板：霓虹光剑 · 烈焰燃烧 · 黄金荣耀','每款看一次视频永久解锁，只改外观，不影响成绩。']:['开通广告后可看视频解锁皮肤。'],actions);
+  this.panel.show('皮肤',any?['拖尾：星光 · 爱心 · 彩虹桥    挡板：霓虹光剑 · 烈焰燃烧 · 黄金荣耀','每款看一次视频永久解锁，只改外观，不影响成绩。']:['开通广告后可看视频解锁皮肤。'],actions);
  }
  private unlockedPaddles():Exclude<PaddleSkin,'default'>[]{const list=this.platform.read(SETTING.paddles);return Array.isArray(list)?[...new Set(list.map(migratePaddle))].filter((v):v is Exclude<PaddleSkin,'default'>=>isPaddleSkin(v)&&v!=='default'):[];}
  private selectedPaddle():PaddleSkin{const v=migratePaddle(this.platform.read(SETTING.paddle));return isPaddleSkin(v)&&(v==='default'||this.unlockedPaddles().includes(v))?v:'default';}

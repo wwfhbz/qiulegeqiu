@@ -1,9 +1,9 @@
 import type {TrailSkin,PaddleSkin} from '../src/Renderer';
 /** Ball trail skins (cosmetic only). Web: free to pick. WeChat: each unlocked once by a rewarded video. */
 export const TRAIL_SKINS:readonly {id:Exclude<TrailSkin,'none'>;name:string;desc:string}[]=[
- {id:'comet',name:'彗星',desc:'金蓝色尾焰'},
+ {id:'comet',name:'星光',desc:'金色五角星一路闪烁'},
  {id:'heart',name:'爱心',desc:'粉色爱心一路飘'},
- {id:'rainbow',name:'彩虹',desc:'七彩光带'},
+ {id:'rainbow',name:'彩虹桥',desc:'七彩拱桥，云朵收尾'},
 ];
 export function isTrailSkin(value:unknown):value is TrailSkin{return value==='none'||TRAIL_SKINS.some(s=>s.id===value);}
 /** Permanent paddle skins (cosmetic only, same hit box). Web: free. WeChat: each unlocked once by a rewarded video. */
