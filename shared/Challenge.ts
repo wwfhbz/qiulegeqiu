@@ -1,4 +1,4 @@
-export type ChallengeEvent = {type:'launch';tick:number;level:number;tripleRuleVersion?:2;brickPowerVersion?:2;trajectoryVersion?:1} | { type: 'ballLost' | 'lost' | 'clear' | 'next' | 'finish'; tick: number; level: number } | { type: 'hit'; tick: number; level: number; index: number } | { type: 'power'; tick: number; level: number; kind: 'halve'|'triple'|'wide'|'life'|'bomb'|'plus3'|'pierce'|'fire'|'lightning'; dropId?:number } | { type:'bomb'; tick:number; level:number; target:string|null } | { type:'crushed'; tick:number; level:number } | { type:'bonus'; tick:number; level:number; kind:'plus3'|'pierce'|'fire'|'lightning' };
+export type ChallengeEvent = {type:'launch';tick:number;level:number;tripleRuleVersion?:2;brickPowerVersion?:2;trajectoryVersion?:1} | { type: 'ballLost' | 'lost' | 'clear' | 'next' | 'finish'; tick: number; level: number } | { type: 'hit'; tick: number; level: number; index: number } | { type: 'power'; tick: number; level: number; kind: 'halve'|'triple'|'wide'|'life'|'bomb'|'plus3'|'pierce'|'fire'|'lightning'; dropId?:number } | { type:'bomb'; tick:number; level:number; target:string|null } | { type:'crushed'; tick:number; level:number } | { type:'bonus'; tick:number; level:number; kind:'plus3'|'pierce'|'fire'|'lightning' } | { type:'revive'; tick:number; level:number } | { type:'boost'; tick:number; level:number };
 export interface ChallengeSummary { score: number; reachedLevel: number; bricksDestroyed: number; durationMs: number; completedAllLevels: boolean }
 export const LEGACY_RULES_VERSION = '0.8.0-arcade-5l-10lv-v1';
 export const PREVIOUS_RULES_VERSION = '1.2.0-arcade-5l-12lv-v1';
@@ -68,7 +68,10 @@ export function assertChallengeProtocol(data:{challengeProtocolVersion?:unknown}
 export const TRIPLE_RULE_FEATURE='triple-threshold20-v1';
 export const BRICK_POWER_FEATURE='tutorial-brick-powers-v1';
 export const TRAJECTORY_FEATURE='deterministic-trajectory-v1';
-export const CHALLENGE_FEATURES=[TRIPLE_RULE_FEATURE,BRICK_POWER_FEATURE,TRAJECTORY_FEATURE] as const;
+/** Rewarded-video help: up to 2 revives per run (+1 life) and up to 3 launch boosts (+3 balls) after a lost life. */
+export const REWARD_FEATURE='ad-revive-boost-v1';
+export const MAX_REVIVES=2,MAX_BOOSTS=3,BOOST_BALLS=3;
+export const CHALLENGE_FEATURES=[TRIPLE_RULE_FEATURE,BRICK_POWER_FEATURE,TRAJECTORY_FEATURE,REWARD_FEATURE] as const;
 export function assertTripleRuleSupport(data:{challengeFeatures?:unknown}){if(!Array.isArray(data.challengeFeatures)||!data.challengeFeatures.includes(TRIPLE_RULE_FEATURE))throw Error('排行榜后端尚不支持新版X3规则，请先更新后端；本轮仍可单机游玩');}
 
 export function assertBrickPowerSupport(data:{challengeFeatures?:unknown}){if(!Array.isArray(data.challengeFeatures)||!data.challengeFeatures.includes(BRICK_POWER_FEATURE))throw Error('排行榜后端尚不支持新手关预分配道具，请先更新后端；本轮仍可单机游玩');}

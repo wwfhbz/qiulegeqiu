@@ -31,8 +31,16 @@ export interface Wx {
  createWebAudioContext?():AudioContext;
  vibrateShort?(options:{type?:'heavy'|'medium'|'light';fail?:()=>void}):void;
  requirePrivacyAuthorize?(options:{success:()=>void;fail:()=>void}):void;
+ createRewardedVideoAd?(options:{adUnitId:string}):RewardedVideoAd;
+ createInterstitialAd?(options:{adUnitId:string}):InterstitialAd;
+ createBannerAd?(options:{adUnitId:string;adIntervals?:number;style:{left:number;top:number;width:number}}):BannerAd;
+ getLaunchOptionsSync?():{query?:Record<string,string>};
 }
-export interface Config {apiBase:string;development:boolean}
+export interface RewardedVideoAd {load():Promise<unknown>;show():Promise<unknown>;onClose(fn:(r?:{isEnded?:boolean})=>void):void;onError(fn:(e:{errCode?:number;errMsg?:string})=>void):void;onLoad?(fn:()=>void):void}
+export interface InterstitialAd {load?():Promise<unknown>;show():Promise<unknown>;onClose?(fn:()=>void):void;onError?(fn:(e:{errCode?:number})=>void):void}
+export interface BannerAd {show():Promise<unknown>;hide():void;destroy():void;style:{left:number;top:number;width:number;realWidth?:number;realHeight?:number};onResize(fn:(r:{width:number;height:number})=>void):void;onError(fn:(e:{errCode?:number})=>void):void}
+export interface AdUnits {rewarded:string;interstitial:string;banner:string}
+export interface Config {apiBase:string;development:boolean;ads?:AdUnits}
 export const storageKey='qiulegeqiu:wechat-session:v1';
 
 export interface OpenContext {canvas:Canvas;postMessage(message:Record<string,unknown>):void}

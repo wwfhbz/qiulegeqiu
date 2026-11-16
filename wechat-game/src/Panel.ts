@@ -1,5 +1,5 @@
 import type {FriendBoard} from './social/FriendBoard';
-import {drawModePicker,modePickerLayout,drawResultPage,resultLayout,type ResultView} from './ModePicker';
+import {drawModePicker,modePickerLayout,drawResultPage,resultLayout,drawReviveCard,type ResultView,type ReviveView} from './ModePicker';
 import {OCEAN} from '../../shared/VisualTheme';
 import {neonButton,glowText,NEON,type NeonAccent} from '../../shared/CanvasUI';
 import {GAME_NAME} from '../../shared/Brand';
@@ -17,9 +17,12 @@ export class Panel {
  get open(){return !!this.title;}
  /** Set by showResult: the full-screen result page replaces the generic sheet. */
  resultView?:ResultView;
+ /** Set by showRevive: the revive card (actions[0] = watch, actions[1] = give up). */
+ reviveView?:ReviveView;
+ showRevive(title:string,lines:string[],actions:Action[],view:ReviveView){this.show(title,lines,actions);this.reviveView=view;}
  showResult(title:string,lines:string[],actions:Action[],view:ResultView){this.show(title,lines,actions);this.resultView=view;}
- show(title:string,lines:string[],actions:Action[]){this.friend?.hide();this.friend=undefined;this.hits=[];this.ranking=undefined;this.resultView=undefined;this.title=title;this.lines=lines;this.actions=actions;}
- close(){this.friend?.hide();this.friend=undefined;this.title='';this.hits=[];this.ranking=undefined;this.resultView=undefined;}
+ show(title:string,lines:string[],actions:Action[]){this.friend?.hide();this.friend=undefined;this.hits=[];this.ranking=undefined;this.resultView=undefined;this.reviveView=undefined;this.title=title;this.lines=lines;this.actions=actions;}
+ close(){this.friend?.hide();this.friend=undefined;this.title='';this.hits=[];this.ranking=undefined;this.resultView=undefined;this.reviveView=undefined;}
  showRanking(view:RankingView,actions:RankingAction[],inspect?:(row:import('../../src/online/ranking/Presentation').RankingScore)=>void){this.show('全球历史排行榜',[view.note||'',...view.items.map(row=>`${row.rank}. ${row.display_name} ${row.score}`)],actions);this.ranking=new RankingCanvas(view,actions,inspect,this.canvasFactory?()=>this.rankSurface??=this.canvasFactory!():undefined);}
  showFriends(friend:FriendBoard){this.show('好友排行榜',[],[]);this.friend=friend;}
  scroll(dy:number,x:number,startY:number){if(this.friend){this.friend.scroll(dy,x,startY);return;}if(this.ranking&&inside(this.ranking.body,x,startY))this.ranking.scroll(dy);}
@@ -28,6 +31,7 @@ export class Panel {
  private accentFor(label:string):NeonAccent{const text=label.replace('▶ ','');return text.includes('闯关')?'cyan':text.includes('无尽')?'pink':text.startsWith('提交')?'gold':text.startsWith('关闭')||text.startsWith('取消')?'dim':'cyan';}
  draw(c:CanvasRenderingContext2D,width:number,top:number,bottom:number,now=0,animate=true,lowDevice=false,art?:CanvasImageSource,pixelRatio=1){
   if(!this.open)return;if(this.friend){this.friend.draw(c,width,top,bottom,pixelRatio);return;}if(this.ranking){this.ranking.draw(c,width,top,bottom,now,animate,lowDevice,art,pixelRatio);return;}this.hits=[];c.textBaseline='alphabetic';
+  if(this.reviveView){const r=drawReviveCard(c,width,this.screen?.height??bottom,this.reviveView,now);if(this.actions[0])this.hits.push({rect:r.watch,run:this.actions[0].run});if(this.actions[1])this.hits.push({rect:r.skip,run:this.actions[1].run});return;}
   if(this.resultView){const sc=this.screen??{height:bottom,top,muted:false},v=resultLayout(width,sc.height,sc.resultTop??sc.top,bottom);drawResultPage(c,width,sc.height,v,this.resultView,now);
    const by=(label:string)=>this.actions.find(a=>a.label.replace('▶ ','')===label);
    ([[v.submit,'提交本次成绩'],[v.rows[0],'闯关模式'],[v.rows[1],'无尽模式'],[v.tools[0],'查看全球排行榜'],[v.tools[1],'分享成绩']] as const).forEach(([rect,label])=>{const a=by(label);if(a)this.hits.push({rect,run:a.run});});return;}

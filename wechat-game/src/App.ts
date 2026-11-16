@@ -8,6 +8,8 @@ import {drawHud} from './GameChrome';
 import {HapticTracker} from '../../src/Haptics';
 import {VIEW,viewX,viewFraction} from '../../src/Viewport';
 const MODE_KEY='qiulegeqiu:wechat-mode:v1';
+const SETTING={music:'qiulegeqiu:wechat-music:v1',sfx:'qiulegeqiu:wechat-sfx:v1',vibrate:'qiulegeqiu:wechat-vibrate:v1',trail:'qiulegeqiu:wechat-trail:v1',runs:'qiulegeqiu:wechat-runs:v1',guide:'qiulegeqiu:wechat-mp-guide:v1'};
+const REVIVE_TITLE='生命耗尽';
 import {OCEAN,brickColor} from '../../shared/VisualTheme';
 import {drawIcon,type IconName} from '../../shared/Icons';
 import {canvasText,neonButton,candyButton,NEON,type NeonAccent} from '../../shared/CanvasUI';
@@ -29,6 +31,9 @@ import {layout,inside,type Rect} from './Layout';
 import {context} from './CanvasAdapter';
 import {rankingCard,type RankingScore} from '../../src/online/ranking/Presentation';
 import {Panel,type Action} from './Panel';
+import {WechatAds} from './Ads';
+import {AD_UNITS} from './AdConfig';
+import {MAX_REVIVES} from '../../shared/Challenge';
 import {privacy,agreement} from './Policies';
 import type {Wx,Canvas,Config,TouchEvent} from './Platform';
 interface Region {code:string;prefix:string;name:string;hasChildren:boolean;path:string}
@@ -53,8 +58,16 @@ export class MiniGameApp {
   this.api=new WechatApi(wx,config);this.profile=new Profile(wx);this.cloud=new CloudSync(wx,this.api);
   this.game=new Game(undefined,()=>{},undefined,this.platform.createAudio());
   this.game.audio.muted=this.platform.read('qiulegeqiu:wechat-muted:v1')===true;
+  // Settings (each remembered): background music, sound effects, vibration, and the comet-tail skin.
+  this.game.audio.setMusic(this.platform.read(SETTING.music)!==false);this.game.audio.setSfx(this.platform.read(SETTING.sfx)!==false);
+  this.vibrationOn=this.platform.read(SETTING.vibrate)!==false;
+  this.ads=new WechatAds(wx,config.ads??AD_UNITS);
+  // A revive is only offered when a rewarded video can play and (online) the server verifies revives for ranking.
+  this.game.canOfferRevive=()=>this.ads.rewardedAvailable&&(!this.online||this.sync.rewardsSupported);
+  // A shared score card opens straight into the same mode.
+  try{const mode=wx.getLaunchOptionsSync?.().query?.mode;if(mode==='endless'||mode==='campaign'){this.game.setMode(mode);this.platform.write(MODE_KEY,mode);}}catch{/* Optional API. */}
   if(this.platform.read(MODE_KEY)==='endless'){this.game.setMode('endless');this.rankingBoard='endless';}
-  const renderHost=this.platform.rendererHost(cache,()=>({width:this.view.arena.width,height:this.view.arena.height}),()=>this.dpr);renderHost.lowPerformance=()=>this.lowDevice||this.view.width<360;this.renderer=new Renderer(this.arena,renderHost);
+  const renderHost=this.platform.rendererHost(cache,()=>({width:this.view.arena.width,height:this.view.arena.height}),()=>this.dpr);renderHost.lowPerformance=()=>this.lowDevice||this.view.width<360;this.renderer=new Renderer(this.arena,renderHost);this.renderer.cometTail=this.platform.read(SETTING.trail)==='on';
   this.sync=new ChallengeSync(this.api,this.game,()=>Date.now(),clientId);this.resize();
   wx.onTouchStart(e=>this.down(e));wx.onTouchMove(e=>this.move(e));wx.onTouchEnd(e=>this.up(e));wx.onTouchCancel(()=>{this.touch=undefined;});
   wx.onHide(()=>this.hide());wx.onShow(()=>{this.active=true;this.previous=0;this.resize();this.platform.resume();this.panel.friend?.resume();this.cloud.resume();});wx.onWindowResize?.(()=>this.resize());
@@ -68,13 +81,16 @@ export class MiniGameApp {
  frame(now:number){if(!this.active)return;if(this.panel.title!=='我的资料')this.profile.clearButton();const dt=this.previous?Math.min(.1,Math.max(0,(now-this.previous)/1000)):0;this.previous=now;
   // Before the first choice the picker stays up; if another panel closes over it, show it again.
   if(this.picking&&!this.panel.open)this.modePicker();
+  else if(this.game.awaitingRevive&&this.panel.title!==REVIVE_TITLE&&!this.busy)this.revivePanel();
   else if(!this.panel.open&&!this.busy&&(this.game.state==='gameOver'||this.game.state==='victory')&&this.lastEnd===this.game.journal.generation)this.resultPage();
   this.game.update(dt);this.haptics();if(this.online)this.sync.observe();if(!this.panel.ranking&&!this.panel.friend&&!this.titleOpen)this.renderer.draw(this.game.physics,this.game.state==='ready',now);this.draw(now);
-  if((this.game.state==='gameOver'||this.game.state==='victory')&&this.lastEnd!==this.game.journal.generation){this.lastEnd=this.game.journal.generation;this.result();}
+  if((this.game.state==='gameOver'||this.game.state==='victory')&&!this.game.awaitingRevive&&this.lastEnd!==this.game.journal.generation){this.lastEnd=this.game.journal.generation;this.result();}
+  // The banner lives only at the bottom of the result page, never during play.
+  if(this.panel.resultView&&!this.guide)this.ads.showBanner(this.view.width,this.view.height,this.view.bottom);else this.ads.hideBanner();
  }
  private draw(now:number){const c=this.ctx,v=this.view;c.setTransform(this.dpr,0,0,this.dpr,0,0);
   // The mode picker is a page of its own: it covers the whole screen (game, HUD and top bar).
-  if(this.titleOpen){this.actions=[];this.panel.screen={height:v.height,top:v.titleY,resultTop:v.top+8,muted:this.game.audio.muted};this.panel.draw(c,v.width,v.titleY,v.bottom,now);return;}
+  if(this.titleOpen){this.actions=[];this.panel.screen={height:v.height,top:v.titleY,resultTop:v.top+8,muted:this.game.audio.muted};this.panel.draw(c,v.width,v.titleY,v.bottom-(this.panel.resultView?this.ads.bannerHeight:0),now);if(this.guide)this.drawGuide(c,now);return;}
   // Candy-night sky with two soft glows, like the web version.
   // Deep-space backdrop: one cached linear gradient (cheap). Radial glows or a full-screen image blit every frame
   // cost up to half the frame rate on tablets, so the WeChat build keeps the plain gradient.
@@ -95,6 +111,10 @@ export class MiniGameApp {
   const ended=g.state==='gameOver'||g.state==='victory';
   if(ended&&!this.busy&&!this.panel.open){const centerY=v.arena.y+(C.arena.y-VIEW.y)*v.scale;button({x:v.width/2-70,y:centerY-22,width:140,height:44},'选择模式',()=>this.modePicker());}
   else if(action&&g.state!=='ready'&&!this.busy){const centerY=v.arena.y+(C.arena.y-VIEW.y)*v.scale;button({x:v.width/2-70,y:centerY-22,width:140,height:44},action.label.replace('▶ ',''),()=>void this.activate());}
+  // After a lost life (never at a level start): an optional rewarded video for +3 balls on the next launch.
+  if(!this.panel.open&&!this.busy&&g.state==='ready'){const r={x:v.width/2-96,y:v.arena.y+v.arena.height-60,width:192,height:38};
+   if(g.boostArmed)canvasText(c,'下一球 +3 已就绪，点击球场发射',v.width/2,r.y+r.height/2,v.width-24,12,NEON.gold,'center');
+   else if(g.canBoost&&this.ads.rewardedAvailable&&(!this.online||this.sync.rewardsSupported)){candyButton(c,r,'gold',19);drawIcon(c,'film',r.x+26,r.y+r.height/2,18,'#6A3A00');c.font=`800 14px ${OCEAN.fonts.body}`;c.textAlign='center';c.textBaseline='middle';c.fillStyle='#5A2C00';c.fillText('看视频：下一球 +3',r.x+r.width/2+12,r.y+r.height/2,r.width-56);this.actions.push({rect:r,run:()=>void this.watchReward('boost')});}}
   // Touch strip under the arena: a quiet hint; dragging here steers the paddle (see down/move).
   // Joined to the arena's bottom edge: same width, rounded bottom corners, and a swipe hint (the real paddle is the only paddle).
   if((!this.panel.open||this.picking)&&v.pad.height>=30){const p={x:v.arena.x,y:v.pad.y,width:v.arena.width,height:v.pad.height};// Fills to the screen bottom: the whole strip steers.
@@ -124,6 +144,7 @@ export class MiniGameApp {
   for(const tab of v.modeTabs){const selected=tab.mode===g.mode,visual={x:tab.x,y:v.titleY+6,width:tab.width,height:36};if(selected)candyButton(c,visual,'gold',18);c.font=`800 14px ${OCEAN.fonts.body}`;c.textAlign='center';c.textBaseline='middle';c.fillStyle=selected?'#5A2C00':OCEAN.colors.secondary;c.fillText(tab.mode==='campaign'?'闯关':'无尽',tab.x+tab.width/2,v.titleY+24,tab.width-8);this.actions.push({rect:tab,run:()=>void this.requestMode(tab.mode)});}
   iconButton({x:v.width-98,y:v.titleY,width:40,height:36},g.state==='paused'?'play':'pause',()=>{if(g.state==='paused')g.start();else g.pause();});
   iconButton({x:v.width-50,y:v.titleY,width:40,height:36},'restart',()=>void this.confirmRestart());
+  this.panel.screen={height:v.height,top:v.titleY,resultTop:v.top+8,muted:this.game.audio.muted};
   this.panel.draw(c,v.width,(this.panel.ranking||this.panel.friend)?v.top:v.hudY,v.bottom,now,g.state!=='paused',this.lowDevice||v.width<360,this.rankingArt,this.dpr);
   if(this.panel.title==='我的资料'){if(this.profile.image){try{c.drawImage(this.profile.image,v.width-56,v.hudY+8,32,32);}catch{defaultAvatar(c,v.width-40,v.hudY+24,16);}}else defaultAvatar(c,v.width-40,v.hudY+24,16);}
  }
@@ -140,6 +161,7 @@ export class MiniGameApp {
  private up(e:TouchEvent){
   const active=this.touch;if(!active)return;const t=e.changedTouches.find(t=>t.identifier===active.id);if(!t)return;this.touch=undefined;
   const point=touchPoint(t);if(!point||active.moved||active.drag)return;
+  if(this.guide){this.guide=false;return;}
   if(active.mode){const tab=this.view.modeTabs.find(tab=>tab.mode===active.mode);if(tab&&inside(tab,point.x,point.y))void this.requestMode(active.mode);return;}
   if(this.panel.open){this.panel.tap(active.x,active.y,point.x,point.y);return;}
   this.actions.find(a=>inside(a.rect,active.x,active.y)&&inside(a.rect,point.x,point.y))?.run();
@@ -154,9 +176,58 @@ export class MiniGameApp {
    if(answer.confirm){this.panel.close();g.reset();}else if(running&&this.active&&g.state==='paused')g.start();}
   finally{this.busy=false;this.previous=0;}
  }
+ readonly ads:WechatAds;private vibrationOn=true;private guide=false;private lastInterstitial=0;
+ /** Lives ran out and a rewarded video can bring the run back (up to MAX_REVIVES per run, still ranked). */
+ private revivePanel(){const g=this.game,endless=g.mode==='endless';
+  this.panel.showRevive(REVIVE_TITLE,[`本局得分 ${g.score.total}`,`看完一段视频即可复活：+1 条命继续本局${endless?'，并清掉底部 5 行砖':''}`,`本局还可复活 ${g.revivesLeft} 次（共 ${MAX_REVIVES} 次）· 复活后成绩照常上榜`],[
+   {label:'▶ 看视频复活',run:()=>void this.watchReward('revive')},
+   {label:'放弃，查看结算',run:()=>{this.panel.close();g.endRun();}},
+  ],{score:g.score.total,left:g.revivesLeft,max:MAX_REVIVES,endless});}
+ /** Every rewarded video goes through here: the reward is only granted when the video was watched to the end. */
+ private async watchReward(kind:'revive'|'boost'|'trail'){
+  if(this.busy)return;this.busy=true;const g=this.game,generation=g.journal.generation;
+  try{const result=await this.ads.showRewarded();this.previous=0;
+   if(result!=='rewarded'){this.toast(result==='closed'?'完整看完视频才能领取奖励':'暂时没有可播放的视频，请稍后再试');return;}
+   if(kind==='trail'){this.platform.write(SETTING.trail,'on');this.renderer.cometTail=true;this.toast('彗星拖尾已永久解锁');this.settings();return;}
+   if(g.journal.generation!==generation)return;
+   if(kind==='revive'){if(g.revive()){this.panel.close();this.toast('复活成功，继续加油！');}}
+   else if(g.armBoost())this.toast('下一球出发时多 3 个分身');
+  }finally{this.busy=false;}
+ }
+ /** Music, effects, vibration and the comet tail; each switch is remembered. */
+ private settings(){const a=this.game.audio,trail=this.platform.read(SETTING.trail);
+  const flip=(key:string,on:boolean,apply:(on:boolean)=>void)=>()=>{apply(on);this.platform.write(key,on);this.settings();};
+  const actions:Action[]=[
+   {label:`背景音乐：${a.musicOn?'开':'关'}`,half:true,run:flip(SETTING.music,!a.musicOn,on=>{a.unlock();a.setMusic(on);})},
+   {label:`音效：${a.sfxOn?'开':'关'}`,half:true,run:flip(SETTING.sfx,!a.sfxOn,on=>a.setSfx(on))},
+   {label:`震动：${this.vibrationOn?'开':'关'}`,half:true,run:flip(SETTING.vibrate,!this.vibrationOn,on=>{this.vibrationOn=on;})},
+  ];
+  if(trail==='on'||trail==='off')actions.push({label:`彗星拖尾：${trail==='on'?'开':'关'}`,half:true,run:()=>{const on=trail!=='on';this.platform.write(SETTING.trail,on?'on':'off');this.renderer.cometTail=on;this.settings();}});
+  else if(this.ads.rewardedAvailable)actions.push({label:'▶ 看视频解锁彗星拖尾',half:true,run:()=>void this.watchReward('trail')});
+  actions.push({label:'返回菜单',run:()=>this.menu(false)});
+  this.panel.show('设置',['背景音乐、音效和震动可分别开关；顶部喇叭键一键全部静音。',...(trail==='on'||trail==='off'?['彗星拖尾：小球高速飞行时拖出金蓝色尾焰，只改外观。']:this.ads.rewardedAvailable?['彗星拖尾：看一次视频永久解锁，只改外观不影响成绩。']:[])],actions);
+ }
+ /** Interstitials only at a natural pause (opening the menu), never in the first 3 runs and at most every 3 minutes. */
+ private maybeInterstitial(){const runs=Number(this.platform.read(SETTING.runs))||0,now=Date.now();if(runs<3||now-this.lastInterstitial<180000)return;this.lastInterstitial=now;this.ads.showInterstitial();}
+ /** One-time card after the second finished run: how to find the game again from 我的小程序. */
+ private drawGuide(c:CanvasRenderingContext2D,now:number){
+  const v=this.view,menu=this.wx.getMenuButtonBoundingClientRect?.(),tx=(menu?.left??v.width-95)+22,ty=(menu?.bottom??v.top+32)+6;
+  c.save();c.fillStyle='rgba(3,5,12,.72)';c.fillRect(0,0,v.width,v.height);
+  const w=Math.min(320,v.width-40),h=176,x=(v.width-w)/2,y=Math.max(ty+70,v.height*.32);
+  c.fillStyle='#C9770A';c.beginPath();c.roundRect(x,y+5,w,h,22);c.fill();const bg=c.createLinearGradient(0,y,0,y+h);bg?.addColorStop(0,'#1B2052');bg?.addColorStop(1,'#10143A');c.fillStyle=bg||'#141A44';c.beginPath();c.roundRect(x,y,w,h,22);c.fill();c.strokeStyle='rgba(255,226,122,.55)';c.lineWidth=1.5;c.stroke();
+  canvasText(c,'下次怎么找回来',v.width/2,y+26,w-32,12,'#A9C1DE','center');
+  c.font=`900 22px ${OCEAN.fonts.body}`;c.textAlign='center';c.textBaseline='middle';c.fillStyle='#FFE27A';c.fillText('添加到我的小程序',v.width/2,y+58,w-32);
+  canvasText(c,'点右上角的 ···，选「添加到我的小程序」',v.width/2,y+92,w-28,13,'#EAF6FF','center');
+  canvasText(c,'下次在微信首页下拉，就能直接回来接着玩',v.width/2,y+114,w-28,12,'#A9C1DE','center');
+  const bw=110,bx=v.width/2-bw/2,by=y+134;c.fillStyle='#C9770A';c.beginPath();c.roundRect(bx,by+3,bw,30,15);c.fill();c.fillStyle='#FFD24D';c.beginPath();c.roundRect(bx,by,bw,30,15);c.fill();canvasText(c,'知道了',v.width/2,by+15,bw-10,13,'#5A2C00','center');
+  // Bouncing arrow up to the capsule's ··· button, with a ring around it.
+  const bob=Math.sin(now/220)*5,ax=tx,ay=ty+18+bob;c.strokeStyle='#FFD24D';c.fillStyle='#FFD24D';c.lineWidth=4;c.lineCap='round';
+  c.beginPath();c.moveTo(ax,y-8);c.lineTo(ax,ay+10);c.stroke();c.beginPath();c.moveTo(ax-10,ay+12);c.lineTo(ax,ay);c.lineTo(ax+10,ay+12);c.closePath();c.fill();
+  c.lineWidth=2.5;c.beginPath();c.ellipse(tx,ty-16,26,15,0,0,Math.PI*2);c.stroke();c.restore();
+ }
  private hapticTracker=new HapticTracker();
  /** Short vibration on decisive moments only (shared policy with Web); silent when muted. */
- private haptics(){const type=this.hapticTracker.next(this.game.physics.effects,this.game.state!=='running',Date.now());if(type&&!this.game.audio.muted){try{this.wx.vibrateShort?.({type,fail:()=>{}});}catch{/* Optional device capability. */}}}
+ private haptics(){const type=this.hapticTracker.next(this.game.physics.effects,this.game.state!=='running',Date.now());if(type&&this.vibrationOn&&!this.game.audio.muted){try{this.wx.vibrateShort?.({type,fail:()=>{}});}catch{/* Optional device capability. */}}}
  private target(x:number){this.game.physics.setTarget(viewX((x-this.view.arena.x)/this.view.arena.width));}
  private async activate(){if(this.busy)return;this.busy=true;const generation=this.game.journal.generation,state=this.game.state;
   try{if(this.game.state==='ready'&&this.game.readyReason==='initial'){
@@ -172,8 +243,9 @@ export class MiniGameApp {
  private modal(title:string,content:string,confirmText='确定',cancelText='取消',editable=false,initialValue=''){return new Promise<{confirm:boolean;content?:string}>(resolve=>this.wx.showModal({title,content:editable?initialValue:content,placeholderText:editable?content:undefined,confirmText,cancelText,editable,success:resolve,fail:()=>resolve({confirm:false})}));}
  private toast(message:string){this.wx.showToast({title:message,icon:'none'});}
  private async task(work:()=>Promise<void>){if(this.busy)return;this.busy=true;try{await work();}catch(error){this.wx.showModal({title:'操作未完成',content:(error as Error).message,showCancel:false});}finally{this.busy=false;}}
- private menu(){this.game.pause();this.panel.show('游戏菜单',[this.me?.best?`我的历史最高：${this.me.best.score}，排名 ${this.me.best.rank}`:'可随时单机挑战，联网异常不影响游戏'],[
-  {label:'分享小游戏',run:()=>this.wx.shareAppMessage(this.shareData()),half:true},{label:this.game.audio.muted?'开启音效':'静音',run:()=>{this.game.audio.toggle();this.platform.write('qiulegeqiu:wechat-muted:v1',this.game.audio.muted);this.menu();},half:true},
+ private menu(fromUser=true){this.game.pause();if(fromUser)this.maybeInterstitial();this.panel.show('游戏菜单',[this.me?.best?`我的历史最高：${this.me.best.score}，排名 ${this.me.best.rank}`:'可随时单机挑战，联网异常不影响游戏'],[
+  {label:'设置：音乐 · 音效 · 震动 · 外观',run:()=>this.settings()},
+  {label:'分享小游戏',run:()=>this.wx.shareAppMessage(this.shareData()),half:true},{label:this.game.audio.muted?'开启音效':'静音',run:()=>{this.game.audio.toggle();this.platform.write('qiulegeqiu:wechat-muted:v1',this.game.audio.muted);this.menu(false);},half:true},
   {label:'个人历史记录',run:()=>void this.history(),half:true},
   {label:'绑定已有网页账号',run:()=>void this.bind(),half:true},
   {label:this.game.journal.events.length>0&&this.game.state!=='gameOver'&&this.game.state!=='victory'?'本局结束后可切换模式':this.game.mode==='endless'?'切换到闯关模式':'切换到无尽模式',run:()=>{const g=this.game;if(g.journal.events.length>0&&g.state!=='gameOver'&&g.state!=='victory'){this.toast('本局结束后可切换模式');return;}this.chooseMode(g.mode==='endless'?'campaign':'endless');}},
@@ -216,7 +288,7 @@ export class MiniGameApp {
   this.me=await this.api.me();const lines=scoreHistoryLines(this.me.historicalBests,this.me.historicalBest);
   this.panel.show('个人历史记录',lines.length?[...lines,'历史有效成绩已参与所属模式永久统一排行榜。']:['暂无旧版有效记录'],[{label:'返回菜单',run:()=>this.menu()}]);
  });}
- private result(){this.scoreShareImage=undefined;const g=this.game,generation=g.journal.generation;void scoreShare(this.wx,{mode:g.mode,score:g.score.total}).then(r=>{if(g.journal.generation===generation&&(g.state==='gameOver'||g.state==='victory'))this.scoreShareImage=r.imageUrl;}).catch(()=>{});this.resultPage();}
+ private result(){const runs=(Number(this.platform.read(SETTING.runs))||0)+1;this.platform.write(SETTING.runs,runs);if(runs>=2&&this.platform.read(SETTING.guide)!==true){this.platform.write(SETTING.guide,true);this.guide=true;}this.scoreShareImage=undefined;const g=this.game,generation=g.journal.generation;void scoreShare(this.wx,{mode:g.mode,score:g.score.total}).then(r=>{if(g.journal.generation===generation&&(g.state==='gameOver'||g.state==='victory'))this.scoreShareImage=r.imageUrl;}).catch(()=>{});this.resultPage();}
  /** Full-screen result page; it stays up (also after the leaderboard or a dialog closes) until a mode is chosen. */
  private resultPage(){const g=this.game,endless=g.mode==='endless',field=g.physics.endless,s=g.journal.summary(g.score.total,g.reachedLevel,g.state==='victory');
   const view={mode:g.mode,title:g.state==='victory'?'全部关卡突破！':endless?'挑战结束':'生命耗尽',score:g.score.total,
