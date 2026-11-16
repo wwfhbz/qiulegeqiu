@@ -39,3 +39,9 @@ it('微信错误使用完整原生文字提示且恢复提交状态，不清理�
  const f=wxFixture(),app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false}),message='本地错误回归：'.repeat(40),modal=vi.fn();f.wx.showModal=modal;const original=JSON.stringify(app.game.journal.events);
  try{await (app as unknown as {task(work:()=>Promise<void>):Promise<void>}).task(async()=>{throw Error(message);});expect(modal).toHaveBeenCalledWith(expect.objectContaining({title:'操作未完成',content:message,showCancel:false}));expect(JSON.stringify(app.game.journal.events)).toBe(original);let retried=false;await (app as unknown as {task(work:()=>Promise<void>):Promise<void>}).task(async()=>{retried=true;});expect(retried).toBe(true);}finally{app.dispose();}
 });
+it('拖尾皮肤：小球本体（爱心头/流星头/花朵）每帧都画出来；挡板一挡下对应的雨',()=>{
+ for(const trail of ['comet','heart','rainbow'] as const){const g=new Game(),{r,c}=renderer();g.start();(r as unknown as {trail:string}).trail=trail;
+  const colors:string[]=[];c.fill=vi.fn(()=>{colors.push(String(c.fillStyle));});r.draw(g.physics,true,16);
+  expect(colors).toContain(trail==='comet'?'#BDEBFF':trail==='heart'?'#FF4F8E':'#FFD24D');
+  const rr=r as unknown as {spawnRain(now:number):void;rain:{start:number}[]};rr.spawnRain(1000);expect(rr.rain.filter(q=>q.start>=1000).length).toBeGreaterThanOrEqual(5);r.dispose();}
+});
