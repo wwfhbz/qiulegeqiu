@@ -7,14 +7,15 @@ import {ChallengeSync} from '../src/online/ChallengeSync';
 import {Game} from '../src/Game';
 import {MAX_CHALLENGE_EVENTS} from '../shared/Challenge';
 type Private={view:ReturnType<typeof layout>;busy:boolean;chooseMode(m:'campaign'|'endless'):void};
-function tapRestart(f:ReturnType<typeof wxFixture>,p:Private){const v=p.view,t=f.touch(1,v.width-30,v.titleY+18);f.events.down(t);f.events.up(t);}
+/** Restart now lives in the pause menu (pause key → 重新开始). */
+function tapRestart(f:ReturnType<typeof wxFixture>,p:Private){const v=p.view,t=f.touch(1,v.width-30,v.titleY+18);f.events.down(t);f.events.up(t);(p as unknown as {panel:{actions:{label:string;run():void}[]}}).panel.actions.find(a=>a.label==='重新开始')!.run();}
 it('微信：本局进行中点重开先弹确认；取消保留本局并继续，确认才重开；未开局直接重开',async()=>{
  const f=wxFixture(390,844,3),app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false}),p=app as unknown as Private;
  try{app.frame(16);p.chooseMode('campaign');app.frame(32);const g=app.game;
   let answer:((r:{confirm:boolean})=>void)|undefined;const modal=vi.fn((o:Parameters<typeof f.wx.showModal>[0])=>{answer=o.success;});f.wx.showModal=modal;
   tapRestart(f,p);expect(modal).not.toHaveBeenCalled();
   g.start();const generation=g.journal.generation;tapRestart(f,p);expect(modal).toHaveBeenCalledTimes(1);expect(g.state).toBe('paused');
-  answer!({confirm:false});await vi.waitFor(()=>expect(p.busy).toBe(false));expect(g.journal.generation).toBe(generation);expect(g.state).toBe('running');
+  answer!({confirm:false});await vi.waitFor(()=>expect(p.busy).toBe(false));expect(g.journal.generation).toBe(generation);expect(g.state).toBe('paused');expect((p as unknown as {panel:{title:string}}).panel.title).toBe('游戏暂停');
   tapRestart(f,p);answer!({confirm:true});await vi.waitFor(()=>expect(p.busy).toBe(false));expect(g.journal.generation).toBe(generation+1);expect(g.state).toBe('ready');
  }finally{app.dispose();}
 });

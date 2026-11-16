@@ -67,3 +67,16 @@ it('闯关1.10：看视频复活后下一球随机送一种特效（×3/闪电/�
  }
  expect([...kinds].sort()).toEqual(['fire','lightning','pierce','triple']);
 },120000);
+it('闯关看视频跳关：最多2次、不能跳最后一关、无尽不可用；跳关后照常计分并通过服务端验证',()=>{
+ const g=new Game();g.journal.seed=21;g.physics.setSeed(21);g.physics.reset();
+ expect(g.canSkip).toBe(true);g.start();g.update(C.step);expect(g.skipLevel()).toBe(true);expect(g.levels.current.number).toBe(2);expect(g.state).toBe('ready');expect(g.lives).toBe(3);
+ g.pause();expect(g.skipLevel()).toBe(true);expect(g.levels.current.number).toBe(3);expect(g.canSkip).toBe(false);expect(g.skipLevel()).toBe(false);
+ g.start();for(let t=0;t<240;t++)g.update(C.step);while(g.state!=='gameOver'){if(g.state==='ready')g.start();loseRound(g);}
+ const events=g.journal.events,v=verifyTrace(events,1e9,21,RULES_VERSION);expect(v.summary).toEqual(g.journal.summary(g.score.total,3,false));expect(v.summary.reachedLevel).toBe(3);
+ const i=events.findIndex(e=>e.type==='skip');
+ // A third skip, a skip on an old season, and a skip inserted in endless are all rejected.
+ const at=events.length-1,last=events[at-1];expect(()=>verifyTrace([...events.slice(0,at-2),{type:'skip',tick:last.tick,level:3},...events.slice(at-2)] as ChallengeEvent[],1e9,21,RULES_VERSION)).toThrow();
+ expect(()=>verifyTrace(events,1e9,21,'1.9.0-arcade-5l-12lv-fullskills-v7')).toThrow();void i;
+ const e=new Game();e.setMode('endless');expect(e.canSkip).toBe(false);
+ const final=new Game();for(let n=1;n<12;n++)expect(final.levels.next()).toBeTruthy();expect(final.levels.isFinal).toBe(true);expect(final.canSkip).toBe(false);
+});
