@@ -257,3 +257,14 @@ input,textarea,select,[contenteditable]{-webkit-user-select:text;user-select:tex
 .sp-heart{background:radial-gradient(circle at 12% 50%,#FF9BCB 0 4px,transparent 5px),radial-gradient(circle at 35% 50%,#FF5E8A 0 5px,transparent 6px),radial-gradient(circle at 60% 50%,#FF9BCB 0 6px,transparent 7px),radial-gradient(circle at 88% 50%,#fff 0 6px,transparent 7px)}
 .sp-rainbow{background:linear-gradient(90deg,transparent,#B07CFF 12%,#6C7BFF 24%,#4FC3FF 38%,#4CD9A0 50%,#FFE45C 62%,#FF9F43 74%,#FF5E6E 85%,#fff 85%)}
 .sp-close{margin-top:6px;min-width:140px;height:42px;border:0;border-radius:99px;font-size:15px;font-weight:900;letter-spacing:3px;color:#5A2C00;background:linear-gradient(180deg,#FFE27A,#FFB31F);box-shadow:0 4px 0 #C9770A}
+/* Paddle skins in the picker (web). */
+.skin-picker{overflow-y:auto}
+.sp-section{align-self:flex-start;margin-top:8px;font-size:12px;font-weight:800;letter-spacing:2px;color:#FFD98A}
+.sp-bar{display:block;width:84px;height:12px;border-radius:6px;position:relative}
+.sp-bar-default{background:linear-gradient(180deg,#E8FBFF,#6FD8FF);box-shadow:0 0 10px rgba(79,227,255,.6)}
+.sp-bar-neon{background:linear-gradient(90deg,#FF4FD8,#7A5CFF,#4FE3FF);box-shadow:0 0 12px rgba(196,108,255,.8),inset 0 0 0 3px rgba(10,6,30,.5)}
+.sp-bar-neon::after{content:'';position:absolute;left:8px;right:8px;top:5px;height:2px;border-radius:1px;background:#fff}
+.sp-bar-crystal{border-radius:3px;background:repeating-linear-gradient(115deg,rgba(255,255,255,.55) 0 1px,transparent 1px 10px),linear-gradient(180deg,#F2FCFF,#9BE4FF 45%,#3A8CFF);box-shadow:0 0 10px rgba(142,230,255,.7),inset 0 0 0 1px rgba(255,255,255,.8)}
+.sp-bar-gold{background:linear-gradient(180deg,#FFF4C2,#FFD24D 50%,#C9770A);box-shadow:0 0 10px rgba(255,210,77,.6),inset 0 0 0 1px #8A4B00}
+.sp-bar-gold::after{content:'';position:absolute;left:50%;top:50%;width:9px;height:9px;transform:translate(-50%,-50%) rotate(45deg);background:linear-gradient(135deg,#FF6FD0,#B0127A);border-radius:1px}
+@media (max-height:700px){.sp-option{padding:8px 4px 6px}.sp-option small{display:none}.sp-card{padding:14px 12px 12px}}

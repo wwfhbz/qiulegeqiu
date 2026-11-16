@@ -4,7 +4,7 @@ import {wxFixture} from './helpers/WxFixture';
 import {AD_UNITS} from '../wechat-game/src/AdConfig';
 import {C} from '../src/GameConfig';
 import type {RewardedVideoAd} from '../wechat-game/src/Platform';
-type Private={chooseMode(m:'campaign'|'endless'):void;busy:boolean;actions:{rect:{x:number;y:number;width:number;height:number};run:()=>void}[];guide:boolean;renderer:{cometTail:boolean};settings():void};
+type Private={chooseMode(m:'campaign'|'endless'):void;busy:boolean;actions:{rect:{x:number;y:number;width:number;height:number};run:()=>void}[];guide:boolean;renderer:{cometTail:boolean;paddleSkin:string};settings():void;skins():void};
 const ADS={rewarded:'adunit-rewarded-test',interstitial:'adunit-inter-test',banner:'adunit-banner-test'};
 /** A rewarded ad that either finishes (isEnded) or is closed early. */
 function withAds(f:ReturnType<typeof wxFixture>,ended=()=>true){let close:((r?:{isEnded?:boolean})=>void)|undefined;const shown=vi.fn();
@@ -46,9 +46,11 @@ it('设置：音乐/音效/震动分别开关并记住；看视频永久解锁�
  try{p.settings();const label=(t:string)=>a.panel.actions.find(x=>x.label.startsWith(t))!;
   label('背景音乐').run();expect(a.game.audio.musicOn).toBe(false);expect(f.storage.get('qiulegeqiu:wechat-music:v1')).toBe(false);
   label('音效').run();expect(a.game.audio.sfxOn).toBe(false);label('震动').run();expect(f.storage.get('qiulegeqiu:wechat-vibrate:v1')).toBe(false);
+  expect(a.panel.actions.some(x=>x.label==='皮肤：小球拖尾 · 挡板')).toBe(true);p.skins();
   label('▶ 看视频解锁彗星拖尾').run();await vi.waitFor(()=>expect(p.busy).toBe(false));expect(p.renderer.cometTail).toBe(true);expect(f.storage.get('qiulegeqiu:wechat-trail:v1')).toBe('comet');expect(f.storage.get('qiulegeqiu:wechat-trails:v1')).toEqual(['comet']);
   expect(a.panel.actions.some(x=>x.label==='彗星拖尾：使用中')).toBe(true);label('▶ 看视频解锁爱心拖尾').run();await vi.waitFor(()=>expect(p.busy).toBe(false));expect((p.renderer as unknown as {trail:string}).trail).toBe('heart');expect(a.panel.actions.some(x=>x.label==='彗星拖尾：使用')).toBe(true);label('彗星拖尾').run();expect((p.renderer as unknown as {trail:string}).trail).toBe('comet');
-  const again=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false,ads:ADS});try{expect(again.game.audio.musicOn).toBe(false);expect((again as unknown as Private).renderer.cometTail).toBe(true);}finally{again.dispose();}
+  label('▶ 看视频解锁黄金荣耀').run();await vi.waitFor(()=>expect(p.busy).toBe(false));expect(p.renderer.paddleSkin).toBe('gold');expect(f.storage.get('qiulegeqiu:wechat-paddles:v1')).toEqual(['gold']);label('默认挡板').run();expect(p.renderer.paddleSkin).toBe('default');label('黄金荣耀').run();expect(p.renderer.paddleSkin).toBe('gold');
+  const again=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false,ads:ADS});try{expect((again as unknown as Private).renderer.paddleSkin).toBe('gold');expect(again.game.audio.musicOn).toBe(false);expect((again as unknown as Private).renderer.cometTail).toBe(true);}finally{again.dispose();}
  }finally{a.dispose();}
 });
 it('第二局结束后只出现一次"添加到我的小程序"引导，点任意处关闭',()=>{

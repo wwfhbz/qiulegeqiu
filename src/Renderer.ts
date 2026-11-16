@@ -34,6 +34,9 @@ const POPUP_CHANNELS={combo:0,power:1,clear:2} as const;
  */
 /** Ball trail skins: comet (gold→cyan), heart (floating pink hearts), rainbow (seven-colour ribbon). */
 export type TrailSkin='none'|'comet'|'heart'|'rainbow';
+/** Paddle skins: default, neon light-saber, ice crystal, royal gold. */
+export type PaddleSkin='default'|'neon'|'crystal'|'gold';
+const PADDLE_GLOW:Record<Exclude<PaddleSkin,'default'>,string>={neon:'#C46CFF',crystal:'#8EE6FF',gold:'#FFD24D'};
 function heartPath(c:CanvasRenderingContext2D,x:number,y:number,r:number){c.beginPath();c.moveTo(x,y+r*.9);c.bezierCurveTo(x-r*1.5,y-r*.1,x-r*.7,y-r*1.15,x,y-r*.35);c.bezierCurveTo(x+r*.7,y-r*1.15,x+r*1.5,y-r*.1,x,y+r*.9);}
 export class Renderer {
   private ctx: Ctx;
@@ -47,6 +50,43 @@ export class Renderer {
   private cachedRevision = -1;
   private ratio = 1;
   private arenaFill?:CanvasGradient|string;private paddleFill?:CanvasGradient|string;
+  /** Cosmetic paddle skin (no gameplay effect; the hit box is unchanged). */
+  paddleSkin:PaddleSkin='default';
+  /**
+   * Paddle skins in the style of mature casual games: a neon light-saber, a faceted ice crystal and a royal gold bar
+   * with a gem and a shine sweep. Same size and position as the normal paddle; only paint changes.
+   */
+  private drawPaddleSkin(c:CanvasRenderingContext2D,x:number,y:number,w:number,h:number,now:number){
+   const left=x-w/2,r=h/2;c.save();
+   c.fillStyle='rgba(0,0,0,.35)';c.beginPath();c.roundRect(left,y+3,w,h,r);c.fill();
+   if(this.paddleSkin==='neon'){
+    const g=c.createLinearGradient(left,0,left+w,0);g?.addColorStop(0,'#FF4FD8');g?.addColorStop(.5,'#7A5CFF');g?.addColorStop(1,'#4FE3FF');
+    c.fillStyle=g||'#7A5CFF';c.beginPath();c.roundRect(left,y,w,h,r);c.fill();
+    c.fillStyle='rgba(10,6,30,.55)';c.beginPath();c.roundRect(left+3,y+3,w-6,h-6,r-2);c.fill();
+    const beat=.65+.35*Math.sin(now/180);c.globalAlpha=beat;c.fillStyle='#FFFFFF';c.beginPath();c.roundRect(left+6,y+h/2-1.2,w-12,2.4,1.2);c.fill();c.globalAlpha=1;
+    for(const [side,color] of [[-1,'#FF4FD8'],[1,'#4FE3FF']] as const){c.fillStyle=color;c.beginPath();c.arc(x+side*(w/2-1),y+h/2,h*.62,0,Math.PI*2);c.fill();c.fillStyle='#FFFFFF';c.beginPath();c.arc(x+side*(w/2-1),y+h/2,h*.25,0,Math.PI*2);c.fill();}
+   }else if(this.paddleSkin==='crystal'){
+    const g=c.createLinearGradient(0,y,0,y+h);g?.addColorStop(0,'#F2FCFF');g?.addColorStop(.45,'#9BE4FF');g?.addColorStop(1,'#3A8CFF');
+    c.fillStyle=g||'#9BE4FF';c.beginPath();c.roundRect(left,y,w,h,3);c.fill();
+    c.save();c.beginPath();c.roundRect(left,y,w,h,3);c.clip();c.strokeStyle='rgba(255,255,255,.55)';c.lineWidth=1;
+    for(let fx=left+6;fx<left+w;fx+=12){c.beginPath();c.moveTo(fx,y);c.lineTo(fx+6,y+h);c.stroke();}
+    c.fillStyle='rgba(255,255,255,.75)';c.fillRect(left+4,y+1,w-8,1.5);c.restore();
+    c.strokeStyle='rgba(255,255,255,.8)';c.lineWidth=1;c.beginPath();c.roundRect(left,y,w,h,3);c.stroke();
+    // A twinkle that glides along the crystal.
+    const t=(now%2600)/2600,sx=left+8+t*(w-16),sy=y+h*.35,s=3.5+1.5*Math.sin(now/120);c.fillStyle='#FFFFFF';c.beginPath();c.moveTo(sx,sy-s);c.lineTo(sx+s*.3,sy-s*.3);c.lineTo(sx+s,sy);c.lineTo(sx+s*.3,sy+s*.3);c.lineTo(sx,sy+s);c.lineTo(sx-s*.3,sy+s*.3);c.lineTo(sx-s,sy);c.lineTo(sx-s*.3,sy-s*.3);c.closePath();c.fill();
+   }else{
+    const g=c.createLinearGradient(0,y,0,y+h);g?.addColorStop(0,'#FFF4C2');g?.addColorStop(.5,'#FFD24D');g?.addColorStop(1,'#C9770A');
+    c.fillStyle=g||'#FFD24D';c.beginPath();c.roundRect(left,y,w,h,r);c.fill();
+    c.strokeStyle='#8A4B00';c.lineWidth=1;c.beginPath();c.roundRect(left+.5,y+.5,w-1,h-1,r);c.stroke();
+    // Shine sweep every 2.4 s.
+    c.save();c.beginPath();c.roundRect(left,y,w,h,r);c.clip();const t=(now%2400)/2400,bx=left-20+t*(w+40);c.fillStyle='rgba(255,255,255,.55)';c.beginPath();c.moveTo(bx,y);c.lineTo(bx+10,y);c.lineTo(bx+4,y+h);c.lineTo(bx-6,y+h);c.closePath();c.fill();c.restore();
+    // Centre gem.
+    const gs=h*.75;c.fillStyle='#B0127A';c.beginPath();c.moveTo(x,y+h/2-gs);c.lineTo(x+gs*.8,y+h/2);c.lineTo(x,y+h/2+gs);c.lineTo(x-gs*.8,y+h/2);c.closePath();c.fill();
+    c.fillStyle='#FF6FD0';c.beginPath();c.moveTo(x,y+h/2-gs*.6);c.lineTo(x+gs*.45,y+h/2);c.lineTo(x,y+h/2+gs*.15);c.lineTo(x-gs*.45,y+h/2);c.closePath();c.fill();
+    for(const side of [-1,1]){c.fillStyle='#FFF4C2';c.beginPath();c.arc(x+side*(w/2-6),y+h/2,1.8,0,Math.PI*2);c.fill();}
+   }
+   c.restore();
+  }
   /** Cosmetic ball trail (no gameplay effect): none, comet, heart or rainbow. */
   trail:TrailSkin='none';
   /** Back-compat for the 2.7 WeChat setting (comet on/off). */
@@ -336,13 +376,16 @@ export class Renderer {
     // Paddle: glow, body, neon top edge, and a draining bar while "wide" lasts.
     const py=C.paddle.y-C.paddle.height/2,pw=p.paddleWidth,wide=p.wideRemaining>0,accent=wide?OCEAN.paddle.wide:OCEAN.paddle.accent;
     const pulse=Math.max(0,1-(now-this.paddlePulse)/220);
-    const pg=this.glow(accent);if(pg){c.globalAlpha=.28+.4*pulse;c.drawImage(pg as CanvasImageSource,p.paddleX-pw*.75,py-26,pw*1.5,C.paddle.height+52);c.globalAlpha=1;}
+    const pg=this.glow(this.paddleSkin==='default'||wide?accent:PADDLE_GLOW[this.paddleSkin]);if(pg){c.globalAlpha=.28+.4*pulse;c.drawImage(pg as CanvasImageSource,p.paddleX-pw*.75,py-26,pw*1.5,C.paddle.height+52);c.globalAlpha=1;}
+    if(this.paddleSkin!=='default'){this.drawPaddleSkin(c,p.paddleX,py-pulse*1.5,pw,C.paddle.height,now);}
+    else{
     if(!this.paddleFill){const g=c.createLinearGradient(0,py,0,py+C.paddle.height);g?.addColorStop(0,OCEAN.paddle.body);g?.addColorStop(1,OCEAN.paddle.edge);this.paddleFill=g||OCEAN.paddle.body;}
     c.fillStyle=OCEAN.paddle.shadow;c.beginPath();c.roundRect(p.paddleX-pw/2,py+3,pw,C.paddle.height,6);c.fill();
     c.fillStyle=this.paddleFill;c.beginPath();c.roundRect(p.paddleX-pw/2,py-pulse*1.5,pw,C.paddle.height,6);c.fill();
     c.fillStyle=accent;c.fillRect(p.paddleX-pw/2+6,py-pulse*1.5,pw-12,2);
     c.fillStyle='rgba(255,255,255,.7)';c.fillRect(p.paddleX-pw/2+10,py+3-pulse*1.5,pw-20,1);
     for(const side of [-1,1]){c.fillStyle=accent;c.beginPath();c.arc(p.paddleX+side*(pw/2-6),py+C.paddle.height/2-pulse*1.5,2.2,0,Math.PI*2);c.fill();}
+    }
     if(wide){const k=p.wideRemaining/p.wideDuration;c.fillStyle='rgba(255,255,255,.12)';c.fillRect(p.paddleX-pw/2,py+C.paddle.height+7,pw,3);c.fillStyle=k<.3&&Math.sin(now/70)>0?OCEAN.colors.warning:OCEAN.paddle.wide;c.fillRect(p.paddleX-pw/2,py+C.paddle.height+7,pw*k,3);}
 
     // Ready: dotted launch guide from the waiting ball.
