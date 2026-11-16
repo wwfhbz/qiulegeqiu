@@ -10,7 +10,7 @@ type Private={view:ReturnType<typeof layout>;busy:boolean;chooseMode(m:'campaign
 /** Restart and home live in the pause menu (pause key → 重新开始 / 回到主界面) and confirm inside the panel. */
 type Hit={rect:{x:number;y:number;width:number;height:number}};type Panel={title:string;open:boolean;actions:{label:string}[];hits:Hit[]};
 function tap(f:ReturnType<typeof wxFixture>,x:number,y:number){const t=f.touch(1,x,y);f.events.down(t);f.events.up(t);}
-function tapPause(f:ReturnType<typeof wxFixture>,app:MiniGameApp,p:Private){app.frame(1e5);tap(f,p.view.width-78,p.view.titleY+18);app.frame(1e5+16);}
+function tapPause(f:ReturnType<typeof wxFixture>,app:MiniGameApp,p:Private){app.frame(1e5);tap(f,p.view.width-126,p.view.titleY+18);app.frame(1e5+16);}
 /** Taps a panel button where it is drawn, through the wx touch callbacks (not by calling run()). */
 function tapLabel(f:ReturnType<typeof wxFixture>,app:MiniGameApp,label:string){const panel=(app as unknown as {panel:Panel}).panel;app.frame(2e5);const i=panel.actions.findIndex(a=>a.label===label);expect(i).toBeGreaterThanOrEqual(0);const r=panel.hits[i].rect;tap(f,r.x+r.width/2,r.y+r.height/2);app.frame(2e5+16);}
 it('微信：暂停后重新开始——本局进行中先在面板里确认；继续本局回到菜单，确认才重开；未开局直接重开；不调用 wx.showModal',()=>{
@@ -39,4 +39,11 @@ it('网页：未连上排行榜服务的局不算"已连接"，结束时不自�
  const g=new Game(),sync=new ChallengeSync({request:()=>Promise.reject(Object.assign(Error('offline'),{status:undefined}))},g);
  expect(sync.connected).toBe(false);g.start();sync.observe();expect(sync.connected).toBe(true);
  await vi.waitFor(()=>expect(sync.connected).toBe(false));
+});
+it('微信顶栏：⚙ 左上角打开设置（运行中会暂停，完成后继续）；皮肤键在暂停与排行榜之间',()=>{
+ const f=wxFixture(390,844,3),app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false}),p=app as unknown as Private&{view:{top:number}},panel=app as unknown as {panel:Panel};
+ try{app.frame(16);p.chooseMode('campaign');app.frame(32);const g=app.game;g.start();for(let i=0;i<5;i++)app.frame(3e5+i*16);
+  tap(f,26,p.view.top+16);expect(panel.panel.title).toBe('设置');expect(g.state).toBe('paused');tapLabel(f,app,'完成');expect(panel.panel.open).toBe(false);expect(g.state).toBe('running');
+  app.frame(4e5);tap(f,p.view.width-78,p.view.titleY+18);expect(panel.panel.title).toBe('皮肤');expect(g.state).toBe('paused');tapLabel(f,app,'完成');expect(g.state).toBe('running');
+ }finally{app.dispose();}
 });

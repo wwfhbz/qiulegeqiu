@@ -41,6 +41,8 @@ import type {Wx,Canvas,Config,TouchEvent} from './Platform';
 interface Region {code:string;prefix:string;name:string;hasChildren:boolean;path:string}
 // This ID is only an idempotency key, never an authentication credential.
 function clientId(){return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const n=Math.floor(Math.random()*16);return (c==='x'?n:(n&3)|8).toString(16);});}
+/** Candy key in custom colours (top, bottom, drop edge): the dark gear key and the pink skins key. */
+function flatCandy(c:CanvasRenderingContext2D,r:Rect,[top,bottom,edge]:[string,string,string]){c.fillStyle=edge;c.beginPath();c.roundRect(r.x,r.y+3,r.width,r.height,12);c.fill();const g=c.createLinearGradient(0,r.y,0,r.y+r.height);g?.addColorStop(0,top);g?.addColorStop(1,bottom);c.fillStyle=g||bottom;c.beginPath();c.roundRect(r.x,r.y,r.width,r.height,12);c.fill();c.strokeStyle='rgba(255,255,255,.22)';c.lineWidth=1;c.stroke();}
 export class MiniGameApp {
  readonly game:Game;readonly api:WechatApi;readonly panel=new Panel();readonly canvas:Canvas;
  readonly platform:WechatPlatform;readonly profile:Profile;private cloud:CloudSync;private scoreShareImage?:string;private sharing=false;
@@ -103,7 +105,7 @@ export class MiniGameApp {
   const g=this.game;drawHud(c,g,{x:6,y:v.hudY,width:v.width-12,height:v.hudHeight});
   if(!this.panel.ranking&&!this.panel.friend)c.drawImage(this.arena as CanvasImageSource,v.arena.x,v.arena.y,v.arena.width,v.arena.height);this.actions=[];
   const button=(rect:Rect,label:string,run:()=>void)=>{neonButton(c,rect,'cyan',rect.height/2);c.font='700 15px '+OCEAN.fonts.body;c.textAlign='center';c.textBaseline='middle';c.fillStyle=NEON.cyan;c.fillText(label,rect.x+rect.width/2,rect.y+rect.height/2,rect.width-16);this.actions.push({rect,run});};
-  const iconButton=(rect:Rect,icon:IconName,run:()=>void,accent:NeonAccent='dim')=>{candyButton(c,rect,accent==='gold'?'gold':'violet',12);drawIcon(c,icon,rect.x+rect.width/2,rect.y+rect.height/2,16,accent==='gold'?'#6A3A00':'#FFFFFF');this.actions.push({rect:{x:rect.x-2,y:rect.y-4,width:44,height:44},run});};
+  const iconButton=(rect:Rect,icon:IconName,run:()=>void,accent:NeonAccent|'gear'|'pink'='dim')=>{if(accent==='gear'||accent==='pink')flatCandy(c,rect,accent==='gear'?['#3A3F7A','#262A5C','#171A40']:['#FF8CC6','#E0458F','#A82A66']);else candyButton(c,rect,accent==='gold'?'gold':'violet',12);drawIcon(c,icon,rect.x+rect.width/2,rect.y+rect.height/2,accent==='gear'?20:16,accent==='gold'?'#6A3A00':accent==='gear'?'#FFD24D':'#FFFFFF');this.actions.push({rect:{x:rect.x-2,y:rect.y-4,width:44,height:44},run});};
   if(g.physics.wideRemaining>0||g.score.multiplier>1)canvasText(c,`${g.physics.wideRemaining>0?'加宽 '+g.physics.wideRemaining.toFixed(1)+' 秒 ':''}${g.score.multiplier>1?'连击 ×'+g.score.multiplier:''}`,v.width/2,v.buttonsY-6,v.width-16,10,OCEAN.colors.positive,'center');
   // Long endless runs: warn before the record limit makes the run impossible to submit.
   if(g.journal.truncated||g.journal.nearLimit)canvasText(c,g.journal.truncated?'记录已满，本局无法上榜':'记录即将满额，请尽快结束本局',v.width/2,v.buttonsY-22,v.width-16,11,OCEAN.colors.warning,'center');
@@ -136,9 +138,11 @@ export class MiniGameApp {
     const x=v.width/2+side*(half+i*11);c.strokeStyle=pressed?`rgba(255,226,122,${alpha})`:`rgba(79,227,255,${alpha})`;
     c.beginPath();c.moveTo(x-side*3.5,cy-5);c.lineTo(x+side*1.5,cy);c.lineTo(x-side*3.5,cy+5);c.stroke();}
    c.restore();}
-  // Same keys as the web top bar: no separate ☰ (pause is the menu), pause then the gold trophy at the far right.
+  // Top bar like the web: ⚙ settings at the top-left (capsule row, beside the title); mode switch, then pause · skins · trophy.
+  iconButton({x:6,y:v.top-2,width:40,height:36},'gear',()=>this.settings(),'gear');
   iconButton({x:v.width-50,y:v.titleY,width:40,height:36},'trophy',()=>void this.board(),'gold');
-  c.font=`900 23px ${OCEAN.fonts.body}`;c.textAlign='left';c.textBaseline='middle';const titleGold=c.createLinearGradient(0,v.top,0,v.top+32);titleGold?.addColorStop(0,'#FFFFFF');titleGold?.addColorStop(.6,'#FFE27A');titleGold?.addColorStop(1,'#FFB31F');c.fillStyle=titleGold||'#FFE27A';c.fillText(GAME_NAME,10,v.top+v.barHeight/2,Math.max(60,v.barRight-18));
+  iconButton({x:v.width-98,y:v.titleY,width:40,height:36},'spark',()=>this.skins(),'pink');
+  c.font=`900 23px ${OCEAN.fonts.body}`;c.textAlign='left';c.textBaseline='middle';const titleGold=c.createLinearGradient(0,v.top,0,v.top+32);titleGold?.addColorStop(0,'#FFFFFF');titleGold?.addColorStop(.6,'#FFE27A');titleGold?.addColorStop(1,'#FFB31F');c.fillStyle=titleGold||'#FFE27A';c.fillText(GAME_NAME,54,v.top+v.barHeight/2,Math.max(60,v.barRight-62));
   neonButton(c,{x:4,y:v.titleY+4,width:118,height:40},'dim',20);
   for(const tab of v.modeTabs){const selected=tab.mode===g.mode,visual={x:tab.x,y:v.titleY+6,width:tab.width,height:36};if(selected)candyButton(c,visual,'gold',18);c.font=`800 14px ${OCEAN.fonts.body}`;c.textAlign='center';c.textBaseline='middle';c.fillStyle=selected?'#5A2C00':OCEAN.colors.secondary;c.fillText(tab.mode==='campaign'?'闯关':'无尽',tab.x+tab.width/2,v.titleY+24,tab.width-8);this.actions.push({rect:tab,run:()=>void this.requestMode(tab.mode)});}
   // Pause opens the menu; like the web key it shows ▶ while the game is paused, and tapping it again resumes.
@@ -174,7 +178,7 @@ export class MiniGameApp {
  private confirmSheet(title:string,line:string,confirm:string,icon:IconName,run:()=>void){
   this.panel.show(title,[line],[{label:confirm,icon,primary:true,run},{label:'继续本局',icon:'play',run:()=>this.menu(false)}]);
  }
- private get pauseKey():Rect{const v=this.view;return {x:v.width-98,y:v.titleY,width:40,height:36};}
+ private get pauseKey():Rect{const v=this.view;return {x:v.width-146,y:v.titleY,width:40,height:36};}
  private get menuOpen(){return this.panel.open&&(this.panel.title==='游戏暂停'||this.panel.title==='菜单');}
  private inRun(){const g=this.game;return g.journal.events.length>0&&g.state!=='gameOver'&&g.state!=='victory';}
  private confirmRestart(){const g=this.game;if(this.busy)return;
@@ -204,19 +208,33 @@ export class MiniGameApp {
   }finally{this.busy=false;}
  }
  /** Music, effects, vibration and the comet tail; each switch is remembered. */
- private settings(){const a=this.game.audio;
+ /**
+  * Settings (⚙, top-left): music / effects / vibration switches, then account and policy items. Nothing here repeats
+  * the pause menu. Opening it pauses a running game; 完成 resumes it.
+  */
+ private overlayResume=false;
+ private settings(){const a=this.game.audio,g=this.game;
+  if(g.state==='running'){g.pause();this.overlayResume=true;}
   const flip=(key:string,on:boolean,apply:(on:boolean)=>void)=>()=>{apply(on);this.platform.write(key,on);this.settings();};
+  const done=()=>{this.panel.close();if(this.overlayResume&&g.state==='paused')g.start();this.overlayResume=false;this.previous=0;};
+  const inRun=this.inRun();
   const actions:Action[]=[
-   {label:`背景音乐：${a.musicOn?'开':'关'}`,half:true,run:flip(SETTING.music,!a.musicOn,on=>{a.unlock();a.setMusic(on);})},
-   {label:`音效：${a.sfxOn?'开':'关'}`,half:true,run:flip(SETTING.sfx,!a.sfxOn,on=>a.setSfx(on))},
-   {label:`震动：${this.vibrationOn?'开':'关'}`,half:true,run:flip(SETTING.vibrate,!this.vibrationOn,on=>{this.vibrationOn=on;})},
+   {label:'音乐',icon:'music',toggle:a.musicOn,run:flip(SETTING.music,!a.musicOn,on=>{a.unlock();a.setMusic(on);})},
+   {label:'音效',icon:a.sfxOn?'soundOn':'soundOff',toggle:a.sfxOn,run:flip(SETTING.sfx,!a.sfxOn,on=>a.setSfx(on))},
+   {label:'震动',icon:'vibrate',toggle:this.vibrationOn,run:flip(SETTING.vibrate,!this.vibrationOn,on=>{this.vibrationOn=on;})},
+   {label:'分享小游戏',run:()=>this.wx.shareAppMessage(this.shareData()),half:true},{label:'个人历史记录',run:()=>void this.history(),half:true},
+   {label:'绑定网页账号',run:()=>void this.bind(),half:true},{label:'隐私与账号',run:()=>this.privacyPage(),half:true},
   ];
-  actions.push({label:'皮肤：小球拖尾 · 挡板',run:()=>this.skins()});
-  actions.push({label:'返回菜单',run:()=>this.menu(false)});
-  this.panel.show('设置',['背景音乐、音效和震动可分别开关；顶部喇叭键一键全部静音。','皮肤：3 款小球拖尾和 3 款挡板，只改外观不影响成绩。'],actions);
+  if(!inRun)actions.push({label:'单机挑战',run:()=>{this.offlinePreference=true;this.online=false;this.overlayResume=false;this.panel.close();g.reset();},half:true},{label:'联网挑战',run:()=>{this.offlinePreference=false;this.overlayResume=false;this.panel.close();g.reset();},half:true});
+  actions.push({label:'完成',primary:true,run:done});
+  this.panel.show('设置',[this.me?.best?`我的历史最高：${this.me.best.score}，排名 ${this.me.best.rank}`:'只改设置，不影响本局'],actions);
  }
+ /** One level down from settings: policies and the account appeal, so the settings card fits small phones. */
+ private privacyPage(){this.panel.show('隐私与账号',['成绩与昵称仅用于排行榜；可随时申请更正、注销或删除。'],[
+  {label:'隐私保护说明',run:()=>this.wx.showModal({title:'隐私保护说明',content:privacy,showCancel:false}),half:true},{label:'用户协议',run:()=>this.wx.showModal({title:'用户协议',content:agreement,showCancel:false}),half:true},
+  {label:'账号及隐私申诉',run:()=>void this.appeal()},{label:'返回设置',run:()=>this.settings()}]);}
  /** Skins page: ball trails and paddle skins. Each unlocked once by a rewarded video, then freely switched. */
- private skins(){const actions:Action[]=[];
+ private skins(){const actions:Action[]=[];if(this.game.state==='running'){this.game.pause();this.overlayResume=true;}
   // Trail skins: each one unlocked once by a rewarded video, then freely switched (only the look changes).
   const unlocked=this.unlockedTrails(),current=this.selectedTrail();
   for(const skin of TRAIL_SKINS){if(unlocked.includes(skin.id))actions.push({label:`${skin.name}拖尾：${current===skin.id?'使用中':'使用'}`,half:true,run:()=>{this.useTrail(skin.id);this.skins();}});
@@ -226,7 +244,7 @@ export class MiniGameApp {
   for(const skin of PADDLE_SKINS){if(paddles.includes(skin.id))actions.push({label:`${skin.name}：${paddle===skin.id?'使用中':'使用'}`,half:true,run:()=>{this.usePaddle(skin.id);this.skins();}});
    else if(this.ads.rewardedAvailable)actions.push({label:`▶ 看视频解锁${skin.name}`,half:true,tone:'outline',run:()=>void this.watchReward(`paddle:${skin.id}`)});}
   if(paddles.length&&paddle!=='default')actions.push({label:'默认挡板',half:true,run:()=>{this.usePaddle('default');this.skins();}});
-  actions.push({label:'返回菜单',run:()=>this.menu(false)});
+  actions.push({label:'完成',primary:true,run:()=>{this.panel.close();if(this.overlayResume&&this.game.state==='paused')this.game.start();this.overlayResume=false;this.previous=0;}});
   const any=this.unlockedTrails().length+paddles.length>0||this.ads.rewardedAvailable;
   this.panel.show('皮肤',any?['拖尾：流星 · 爱心 · 花瓣    挡板：霓虹光剑 · 烈焰燃烧 · 黄金荣耀','每款看一次视频永久解锁，只改外观，不影响成绩。']:['开通广告后可看视频解锁皮肤。'],actions);
  }
@@ -275,30 +293,15 @@ export class MiniGameApp {
   const four=(s:string)=>[...s].slice(0,4).join('');return new Promise<{confirm:boolean;content?:string}>(resolve=>this.wx.showModal({title,content:editable?initialValue:content,placeholderText:editable?content:undefined,confirmText:four(confirmText),cancelText:four(cancelText),editable,success:resolve,fail:()=>resolve({confirm:false})}));}
  private toast(message:string){this.wx.showToast({title:message,icon:'none'});}
  private async task(work:()=>Promise<void>){if(this.busy)return;this.busy=true;try{await work();}catch(error){this.wx.showModal({title:'操作未完成',content:(error as Error).message,showCancel:false});}finally{this.busy=false;}}
- /** One menu for ☰ and pause: resume, restart, home, skip (rewarded), sound, skins, leaderboard and more. */
+ /** Pause menu: resume, restart, home and the rewarded skip. Settings, skins and the leaderboard have their own top-bar keys. */
  private menu(fromUser=true){const g=this.game;g.pause();if(fromUser)this.maybeInterstitial();
   const a=g.audio,inRun=g.journal.events.length>0&&g.state!=='gameOver'&&g.state!=='victory';
   const where=g.mode==='endless'?`无尽模式 · 第${g.reachedLevel}阶段`:`闯关模式 · 第${g.levels.current.number}关`;
   const actions:Action[]=[{label:inRun?'继续游戏':'返回游戏',icon:'play',primary:true,run:()=>{this.panel.close();if(g.state==='paused')g.start();this.previous=0;}},
    {label:'重新开始',icon:'restart',half:true,run:()=>void this.confirmRestart()},{label:'回到主界面',icon:'menu',half:true,run:()=>void this.confirmHome()}];
   if(g.canSkip&&this.ads.rewardedAvailable&&(!this.online||this.sync.skipSupported))actions.push({label:`▶ 看视频跳过本关（还可 ${MAX_SKIPS-g.skipsUsed} 次）`,run:()=>void this.watchReward('skip')});
-  const flip=(key:string,on:boolean,apply:(on:boolean)=>void)=>()=>{apply(on);this.platform.write(key,on);this.menu(false);};
-  // Same order and icons as the web menu card; 震动 and 更多 are WeChat-only extras at the end.
-  actions.push({label:`音效：${a.sfxOn?'开':'关'}`,icon:a.sfxOn?'soundOn':'soundOff',half:true,run:flip(SETTING.sfx,!a.sfxOn,on=>a.setSfx(on))},{label:`背景音乐：${a.musicOn?'开':'关'}`,icon:'music',half:true,run:flip(SETTING.music,!a.musicOn,on=>{a.unlock();a.setMusic(on);})},
-   {label:'皮肤',icon:'spark',half:true,run:()=>this.skins()},{label:'排行榜',icon:'trophy',half:true,run:()=>void this.board()},
-   {label:`震动：${this.vibrationOn?'开':'关'}`,icon:'gear',half:true,run:flip(SETTING.vibrate,!this.vibrationOn,on=>{this.vibrationOn=on;})},{label:'更多',icon:'share',half:true,run:()=>this.more()});
   this.panel.show(inRun?'游戏暂停':'菜单',[`${where} · 得分 ${g.score.total}`],actions);
  }
- /** Less-used items, one level down: share, history, account binding, mode switch, policies. */
- private more(){this.panel.show('更多',[this.me?.best?`我的历史最高：${this.me.best.score}，排名 ${this.me.best.rank}`:'可随时单机挑战，联网异常不影响游戏'],[
-  {label:'分享小游戏',run:()=>this.wx.shareAppMessage(this.shareData()),half:true},{label:'账号及隐私申诉',run:()=>void this.appeal(),half:true},
-  {label:'个人历史记录',run:()=>void this.history(),half:true},
-  {label:'绑定已有网页账号',run:()=>void this.bind(),half:true},
-  {label:this.game.journal.events.length>0&&this.game.state!=='gameOver'&&this.game.state!=='victory'?'本局结束后可切换模式':this.game.mode==='endless'?'切换到闯关模式':'切换到无尽模式',run:()=>{const g=this.game;if(g.journal.events.length>0&&g.state!=='gameOver'&&g.state!=='victory'){this.toast('本局结束后可切换模式');return;}this.chooseMode(g.mode==='endless'?'campaign':'endless');}},
-  {label:'单机重新挑战',run:()=>{this.offlinePreference=true;this.online=false;this.panel.close();this.game.reset();},half:true},{label:'联网重新挑战',run:()=>{this.offlinePreference=false;this.panel.close();this.game.reset();},half:true},
-  {label:'隐私保护说明',run:()=>this.wx.showModal({title:'隐私保护说明',content:privacy,showCancel:false}),half:true},{label:'用户协议',run:()=>this.wx.showModal({title:'用户协议',content:agreement,showCancel:false}),half:true},
-  {label:'返回菜单',run:()=>this.menu(false)}
- ]);}
  /** Back to the mode picker; asks first if a run is in progress (the run is not submitted). */
  private confirmHome(){const g=this.game;if(this.busy)return;
   const home=()=>{this.panel.close();g.reset();this.previous=0;this.modePicker();};
@@ -335,10 +338,10 @@ export class MiniGameApp {
  private get titleOpen(){return this.panel.title==='选择游戏模式'||!!this.panel.resultView;}
  private modePicker(){this.picking=true;const last=this.game.mode;this.panel.show('选择游戏模式',['闯关模式：12 关逐关突破 · 3 条命 · 闯关榜','无尽模式：砖墙不断下沉 · 3 条命 · 无尽榜','每局结束后可重新选择模式'],[
   {label:(last==='campaign'?'▶ ':'')+'闯关模式',run:()=>this.chooseMode('campaign')},{label:(last==='endless'?'▶ ':'')+'无尽模式',run:()=>this.chooseMode('endless')},
-  {label:'排行榜',run:()=>void this.board()},{label:'音效',run:()=>{this.game.audio.toggle();this.platform.write('qiulegeqiu:wechat-muted:v1',this.game.audio.muted);}}]);}
+  {label:'设置',run:()=>this.settings()},{label:'皮肤',run:()=>this.skins()},{label:'排行榜',run:()=>void this.board()}]);}
  private async history(){return this.task(async()=>{
   this.me=await this.api.me();const lines=scoreHistoryLines(this.me.historicalBests,this.me.historicalBest);
-  this.panel.show('个人历史记录',lines.length?[...lines,'历史有效成绩已参与所属模式永久统一排行榜。']:['暂无旧版有效记录'],[{label:'返回菜单',run:()=>this.menu()}]);
+  this.panel.show('个人历史记录',lines.length?[...lines,'历史有效成绩已参与所属模式永久统一排行榜。']:['暂无旧版有效记录'],[{label:'返回设置',run:()=>this.settings()}]);
  });}
  private result(){const runs=(Number(this.platform.read(SETTING.runs))||0)+1;this.platform.write(SETTING.runs,runs);if(runs>=2&&this.platform.read(SETTING.guide)!==true){this.platform.write(SETTING.guide,true);this.guide=true;}this.scoreShareImage=undefined;const g=this.game,generation=g.journal.generation;void scoreShare(this.wx,{mode:g.mode,score:g.score.total}).then(r=>{if(g.journal.generation===generation&&(g.state==='gameOver'||g.state==='victory'))this.scoreShareImage=r.imageUrl;}).catch(()=>{});this.resultPage();}
  /** Full-screen result page; it stays up (also after the leaderboard or a dialog closes) until a mode is chosen. */
@@ -408,7 +411,7 @@ export class MiniGameApp {
  private async bind(){return this.task(async()=>{const consent=await this.modal('绑定说明','仅使用你本人网页账号生成的五分钟一次性绑定码。已在微信登记的玩家不能自动合并历史。','继续','取消');if(!consent.confirm)return;
   const agree=await this.modal('隐私保护说明',privacy,'同意登录','取消');if(!agree.confirm)return;await this.loginWithPrivacy();
   const ticket=await this.modal('输入网页绑定码','请在已登录的网页排行榜生成；不要使用他人的绑定码。','绑定','取消',true);if(!ticket.confirm)return;
-  await this.api.request('/wechat/bind',{ticket:ticket.content?.trim()});this.me=await this.api.me();this.toast('已绑定原网页玩家');this.menu();});}
+  await this.api.request('/wechat/bind',{ticket:ticket.content?.trim()});this.me=await this.api.me();this.toast('已绑定原网页玩家');this.settings();});}
  private async appeal(){return this.task(async()=>{if(!this.api.authenticated)throw Error('请先在开始挑战时选择联网登录');const r=await this.modal('账号与隐私申诉','请说明更正、注销或删除请求，不要填写密码。','提交','取消',true);if(r.confirm){await this.api.request('/appeals',{message:r.content||''});this.toast('申诉已提交');}});}
  private async shareScore(){if(this.sharing||(this.game.state!=='gameOver'&&this.game.state!=='victory'))return;this.sharing=true;try{const data=await scoreShare(this.wx,{mode:this.game.mode,score:this.game.score.total});this.wx.shareAppMessage(data);}catch{this.toast('分享暂不可用，可继续游戏');}finally{this.sharing=false;}}
  private friends(){

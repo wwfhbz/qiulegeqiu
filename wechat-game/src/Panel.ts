@@ -7,7 +7,7 @@ import type {CanvasSurface} from '../../src/platform/Contracts';
 import {RankingCanvas,type RankingView,type RankingAction} from './RankingCanvas';
 import {inside,type Rect} from './Layout';
 import {drawIcon,type IconName} from '../../shared/Icons';
-export interface Action {label:string;run:()=>void;half?:boolean;primary?:boolean;/** Optional icon left of the label, matching the web menu buttons. */icon?:IconName;/** 'outline': gold-edged secondary button (e.g. several rewarded unlocks in one list). */tone?:'outline'}
+export interface Action {label:string;run:()=>void;half?:boolean;primary?:boolean;/** Optional icon left of the label, matching the web menu buttons. */icon?:IconName;/** Settings row: icon + label on the left and an on/off pill switch on the right. */toggle?:boolean;/** 'outline': gold-edged secondary button (e.g. several rewarded unlocks in one list). */tone?:'outline'}
 export class Panel {
  friend?:FriendBoard;
  ranking?:RankingCanvas;private rankSurface?:CanvasSurface;private canvasFactory?:()=>CanvasSurface;
@@ -45,7 +45,7 @@ export class Panel {
   const lines:{text:string;big:boolean}[]=[];c.font='500 12px '+OCEAN.fonts.body;
   for(const [index,line] of this.lines.entries()){const big=index===0&&(this.title.endsWith('挑战结束')||this.title.endsWith('十二关突破成功'));if(big){lines.push({text:line,big});continue;}
    let text='';for(const ch of [...line]){if(c.measureText(text+ch).width>inner){lines.push({text,big:false});text='';}text+=ch;}if(text)lines.push({text,big:false});}
-  const rows:Action[][]=[];for(let i=0;i<this.actions.length;i++){const a=this.actions[i];rows.push(a.half&&this.actions[i+1]?.half?[a,this.actions[++i]]:[a]);}
+  const rows:Action[][]=[];for(let i=0;i<this.actions.length;i++){const a=this.actions[i];rows.push(a.half&&this.actions[i+1]?.half&&a.toggle===undefined?[a,this.actions[++i]]:[a]);}
   const linesH=lines.reduce((h,l)=>h+(l.big?34:18),0),gaps=rows.filter(r=>r.length===1&&r[0].primary&&rows.length>1).length*8,h=22+30+(lines.length?linesH+12:4)+rows.length*50+gaps+8;
   let y=Math.max(top+6,top+(bottom-top-h)/2);
   c.fillStyle='#5A2AB8';c.beginPath();c.roundRect(x,y+6,w,h,24);c.fill();
@@ -55,6 +55,14 @@ export class Panel {
   for(const l of lines){if(l.big){glowText(c,l.text,width/2,y+14,inner,24,'#FFE27A');y+=34;continue;}c.font='500 12px '+OCEAN.fonts.body;c.fillStyle='#C9D6EE';c.textAlign='center';c.textBaseline='middle';c.fillText(l.text,width/2,y+8,inner);y+=18;}
   y+=lines.length?10:0;
   for(const row of rows){
+   if(row.length===1&&row[0].toggle!==undefined){const a=row[0],rect={x:x+pad,y,width:inner,height:44};
+    c.fillStyle='rgba(255,255,255,.06)';c.beginPath();c.roundRect(rect.x,rect.y,rect.width,rect.height,14);c.fill();
+    if(a.icon)drawIcon(c,a.icon,rect.x+24,rect.y+22,22,'#7FD8FF');
+    c.font=`800 16px ${OCEAN.fonts.body}`;c.textAlign='left';c.textBaseline='middle';c.fillStyle='#EAF6FF';c.fillText(a.label,rect.x+46,rect.y+22,rect.width-120);
+    const sw={x:rect.x+rect.width-62,y:rect.y+8,width:52,height:28};
+    if(a.toggle){const g=c.createLinearGradient(0,sw.y,0,sw.y+sw.height);g?.addColorStop(0,'#7FF5D6');g?.addColorStop(1,'#2FC79A');c.fillStyle=g||'#2FC79A';}else c.fillStyle='rgba(255,255,255,.16)';
+    c.beginPath();c.roundRect(sw.x,sw.y,sw.width,sw.height,14);c.fill();c.fillStyle='#FFFFFF';c.beginPath();c.arc(a.toggle?sw.x+sw.width-14:sw.x+14,sw.y+14,11,0,Math.PI*2);c.fill();
+    c.textBaseline='alphabetic';this.hits.push({rect,run:a.run});y+=50;continue;}
    row.forEach((a,index)=>{const half=row.length===2,rect={x:x+pad+(half?index*(inner/2+5):0),y,width:half?inner/2-5:inner,height:42};
     const outline=a.tone==='outline',gold=!outline&&(!!a.primary||a.label.startsWith('▶')),dim=/^(返回|关闭|取消)/.test(a.label);
     if(gold){c.fillStyle='#C9770A';c.beginPath();c.roundRect(rect.x,rect.y+4,rect.width,rect.height,14);c.fill();const g=c.createLinearGradient(0,rect.y,0,rect.y+rect.height);g?.addColorStop(0,'#FFE27A');g?.addColorStop(1,'#FFB31F');c.fillStyle=g||'#FFD24D';c.beginPath();c.roundRect(rect.x,rect.y,rect.width,rect.height,14);c.fill();}
