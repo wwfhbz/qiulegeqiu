@@ -4,20 +4,19 @@ import {wxFixture} from './helpers/WxFixture';
 import {C} from '../src/GameConfig';
 
 type Internals={chooseMode(mode:'campaign'|'endless'):void;draw(now:number):void;frame(now:number):void;rankingBoard:string;picking:boolean;panel:{open:boolean;title:string;actions:{label:string;run:()=>void}[]}};
-it('微信：打开即显示模式选择（必须选择才能开始），选无尽后记住选择、HUD显示阶段与下沉；菜单切换模式只在局外可用',()=>{
+it('微信：打开即显示模式选择（必须选择才能开始），选无尽后记住选择、HUD显示阶段与下沉；菜单切换模式只在局外可用',async()=>{
  const f=wxFixture(),app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false}),x=app as unknown as Internals;
  try{
   x.frame(16);expect(x.picking).toBe(true);expect(x.panel.open).toBe(true);expect(x.panel.title).toBe('选择游戏模式');
-  expect(x.panel.actions.map(a=>a.label.replace('▶ ',''))).toEqual(['闯关模式','无尽模式','排行榜','音效']);
+  expect(x.panel.actions.map(a=>a.label.replace('▶ ',''))).toEqual(['闯关模式','无尽模式','设置','皮肤','排行榜']);
   x.panel.actions[1].run();expect(x.picking).toBe(false);expect(app.game.mode).toBe('endless');expect(app.game.lives).toBe(3);expect(x.rankingBoard).toBe('endless');
   expect(f.wx.getStorageSync('qiulegeqiu:wechat-mode:v1')).toBe('endless');
   x.draw(0);expect(f.texts).toContain('第1阶段');expect(f.texts).toContain('已下沉0行');
   const again=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});try{expect(again.game.mode).toBe('endless');expect((again as unknown as Internals).picking).toBe(true);}finally{again.dispose();}
-  // Mode switching lives under 菜单 → 更多 since 2.9.
-  const menu=()=>(app as unknown as {more():void}).more();
-  menu();const item=x.panel.actions.find(a=>a.label==='切换到闯关模式');expect(item).toBeDefined();x.panel.actions.at(-1)!.run();
-  app.game.start();menu();const locked=x.panel.actions.find(a=>a.label==='本局结束后可切换模式')!;expect(locked).toBeDefined();locked.run();expect(app.game.mode).toBe('endless');x.panel.actions.at(-1)!.run();
-  app.game.state='gameOver';menu();x.panel.actions.find(a=>a.label==='切换到闯关模式')!.run();expect(app.game.mode).toBe('campaign');expect(app.game.lives).toBe(3);
+  // Mode switching is the top-bar 闯关/无尽 switch (since 2.13 there is no 更多 page): mid-run it asks first.
+  const request=(m:'campaign'|'endless')=>(app as unknown as {requestMode(m:string):Promise<void>}).requestMode(m);
+  app.game.start();let asked=0;f.wx.showModal=o=>{asked++;o.success?.({confirm:false});};await request('campaign');expect(asked).toBe(1);expect(app.game.mode).toBe('endless');
+  app.game.state='gameOver';await request('campaign');expect(app.game.mode).toBe('campaign');expect(app.game.lives).toBe(3);
  }finally{app.dispose();}
 });
 it('微信：一局结束后进入全屏结算页，直接给出两种模式；关闭排行榜等弹层后结算页会回来',()=>{

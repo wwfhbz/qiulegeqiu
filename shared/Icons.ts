@@ -2,7 +2,7 @@
  * One small, consistent icon set for the casual UI. Web uses the SVG strings; WeChat draws the same
  * shapes on canvas with `drawIcon` so both clients look alike. All icons sit in a 24×24 box.
  */
-export type IconName='pause'|'play'|'restart'|'soundOn'|'soundOff'|'trophy'|'menu'|'flag'|'infinity'|'share'|'music'|'film'|'gear'|'spark';
+export type IconName='pause'|'play'|'restart'|'soundOn'|'soundOff'|'trophy'|'menu'|'flag'|'infinity'|'share'|'music'|'film'|'gear'|'spark'|'vibrate';
 
 const stroke=(d:string)=>`<path d="${d}" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>`;
 const fill=(d:string)=>`<path d="${d}" fill="currentColor"/>`;
@@ -19,7 +19,8 @@ const SVG_BODY:Record<IconName,string>={
  spark:fill('M12 2.5l2.1 6.1 6.4.3-5.1 3.9 1.8 6.2L12 15.3 6.8 19l1.8-6.2-5.1-3.9 6.4-.3z'),
  music:fill('M9 17.5a2.8 2.8 0 1 1-1.6-2.53V5.5l10-2v11a2.8 2.8 0 1 1-1.6-2.53V7.3L9 8.6z'),
  film:fill('M4 6.5A1.5 1.5 0 0 1 5.5 5h9A1.5 1.5 0 0 1 16 6.5v2.1l3.6-2.2A.9.9 0 0 1 21 7.2v9.6a.9.9 0 0 1-1.4.8L16 15.4v2.1a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 4 17.5z'),
- gear:stroke('M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4zM12 3v2.3M12 18.7V21M3 12h2.3M18.7 12H21M5.6 5.6l1.7 1.7M16.7 16.7l1.7 1.7M5.6 18.4l1.7-1.7M16.7 7.3l1.7-1.7'),
+ gear:`<path d="M19.64 9.64L22.39 9.89L22.39 14.11L19.64 14.36L19.08 15.73L20.84 17.86L17.86 20.84L15.73 19.08L14.36 19.64L14.11 22.39L9.89 22.39L9.64 19.64L8.27 19.08L6.14 20.84L3.16 17.86L4.92 15.73L4.36 14.36L1.61 14.11L1.61 9.89L4.36 9.64L4.92 8.27L3.16 6.14L6.14 3.16L8.27 4.92L9.64 4.36L9.89 1.61L14.11 1.61L14.36 4.36L15.73 4.92L17.86 3.16L20.84 6.14L19.08 8.27ZM15.4 12a3.4 3.4 0 1 0-6.8 0 3.4 3.4 0 1 0 6.8 0z" fill="currentColor" fill-rule="evenodd"/>`,
+ vibrate:'<path d="M8.5 3h7A1.5 1.5 0 0 1 17 4.5v15a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 7 19.5v-15A1.5 1.5 0 0 1 8.5 3zM9.5 5.5v11.5h5V5.5z" fill="currentColor" fill-rule="evenodd"/>'+stroke('M3.5 9v6M20.5 9v6'),
  share:stroke('M12 15V4M7.5 8.5 12 4l4.5 4.5M5 12.5V19a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-6.5'),
 };
 export function iconSvg(name:IconName){return `<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false">${SVG_BODY[name]}</svg>`;}
@@ -43,7 +44,8 @@ export function drawIcon(c:CanvasRenderingContext2D,name:IconName,x:number,y:num
   case 'spark':poly([[12,2.5],[14.1,8.6],[20.5,8.9],[15.4,12.8],[17.2,19],[12,15.3],[6.8,19],[8.6,12.8],[3.5,8.9],[9.9,8.6]]);break;
   case 'music':c.beginPath();c.arc(6.6,17.5,2.8,0,Math.PI*2);c.fill();c.beginPath();c.arc(14.8,14.5,2.8,0,Math.PI*2);c.fill();c.fillRect(7.8,5.5,1.6,12);c.fillRect(16,3.5,1.6,11);poly([[7.8,5.5],[17.6,3.5],[17.6,7.3],[7.8,9.2]]);break;
   case 'film':c.beginPath();c.roundRect(4,5,12,14,1.5);c.fill();poly([[16,9],[21,6.4],[21,17.6],[16,15]]);break;
-  case 'gear':c.beginPath();c.arc(12,12,3.2,0,Math.PI*2);c.stroke();for(let i=0;i<8;i++){const a=i*Math.PI/4;line([[12+Math.cos(a)*6.2,12+Math.sin(a)*6.2],[12+Math.cos(a)*8.8,12+Math.sin(a)*8.8]]);}break;
+  case 'gear':{const t=[[19.64,9.64],[22.39,9.89],[22.39,14.11],[19.64,14.36],[19.08,15.73],[20.84,17.86],[17.86,20.84],[15.73,19.08],[14.36,19.64],[14.11,22.39],[9.89,22.39],[9.64,19.64],[8.27,19.08],[6.14,20.84],[3.16,17.86],[4.92,15.73],[4.36,14.36],[1.61,14.11],[1.61,9.89],[4.36,9.64],[4.92,8.27],[3.16,6.14],[6.14,3.16],[8.27,4.92],[9.64,4.36],[9.89,1.61],[14.11,1.61],[14.36,4.36],[15.73,4.92],[17.86,3.16],[20.84,6.14],[19.08,8.27]];c.beginPath();c.moveTo(t[0][0],t[0][1]);for(const p of t.slice(1))c.lineTo(p[0],p[1]);c.closePath();c.moveTo(15.4,12);c.arc(12,12,3.4,0,Math.PI*2,true);c.fill('evenodd');break;}
+  case 'vibrate':c.lineWidth=2.4;c.beginPath();c.roundRect(8.2,4.2,7.6,15.6,1.5);c.stroke();c.lineWidth=2.6;c.fillRect(10.8,16.4,2.4,1.6);line([[3.5,9],[3.5,15]]);line([[20.5,9],[20.5,15]]);break;
   case 'share':line([[12,15],[12,4]]);line([[7.5,8.5],[12,4],[16.5,8.5]]);line([[5,12.5],[5,20],[19,20],[19,12.5]]);break;
   case 'infinity':c.beginPath();c.ellipse(7.5,12,3.6,3.2,0,0,Math.PI*2);c.stroke();c.beginPath();c.ellipse(16.5,12,3.6,3.2,0,0,Math.PI*2);c.stroke();break;
  }

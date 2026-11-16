@@ -18,7 +18,8 @@ export function modePickerLayout(width:number,height:number,top:number,bottom:nu
  const heroRect={x:(width-hero)/2,y,width:hero,height:hero};y+=hero+step;
  const logoY=y+logoH/2;y+=logoH;const tagY=y+tagH/2;y+=tagH+step;
  const rows=[0,1].map(i=>({x,y:y+i*(cardH+gap),width:w,height:cardH}));y+=cardH*2+gap+step;
- const toolW=Math.min(130,(w-12)/2),tools=[0,1].map(i=>({x:width/2+(i?6:-6-toolW),y,width:toolW,height:toolH}));y+=toolH+step;
+ // Three pills like the web title screen: 设置 · 皮肤 · 排行榜.
+ const toolW=Math.min(108,(w-16)/3),tools=[0,1,2].map(i=>({x:width/2-toolW*1.5-8+i*(toolW+8),y,width:toolW,height:toolH}));y+=toolH+step;
  return {hero:heroRect,logoY,tagY:tagH?tagY:undefined,rows,tools,footY:Math.min(bottom-8,y+6),tight,compact:false};
 }
 
@@ -144,7 +145,7 @@ export function drawModePicker(c:CanvasRenderingContext2D,width:number,height:nu
  if(v.tagY!==undefined)canvasText(c,'圆形弹球 · 击碎星际砖墙',width/2,v.tagY,width-40,13,'#A9C1DE','center');
 
  modeCards(c,v.rows,selected,v.tight,false,'上次玩过');
- pillTools(c,v.tools,[{label:'排行榜',icon:'trophy',color:'#FFD24D'},{label:muted?'音效关':'音效开',icon:muted?'soundOff':'soundOn',color:'#EAF6FF'}]);
+ void muted;pillTools(c,v.tools,[{label:'设置',icon:'gear',color:'#FFD24D'},{label:'皮肤',icon:'spark',color:'#FF8CC6'},{label:'排行榜',icon:'trophy',color:'#FFD24D'}]);
  canvasText(c,`每局结束后可重新选择模式 · V${MINIGAME_VERSION}`,width/2,v.footY,width-40,11,OCEAN.colors.muted,'center');
  c.restore();
 }

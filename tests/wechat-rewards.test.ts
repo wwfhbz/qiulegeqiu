@@ -41,12 +41,14 @@ it('丢一条命后才出现"看视频：下一球+3"，开局不出现；看完
   a.game.start();expect(a.game.physics.balls.length).toBe(4);expect(a.game.journal.events.at(-1)!.type).toBe('boost');
  }finally{a.dispose();}
 });
-it('设置：音乐/音效/震动分别开关并记住；看视频永久解锁彗星拖尾',async()=>{
+it('设置（⚙）：音乐/音效/震动为开关行并记住；皮肤键单独打开皮肤页，看视频永久解锁拖尾',async()=>{
  const f=wxFixture();withAds(f);const a=app(f),p=a as unknown as Private;
  try{p.settings();const label=(t:string)=>a.panel.actions.find(x=>x.label.startsWith(t))!;
-  label('背景音乐').run();expect(a.game.audio.musicOn).toBe(false);expect(f.storage.get('qiulegeqiu:wechat-music:v1')).toBe(false);
+  expect(a.panel.actions.filter(x=>x.toggle!==undefined).map(x=>x.label)).toEqual(['音乐','音效','震动']);
+  label('音乐').run();expect(a.game.audio.musicOn).toBe(false);expect(a.panel.actions.find(x=>x.label==='音乐')!.toggle).toBe(false);expect(f.storage.get('qiulegeqiu:wechat-music:v1')).toBe(false);
   label('音效').run();expect(a.game.audio.sfxOn).toBe(false);label('震动').run();expect(f.storage.get('qiulegeqiu:wechat-vibrate:v1')).toBe(false);
-  expect(a.panel.actions.some(x=>x.label==='皮肤：小球拖尾 · 挡板')).toBe(true);p.skins();
+  // Settings does not repeat the pause menu.
+  for(const l of ['继续游戏','重新开始','回到主界面','皮肤','排行榜'])expect(a.panel.actions.some(x=>x.label===l)).toBe(false);p.skins();
   label('▶ 看视频解锁流星拖尾').run();await vi.waitFor(()=>expect(p.busy).toBe(false));expect(p.renderer.cometTail).toBe(true);expect(f.storage.get('qiulegeqiu:wechat-trail:v1')).toBe('comet');expect(f.storage.get('qiulegeqiu:wechat-trails:v1')).toEqual(['comet']);
   expect(a.panel.actions.some(x=>x.label==='流星拖尾：使用中')).toBe(true);label('▶ 看视频解锁爱心拖尾').run();await vi.waitFor(()=>expect(p.busy).toBe(false));expect((p.renderer as unknown as {trail:string}).trail).toBe('heart');expect(a.panel.actions.some(x=>x.label==='流星拖尾：使用')).toBe(true);label('流星拖尾').run();expect((p.renderer as unknown as {trail:string}).trail).toBe('comet');
   label('▶ 看视频解锁黄金荣耀').run();await vi.waitFor(()=>expect(p.busy).toBe(false));expect(p.renderer.paddleSkin).toBe('gold');expect(f.storage.get('qiulegeqiu:wechat-paddles:v1')).toEqual(['gold']);label('默认挡板').run();expect(p.renderer.paddleSkin).toBe('default');label('黄金荣耀').run();expect(p.renderer.paddleSkin).toBe('gold');
@@ -64,11 +66,11 @@ it('2.9 的冰晶挡板已改为烈焰燃烧：已解锁/已选择冰晶的玩�
  const f=wxFixture();f.storage.set('qiulegeqiu:wechat-paddles:v1',['crystal']);f.storage.set('qiulegeqiu:wechat-paddle:v1','crystal');
  const a=app(f,false),p=a as unknown as Private;try{expect(p.renderer.paddleSkin).toBe('flame');p.skins();expect(a.panel.actions.some(x=>x.label==='烈焰燃烧：使用中')).toBe(true);}finally{a.dispose();}
 });
-it('暂停键打开菜单：继续/重新开始/回到主界面/音效/音乐/震动/皮肤/排行榜/更多；有广告时闯关可看视频跳关（最多2次）',async()=>{
+it('暂停键打开菜单：只有继续/重新开始/回到主界面（不与设置重复）；有广告时闯关可看视频跳关（最多2次）',async()=>{
  const f=wxFixture();withAds(f);const a=app(f),p=a as unknown as Private&{view:{width:number;titleY:number}};
- try{const g=a.game;g.start();a.frame(50);const t=f.touch(1,p.view.width-78,p.view.titleY+18);f.events.down(t);f.events.up(t);
+ try{const g=a.game;g.start();a.frame(50);const t=f.touch(1,p.view.width-126,p.view.titleY+18);f.events.down(t);f.events.up(t);
   expect(g.state).toBe('paused');expect(a.panel.title).toBe('游戏暂停');
-  const labels=a.panel.actions.map(x=>x.label);for(const l of ['继续游戏','重新开始','回到主界面','音效：开','背景音乐：开','震动：开','皮肤','排行榜','更多'])expect(labels).toContain(l);
+  expect(a.panel.actions.map(x=>x.label).filter(l=>!l.startsWith('▶'))).toEqual(['继续游戏','重新开始','回到主界面']);
   const skip=()=>a.panel.actions.find(x=>x.label.startsWith('▶ 看视频跳过本关'));expect(skip()!.label).toContain('还可 2 次');
   skip()!.run();await vi.waitFor(()=>expect(p.busy).toBe(false));expect(g.levels.current.number).toBe(2);expect(g.state).toBe('ready');expect(g.journal.events.at(-1)!.type).toBe('skip');
   (a as unknown as {menu():void}).menu();skip()!.run();await vi.waitFor(()=>expect(p.busy).toBe(false));expect(g.levels.current.number).toBe(3);
