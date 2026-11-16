@@ -39,6 +39,9 @@ try{
   // Mid-game view after choosing a mode: top bar, joined touch strip and knob.
   await page.evaluate(async()=>{const app=module.exports.app;const pick=app.panel.hits[0];const t={identifier:9,clientX:pick.rect.x+pick.rect.width/2,clientY:pick.rect.y+pick.rect.height/2};__touch.down({touches:[t],changedTouches:[t]});__touch.up({touches:[],changedTouches:[t]});app.game.start();app.game.physics.collect('wide');await new Promise(r=>setTimeout(r,400));});
   await page.screenshot({path:`${out}/${name}-play.png`});
+  // Pause menu: tap the real pause key through the wx touch callbacks.
+  await page.evaluate(()=>{const app=module.exports.app,v=app.view,t={identifier:7,clientX:v.width-78,clientY:v.titleY+18};__touch.down({touches:[t],changedTouches:[t]});__touch.up({touches:[],changedTouches:[t]});});
+  await page.waitForTimeout(120);await page.screenshot({path:`${out}/${name}-menu.png`});await page.evaluate(()=>{module.exports.app.panel.close();});
   await page.evaluate(()=>{const app=module.exports.app;app.game.reset();app.picking=true;});await page.waitForTimeout(100);
   const result=await page.evaluate(async()=>{
    const app=module.exports.app,g=app.game;const click=(x,y)=>{const t={identifier:1,clientX:x,clientY:y};__touch.down({touches:[t],changedTouches:[t]});__touch.up({touches:[],changedTouches:[t]});};

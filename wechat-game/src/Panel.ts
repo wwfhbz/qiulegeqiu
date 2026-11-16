@@ -6,7 +6,8 @@ import {GAME_NAME} from '../../shared/Brand';
 import type {CanvasSurface} from '../../src/platform/Contracts';
 import {RankingCanvas,type RankingView,type RankingAction} from './RankingCanvas';
 import {inside,type Rect} from './Layout';
-export interface Action {label:string;run:()=>void;half?:boolean;primary?:boolean;/** 'outline': gold-edged secondary button (e.g. several rewarded unlocks in one list). */tone?:'outline'}
+import {drawIcon,type IconName} from '../../shared/Icons';
+export interface Action {label:string;run:()=>void;half?:boolean;primary?:boolean;/** Optional icon left of the label, matching the web menu buttons. */icon?:IconName;/** 'outline': gold-edged secondary button (e.g. several rewarded unlocks in one list). */tone?:'outline'}
 export class Panel {
  friend?:FriendBoard;
  ranking?:RankingCanvas;private rankSurface?:CanvasSurface;private canvasFactory?:()=>CanvasSurface;
@@ -45,7 +46,7 @@ export class Panel {
   for(const [index,line] of this.lines.entries()){const big=index===0&&(this.title.endsWith('挑战结束')||this.title.endsWith('十二关突破成功'));if(big){lines.push({text:line,big});continue;}
    let text='';for(const ch of [...line]){if(c.measureText(text+ch).width>inner){lines.push({text,big:false});text='';}text+=ch;}if(text)lines.push({text,big:false});}
   const rows:Action[][]=[];for(let i=0;i<this.actions.length;i++){const a=this.actions[i];rows.push(a.half&&this.actions[i+1]?.half?[a,this.actions[++i]]:[a]);}
-  const linesH=lines.reduce((h,l)=>h+(l.big?34:18),0),h=22+30+(lines.length?linesH+12:4)+rows.length*50+8;
+  const linesH=lines.reduce((h,l)=>h+(l.big?34:18),0),gaps=rows.filter(r=>r.length===1&&r[0].primary&&rows.length>1).length*8,h=22+30+(lines.length?linesH+12:4)+rows.length*50+gaps+8;
   let y=Math.max(top+6,top+(bottom-top-h)/2);
   c.fillStyle='#5A2AB8';c.beginPath();c.roundRect(x,y+6,w,h,24);c.fill();
   const bg=c.createLinearGradient(0,y,0,y+h);bg?.addColorStop(0,'#2A2266');bg?.addColorStop(.6,'#151A46');bg?.addColorStop(1,'#0E1236');c.fillStyle=bg||'#151A46';c.beginPath();c.roundRect(x,y,w,h,24);c.fill();
@@ -58,8 +59,10 @@ export class Panel {
     const outline=a.tone==='outline',gold=!outline&&(!!a.primary||a.label.startsWith('▶')),dim=/^(返回|关闭|取消)/.test(a.label);
     if(gold){c.fillStyle='#C9770A';c.beginPath();c.roundRect(rect.x,rect.y+4,rect.width,rect.height,14);c.fill();const g=c.createLinearGradient(0,rect.y,0,rect.y+rect.height);g?.addColorStop(0,'#FFE27A');g?.addColorStop(1,'#FFB31F');c.fillStyle=g||'#FFD24D';c.beginPath();c.roundRect(rect.x,rect.y,rect.width,rect.height,14);c.fill();}
     else{c.fillStyle=outline?'rgba(255,210,77,.08)':'rgba(255,255,255,.08)';c.strokeStyle=outline?'rgba(255,210,77,.6)':'rgba(255,255,255,.18)';c.lineWidth=1;c.beginPath();c.roundRect(rect.x,rect.y,rect.width,rect.height,14);c.fill();c.stroke();}
-    c.font=`${gold?900:700} ${gold?15:14}px ${OCEAN.fonts.body}`;c.textAlign='center';c.textBaseline='middle';c.fillStyle=gold?'#5A2C00':outline?'#FFD98A':dim?'#8FA6C8':'#EAF6FF';c.fillText(a.label,rect.x+rect.width/2,rect.y+rect.height/2,rect.width-16);c.textBaseline='alphabetic';this.hits.push({rect,run:a.run});});
-   y+=50;
+    c.font=`${gold?900:700} ${gold?15:14}px ${OCEAN.fonts.body}`;c.textAlign='center';c.textBaseline='middle';const ink=gold?'#5A2C00':outline?'#FFD98A':dim?'#8FA6C8':'#EAF6FF';c.fillStyle=ink;
+    if(a.icon){const size=gold?17:15,tw=Math.min(c.measureText(a.label).width,rect.width-26-size),left=rect.x+rect.width/2-(tw+size+6)/2;drawIcon(c,a.icon,left+size/2,rect.y+rect.height/2,size,ink);c.font=`${gold?900:700} ${gold?15:14}px ${OCEAN.fonts.body}`;c.textAlign='left';c.textBaseline='middle';c.fillStyle=ink;c.fillText(a.label,left+size+6,rect.y+rect.height/2,rect.width-26-size);c.textAlign='center';}
+    else c.fillText(a.label,rect.x+rect.width/2,rect.y+rect.height/2,rect.width-16);c.textBaseline='alphabetic';this.hits.push({rect,run:a.run});});
+   y+=50+(row.length===1&&row[0].primary&&rows.length>1?8:0);
   }
  }
 }
