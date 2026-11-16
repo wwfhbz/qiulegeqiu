@@ -46,8 +46,8 @@ it('设置：音乐/音效/震动分别开关并记住；看视频永久解锁�
  try{p.settings();const label=(t:string)=>a.panel.actions.find(x=>x.label.startsWith(t))!;
   label('背景音乐').run();expect(a.game.audio.musicOn).toBe(false);expect(f.storage.get('qiulegeqiu:wechat-music:v1')).toBe(false);
   label('音效').run();expect(a.game.audio.sfxOn).toBe(false);label('震动').run();expect(f.storage.get('qiulegeqiu:wechat-vibrate:v1')).toBe(false);
-  label('▶ 看视频解锁彗星拖尾').run();await vi.waitFor(()=>expect(p.busy).toBe(false));expect(p.renderer.cometTail).toBe(true);expect(f.storage.get('qiulegeqiu:wechat-trail:v1')).toBe('on');
-  expect(a.panel.actions.some(x=>x.label==='彗星拖尾：开')).toBe(true);
+  label('▶ 看视频解锁彗星拖尾').run();await vi.waitFor(()=>expect(p.busy).toBe(false));expect(p.renderer.cometTail).toBe(true);expect(f.storage.get('qiulegeqiu:wechat-trail:v1')).toBe('comet');expect(f.storage.get('qiulegeqiu:wechat-trails:v1')).toEqual(['comet']);
+  expect(a.panel.actions.some(x=>x.label==='彗星拖尾：使用中')).toBe(true);label('▶ 看视频解锁爱心拖尾').run();await vi.waitFor(()=>expect(p.busy).toBe(false));expect((p.renderer as unknown as {trail:string}).trail).toBe('heart');expect(a.panel.actions.some(x=>x.label==='彗星拖尾：使用')).toBe(true);label('彗星拖尾').run();expect((p.renderer as unknown as {trail:string}).trail).toBe('comet');
   const again=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false,ads:ADS});try{expect(again.game.audio.musicOn).toBe(false);expect((again as unknown as Private).renderer.cometTail).toBe(true);}finally{again.dispose();}
  }finally{a.dispose();}
 });

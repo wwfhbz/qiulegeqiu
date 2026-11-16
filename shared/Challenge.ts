@@ -1,4 +1,4 @@
-export type ChallengeEvent = {type:'launch';tick:number;level:number;tripleRuleVersion?:2;brickPowerVersion?:2;trajectoryVersion?:1} | { type: 'ballLost' | 'lost' | 'clear' | 'next' | 'finish'; tick: number; level: number } | { type: 'hit'; tick: number; level: number; index: number } | { type: 'power'; tick: number; level: number; kind: 'halve'|'triple'|'wide'|'life'|'bomb'|'plus3'|'pierce'|'fire'|'lightning'; dropId?:number } | { type:'bomb'; tick:number; level:number; target:string|null } | { type:'crushed'; tick:number; level:number } | { type:'bonus'; tick:number; level:number; kind:'plus3'|'pierce'|'fire'|'lightning' } | { type:'revive'; tick:number; level:number } | { type:'boost'; tick:number; level:number };
+export type ChallengeEvent = {type:'launch';tick:number;level:number;tripleRuleVersion?:2;brickPowerVersion?:2;trajectoryVersion?:1} | { type: 'ballLost' | 'lost' | 'clear' | 'next' | 'finish'; tick: number; level: number } | { type: 'hit'; tick: number; level: number; index: number } | { type: 'power'; tick: number; level: number; kind: 'halve'|'triple'|'wide'|'life'|'bomb'|'plus3'|'pierce'|'fire'|'lightning'; dropId?:number } | { type:'bomb'; tick:number; level:number; target:string|null } | { type:'crushed'; tick:number; level:number } | { type:'bonus'; tick:number; level:number; kind:'plus3'|'pierce'|'fire'|'lightning'|'triple' } | { type:'revive'; tick:number; level:number } | { type:'boost'; tick:number; level:number };
 export interface ChallengeSummary { score: number; reachedLevel: number; bricksDestroyed: number; durationMs: number; completedAllLevels: boolean }
 export const LEGACY_RULES_VERSION = '0.8.0-arcade-5l-10lv-v1';
 export const PREVIOUS_RULES_VERSION = '1.2.0-arcade-5l-12lv-v1';
@@ -12,8 +12,10 @@ export const V16_RULES_VERSION = '1.6.0-arcade-5l-12lv-full-v4';
 export const V17_RULES_VERSION = '1.7.0-arcade-5l-12lv-scarce-v5';
 /** V1.8: same levels and drops as 1.7; every power-up caught is worth +100 points. Only this season ranks as current. */
 export const V18_RULES_VERSION = '1.8.0-arcade-5l-12lv-powerpts-v6';
-/** Twelve-level campaign 1.9: levels 2–12 fill the whole bowl (about 20% more bricks), lightning/pierce/fire at 1% of random drops on levels 3–12. */
-export const RULES_VERSION = '1.9.0-arcade-5l-12lv-fullskills-v7';
+/** Frozen campaign 1.9: levels 2–12 fill the whole bowl, lightning/pierce/fire at 1% of random drops on levels 3–12 (5 lives). */
+export const V19_RULES_VERSION = '1.9.0-arcade-5l-12lv-fullskills-v7';
+/** Campaign 1.10: the 1.9 levels with 3 lives (same as endless). */
+export const RULES_VERSION = '1.10.0-arcade-3l-12lv-fullskills-v8';
 /** Endless mode ("压迫下沉"): its own ruleset and its own board; never mixed into the campaign board. */
 /** Frozen endless 1.0: drops every 8 → 30 bricks, wall stopped 80% down the bowl. */
 export const ENDLESS_V1_RULES_VERSION = 'endless-1.0.0-3l-sink-v1';
@@ -27,10 +29,12 @@ export const ENDLESS_V4_RULES_VERSION = 'endless-1.3.0-3l-sink-v4';
 export const ENDLESS_V5_RULES_VERSION = 'endless-1.4.0-3l-sink-v5';
 /** Frozen V1.5: balance and initial rows only; ranking remains permanently mode-wide. */
 export const ENDLESS_V6_RULES_VERSION = 'endless-1.5.0-3l-sink-v6';
-/** V1.6: V1.5 balance; a lost life restarts the 10s pressure timer, and the relief lightning bonus scores its bricks. */
-export const ENDLESS_RULES_VERSION = 'endless-1.6.0-3l-sink-v7';
+/** Frozen V1.6: V1.5 balance; a lost life restarts the 10s pressure timer, and the relief lightning bonus scores its bricks. */
+export const ENDLESS_V7_RULES_VERSION = 'endless-1.6.0-3l-sink-v7';
+/** V1.7: a rewarded-video revive clears the bottom 20 rows (pressure deaths still clear 5). Every endless version shares one permanent board. */
+export const ENDLESS_RULES_VERSION = 'endless-1.7.0-3l-sink-v8';
 /** Verification compatibility list only. Ranking must never use this version list. */
-export const ENDLESS_BOARD_RULES_VERSIONS=[ENDLESS_V1_RULES_VERSION,ENDLESS_V2_RULES_VERSION,ENDLESS_V3_RULES_VERSION,ENDLESS_V4_RULES_VERSION,ENDLESS_V5_RULES_VERSION,ENDLESS_V6_RULES_VERSION,ENDLESS_RULES_VERSION] as const;
+export const ENDLESS_BOARD_RULES_VERSIONS=[ENDLESS_V1_RULES_VERSION,ENDLESS_V2_RULES_VERSION,ENDLESS_V3_RULES_VERSION,ENDLESS_V4_RULES_VERSION,ENDLESS_V5_RULES_VERSION,ENDLESS_V6_RULES_VERSION,ENDLESS_V7_RULES_VERSION,ENDLESS_RULES_VERSION] as const;
 /** Most events one challenge may record (long endless runs log about one event per brick). Client and server share it. */
 export const MAX_CHALLENGE_EVENTS=200000;
 export const ENDLESS_BOARD='endless';
@@ -38,11 +42,11 @@ export const ENDLESS_RANKING_SCOPE='all-endless-versions';
 /** Classification for supported challenge versions, not a leaderboard season filter. */
 export function isEndlessRules(rules:string){return rules.startsWith('endless-');}
 export function assertEndlessBoard(data:LeaderboardMetadata){if(data.board!==ENDLESS_BOARD||data.rankingScope!==ENDLESS_RANKING_SCOPE)throw Error('排行榜后端需更新为永久统一无尽榜；历史成绩仍保留');}
-export const SUPPORTED_RULES_VERSIONS=[LEGACY_RULES_VERSION,PREVIOUS_RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,V17_RULES_VERSION,V18_RULES_VERSION,RULES_VERSION,ENDLESS_V1_RULES_VERSION,ENDLESS_V2_RULES_VERSION,ENDLESS_V3_RULES_VERSION,ENDLESS_V4_RULES_VERSION,ENDLESS_V5_RULES_VERSION,ENDLESS_V6_RULES_VERSION,ENDLESS_RULES_VERSION] as const;
+export const SUPPORTED_RULES_VERSIONS=[LEGACY_RULES_VERSION,PREVIOUS_RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,V17_RULES_VERSION,V18_RULES_VERSION,V19_RULES_VERSION,RULES_VERSION,ENDLESS_V1_RULES_VERSION,ENDLESS_V2_RULES_VERSION,ENDLESS_V3_RULES_VERSION,ENDLESS_V4_RULES_VERSION,ENDLESS_V5_RULES_VERSION,ENDLESS_V6_RULES_VERSION,ENDLESS_V7_RULES_VERSION,ENDLESS_RULES_VERSION] as const;
 /** Compatibility/audit inventory only. Live ranking uses mode, never a version whitelist. */
-export const GLOBAL_BOARD_RULES_VERSIONS=[LEGACY_RULES_VERSION,PREVIOUS_RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,V17_RULES_VERSION,V18_RULES_VERSION,RULES_VERSION] as const;
+export const GLOBAL_BOARD_RULES_VERSIONS=[LEGACY_RULES_VERSION,PREVIOUS_RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,V17_RULES_VERSION,V18_RULES_VERSION,V19_RULES_VERSION,RULES_VERSION] as const;
 /** Seasons whose first launch must declare preassigned tutorial powers and the X3 threshold rule. */
-export function usesBrickPowers(rules:string){return rules===RULES_VERSION||rules===V18_RULES_VERSION||rules===V17_RULES_VERSION||rules===V16_RULES_VERSION||rules===V15_RULES_VERSION||rules===V13_RULES_VERSION;}
+export function usesBrickPowers(rules:string){return rules===RULES_VERSION||rules===V19_RULES_VERSION||rules===V18_RULES_VERSION||rules===V17_RULES_VERSION||rules===V16_RULES_VERSION||rules===V15_RULES_VERSION||rules===V13_RULES_VERSION;}
 
 export const GLOBAL_BOARD='global';
 export const CAMPAIGN_RANKING_SCOPE='all-campaign-versions';

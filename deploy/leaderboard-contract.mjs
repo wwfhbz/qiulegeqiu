@@ -34,6 +34,13 @@ export const REVIEWED_TRANSITIONS=[
  ['1.6.0-arcade-5l-12lv-full-v4','1.9.0-arcade-5l-12lv-fullskills-v7'],
  ['1.5.0-arcade-5l-12lv-short-v3','1.9.0-arcade-5l-12lv-fullskills-v7'],
  ['1.3.0-arcade-5l-12lv-drops-v2','1.9.0-arcade-5l-12lv-fullskills-v7'],
+ // V1.10 (3 lives) may follow any earlier twelve-level season; its API verifies them all.
+ ['1.9.0-arcade-5l-12lv-fullskills-v7','1.10.0-arcade-3l-12lv-fullskills-v8'],
+ ['1.8.0-arcade-5l-12lv-powerpts-v6','1.10.0-arcade-3l-12lv-fullskills-v8'],
+ ['1.7.0-arcade-5l-12lv-scarce-v5','1.10.0-arcade-3l-12lv-fullskills-v8'],
+ ['1.6.0-arcade-5l-12lv-full-v4','1.10.0-arcade-3l-12lv-fullskills-v8'],
+ ['1.5.0-arcade-5l-12lv-short-v3','1.10.0-arcade-3l-12lv-fullskills-v8'],
+ ['1.3.0-arcade-5l-12lv-drops-v2','1.10.0-arcade-3l-12lv-fullskills-v8'],
 ];
 export function verifyRollbackCompatibility(nextRules,previousRules,{apiOnly=false}={}){
  if(typeof nextRules!=='string'||!nextRules.trim()||typeof previousRules!=='string'||!previousRules.trim())throw Error('缺少规则回退来源，停止发布，不回滚数据库');

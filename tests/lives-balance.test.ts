@@ -98,7 +98,7 @@ describe('统一道具掉落平衡', () => {
     clear(g); g.nextLevel(); expect(g.physics.powerDropEvery).toBe(28); g.reset(); expect(g.physics.powerDropEvery).toBe(14);
   });
   it('加宽持续5秒、三倍球上限100与原掉落基数保持不变', () => {
-    const g=new Game(); expect(ARCADE.initialLives).toBe(5); expect(C.power.dropEvery).toBe(14); expect(C.power.duration).toBe(5);
+    const g=new Game(); expect(ARCADE.initialLives).toBe(3); expect(C.power.dropEvery).toBe(14); expect(C.power.duration).toBe(5);
     g.physics.collect('wide'); expect(g.physics.wideRemaining).toBe(5); for(let i=0;i<5;i++)g.physics.collect('triple'); expect(g.physics.balls.length).toBe(100);
   });
 });

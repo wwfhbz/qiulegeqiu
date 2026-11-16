@@ -10,7 +10,7 @@ import {Game} from '../src/Game';
 import {C} from '../src/GameConfig';
 it('微信无DOM宿主复用同一十二关、五命和物理协调器，不复制规则',()=>{
  const f=fixture(),app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false}),web=new Game();
- expect(app.game).toBeInstanceOf(Game);expect(app.game.lives).toBe(5);expect(app.game.levels.count).toBe(12);
+ expect(app.game).toBeInstanceOf(Game);expect(app.game.lives).toBe(3);expect(app.game.levels.count).toBe(12);
  for(let i=0;i<12;i++){expect(app.game.levels.current).toEqual(web.levels.current);app.game.levels.next();web.levels.next();}
  expect(()=>app.frame(100)).not.toThrow();expect(app.canvas.width).toBe(750);
 });
@@ -34,7 +34,7 @@ it('后台自动暂停，前台不自动发射、不累计后台时间，手动�
 it('道具、多球上限、五条命和继续挑战沿用网页版Game',()=>{
  const f=fixture(),app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false}),g=app.game;g.start();g.physics.triple();expect(g.physics.balls).toHaveLength(3);
  for(let i=0;i<40;i++)g.physics.triple();expect(g.physics.balls.length).toBe(100);
- for(const b of g.physics.balls)Object.assign(b,{x:400,y:1080,vx:0,vy:760,outsideArena:true});g.update(C.step);expect(g.lives).toBe(4);expect(g.readyReason).toBe('lifeLost');expect(g.physics.balls.length).toBe(1);
+ for(const b of g.physics.balls)Object.assign(b,{x:400,y:1080,vx:0,vy:760,outsideArena:true});g.update(C.step);expect(g.lives).toBe(2);expect(g.readyReason).toBe('lifeLost');expect(g.physics.balls.length).toBe(1);
 });
 it('网络异常不阻止单机开始、暂停、重开；结束可跳过成绩登记',async()=>{
  const f=fixture(),app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});app.game.start();for(const b of app.game.physics.balls)Object.assign(b,{x:400,y:1080,vx:0,vy:760,outsideArena:true});app.game.update(C.step);expect(app.game.state).toBe('ready');app.game.reset();app.game.start();expect(app.game.state).toBe('running');
@@ -60,12 +60,12 @@ it('选择单机不会继承上一轮联网标记或暗中调用微信登录',as
  const f=fixture(),login=vi.fn(f.wx.login);f.wx.login=login;const app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});const testApp=app as unknown as {online:boolean;activate():Promise<void>};testApp.online=true;await testApp.activate();expect(app.game.state).toBe('running');expect(testApp.online).toBe(false);expect(login).not.toHaveBeenCalled();expect(f.requests).toHaveLength(0);
 });
 it('选择联网但API失败时立即降级单机，仍可暂停和重新开始',async()=>{
- const f=fixture();f.wx.showModal=o=>o.success?.({confirm:true});f.wx.login=o=>o.success({code:'failed-api-login'});const app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});await (app as unknown as {activate():Promise<void>}).activate();expect(app.game.state).toBe('running');expect(app.api.authenticated).toBe(false);app.game.pause();expect(app.game.state).toBe('paused');app.game.reset();expect(app.game.lives).toBe(5);expect(app.game.state).toBe('ready');
+ const f=fixture();f.wx.showModal=o=>o.success?.({confirm:true});f.wx.login=o=>o.success({code:'failed-api-login'});const app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});await (app as unknown as {activate():Promise<void>}).activate();expect(app.game.state).toBe('running');expect(app.api.authenticated).toBe(false);app.game.pause();expect(app.game.state).toBe('paused');app.game.reset();expect(app.game.lives).toBe(3);expect(app.game.state).toBe('ready');
 });
 
 it('新版品牌与Canvas HUD读取同一个真实生命源，逐轮立即显示5至0',()=>{
  const f=fixture(),app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});let now=100;app.frame(now);expect(f.texts).toContain('球球出击');(app as unknown as {chooseMode(m:'campaign'):void}).chooseMode('campaign');
- for(let lives=4;lives>=0;lives--){app.game.start();for(const b of app.game.physics.balls)Object.assign(b,{x:400,y:1080,vx:0,vy:760,outsideArena:true});app.game.physics.powers.spawn(400,C.paddle.y,'life');f.texts.length=0;now+=20;app.frame(now);expect(app.game.lives).toBe(lives);if(lives>0)expect(f.texts).toContain('♥'.repeat(lives));if(lives<5)expect(f.texts).toContain('♡'.repeat(5-lives));}
+ for(let lives=2;lives>=0;lives--){app.game.start();for(const b of app.game.physics.balls)Object.assign(b,{x:400,y:1080,vx:0,vy:760,outsideArena:true});app.game.physics.powers.spawn(400,C.paddle.y,'life');f.texts.length=0;now+=20;app.frame(now);expect(app.game.lives).toBe(lives);if(lives>0)expect(f.texts).toContain('♥'.repeat(lives));if(lives<3)expect(f.texts).toContain('♡'.repeat(3-lives));}
  expect(app.game.state).toBe('gameOver');
 });
 it('微信个人会话失效不能隐藏公开全球榜，只有一个榜单且可刷新',async()=>{

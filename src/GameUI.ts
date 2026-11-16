@@ -3,6 +3,7 @@ import {createWebHost,createWebAudio} from './platform/WebPlatform';
 import {AudioSystem} from './Audio';
 import { LeaderboardUI } from './online/LeaderboardUI';
 import { GAME_NAME, MINIGAME_VERSION } from '../shared/Brand';
+import { TRAIL_SKINS, isTrailSkin } from '../shared/Skins';
 import { iconSvg } from '../shared/Icons';
 import { Game, type GameMode } from './Game';
 import { ENDLESS } from './endless/EndlessRules';
@@ -61,10 +62,15 @@ export function mountGame(root: HTMLElement) {
         </div>
         <div class="ts-again">再来一局 · 选择模式</div>
         <div class="ts-cards">
-          <button type="button" class="ts-card ts-campaign" data-pick="campaign"><span class="ts-icon">${iconSvg('flag')}</span><span class="ts-text"><strong>闯关模式</strong><span class="ts-desc">12 关逐关突破，冲击闯关榜</span><span class="ts-chips"><em>5 条命</em><em>12 关</em><em>闯关榜</em></span></span><span class="ts-go">${iconSvg('play')}</span><span class="ts-last">上次玩过</span></button>
+          <button type="button" class="ts-card ts-campaign" data-pick="campaign"><span class="ts-icon">${iconSvg('flag')}</span><span class="ts-text"><strong>闯关模式</strong><span class="ts-desc">12 关逐关突破，冲击闯关榜</span><span class="ts-chips"><em>3 条命</em><em>12 关</em><em>闯关榜</em></span></span><span class="ts-go">${iconSvg('play')}</span><span class="ts-last">上次玩过</span></button>
           <button type="button" class="ts-card ts-endless" data-pick="endless"><span class="ts-icon">${iconSvg('infinity')}</span><span class="ts-text"><strong>无尽模式</strong><span class="ts-desc">砖墙不断下沉，坚持越久分越高</span><span class="ts-chips"><em>3 条命</em><em>无限阶段</em><em>无尽榜</em></span></span><span class="ts-go">${iconSvg('play')}</span><span class="ts-last">上次玩过</span></button>
         </div>
-        <div class="ts-tools"><button type="button" id="ts-board" class="ts-tool">${iconSvg('trophy')}<span>排行榜</span></button><button type="button" id="ts-sound" class="ts-tool" aria-pressed="false">${iconSvg('soundOn')}<span>音效开</span></button><button type="button" id="ts-music" class="ts-tool" aria-pressed="true">${iconSvg('music')}<span>音乐开</span></button></div>
+        <div class="ts-tools"><button type="button" id="ts-board" class="ts-tool">${iconSvg('trophy')}<span>排行榜</span></button><button type="button" id="ts-sound" class="ts-tool" aria-pressed="false">${iconSvg('soundOn')}<span>音效开</span></button><button type="button" id="ts-music" class="ts-tool" aria-pressed="true">${iconSvg('music')}<span>音乐开</span></button><button type="button" id="ts-skin" class="ts-tool">${iconSvg('spark')}<span>拖尾</span></button></div>
+        <div id="skin-picker" class="skin-picker" role="dialog" aria-label="小球拖尾" hidden>
+          <div class="sp-card"><strong>小球拖尾</strong><span class="sp-sub">只改外观，不影响成绩</span>
+            <div class="sp-grid">${[['none','不使用','原版短尾'],...TRAIL_SKINS.map(t=>[t.id,t.name,t.desc])].map(([id,name,desc])=>`<button type="button" class="sp-option" data-trail="${id}"><i class="sp-swatch sp-${id}"></i><b>${name}</b><small>${desc}</small></button>`).join('')}</div>
+            <button type="button" class="sp-close" id="sp-close">完成</button></div>
+        </div>
         <p class="ts-foot">每局结束后可重新选择模式 · V${MINIGAME_VERSION}</p>
       </div>
     </section>
@@ -219,6 +225,14 @@ export function mountGame(root: HTMLElement) {
   button('tr-submit').onclick=()=>online?.showResult();
   button('ts-board').onclick=()=>root.querySelector<HTMLButtonElement>('header .trophy')?.click();
   button('ts-sound').onclick=()=>{button('mute').click();update(game);};
+  // Trail skins: free on the web (WeChat unlocks each with a rewarded video). Remembered per browser.
+  const TRAIL_KEY='qiulegeqiu:trail';
+  const applyTrail=(id:string)=>{if(!isTrailSkin(id))return;if(game.renderer)(game.renderer as {trail?:string}).trail=id;for(const b of Array.from(root.querySelectorAll<HTMLElement>('[data-trail]')))b.classList.toggle('on',b.dataset.trail===id);};
+  try{const saved=localStorage.getItem(TRAIL_KEY);applyTrail(saved&&isTrailSkin(saved)?saved:'none');}catch{applyTrail('none');}
+  for(const b of Array.from(root.querySelectorAll<HTMLButtonElement>('[data-trail]')))b.onclick=()=>{const id=b.dataset.trail!;applyTrail(id);try{localStorage.setItem(TRAIL_KEY,id);}catch{/* Preference only. */}};
+  button('ts-skin').onclick=()=>{el('skin-picker').hidden=false;};
+  button('sp-close').onclick=()=>{el('skin-picker').hidden=true;};
+  el('skin-picker').onclick=e=>{if(e.target===el('skin-picker'))el('skin-picker').hidden=true;};
   // Background music has its own switch (the speaker still mutes everything); remembered like mute.
   const MUSIC_KEY='qiulegeqiu:music';
   const showMusic=()=>{const on=game.audio.musicOn;button('ts-music').setAttribute('aria-pressed',String(on));button('ts-music').innerHTML=`${iconSvg('music')}<span>${on?'音乐开':'音乐关'}</span>`;};

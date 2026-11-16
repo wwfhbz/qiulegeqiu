@@ -201,9 +201,10 @@ export class Physics {
   /** Next relief reward from the seeded bonus stream (the verifier draws the same sequence). */
   drawBonus():BonusKind{return endlessBonus(this.endlessBonuses);}
   /** Apply a relief reward directly: no falling drop and no pickup event (the caller journals a 'bonus'). */
-  applyBonus(kind:BonusKind){
+  applyBonus(kind:BonusKind|'triple'){
     if(!this.balls.some(ball=>ball.alive))return;
     if(kind==='plus3')this.addBalls(ENDLESS.plusBalls);
+    else if(kind==='triple')this.triple();
     else if(kind==='pierce')this.pierceRemaining=this.endless?endlessSettings(this.endless.variant).pierceSeconds:ENDLESS.pierceSeconds;
     else if(kind==='fire')this.fireRemaining=this.endless?endlessSettings(this.endless.variant).fireSeconds:ENDLESS.fireSeconds;
     this.effects.power(kind);this.effects.emit('power',this.paddleX,C.paddle.y,0,kind);this.onSound?.('power');

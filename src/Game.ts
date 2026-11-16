@@ -3,13 +3,14 @@ import { C } from './GameConfig';
 import { Physics } from './Physics';
 import type {GameHost} from './platform/Contracts';
 import { AudioSystem } from './Audio';
-import { ARCADE } from './ArcadeRules';
+import { ARCADE, LEGACY_LIVES } from './ArcadeRules';
 import { LevelManager } from './LevelManager';
 import { ScoreSystem, type LevelScore } from './ScoreSystem';
 import type { GameState, ReadyReason } from './GameState';
 import { Blocks } from './Blocks';
 import { EndlessField } from './endless/EndlessField';
-import { ENDLESS, ENDLESS_LEVEL, endlessStage, endlessVersion } from './endless/EndlessRules';
+import { ENDLESS, ENDLESS_LEVEL, endlessStage, endlessVersion, REVIVE_BONUS_SALT, reviveBonus } from './endless/EndlessRules';
+import { seededRandom } from './PowerRules';
 import { RULES_VERSION, MAX_REVIVES, MAX_BOOSTS, BOOST_BALLS } from '../shared/Challenge';
 export type GameMode = 'campaign' | 'endless';
 
@@ -30,6 +31,8 @@ export class Game {
   private roundActive = false;
   /** Endless: the last life was lost to wall pressure, so the next launch clears rows and grants a bonus. */
   pendingRelief = false;
+  /** Rows the pending relief clears: 5 after a pressure death, more after a rewarded revive (1.7+). */
+  private reliefRows: number = ENDLESS.reliefRows;
   /**
    * Rewarded-video help (WeChat). The host decides whether a revive can be offered right now (an ad is ready and the
    * run may still be ranked); while one is on offer the run stays open (no 'finish' yet) until revive() or endRun().
@@ -40,6 +43,9 @@ export class Game {
   boostsUsed = 0;
   /** A boost bought for the next launch (+3 balls right after it). */
   boostArmed = false;
+  /** Campaign: the next launch after a rewarded revive applies one random effect (×3 / lightning / fire / pierce). */
+  reviveBonusPending = false;
+  private reviveBonuses = seededRandom(1);
   get revivesLeft() { return MAX_REVIVES - this.revivesUsed; }
   /** Boosts are only offered after a lost life, never at the start of a level. */
   get canBoost() { return this.state === 'ready' && this.readyReason === 'lifeLost' && !this.boostArmed && this.boostsUsed < MAX_BOOSTS && this.journal.events.length > 0; }
@@ -53,7 +59,8 @@ export class Game {
     this.awaitingRevive = false; this.revivesUsed++;
     this.journal.record({type:'revive',level:this.levels.current.number});
     this.remainingLives = 1; this.physics.resetRound(true);
-    if (this.physics.endless) this.pendingRelief = true;
+    if (this.physics.endless) { this.pendingRelief = true; this.reliefRows = this.physics.endless.variant.reviveRows ?? ENDLESS.reliefRows; }
+    else { this.reviveBonusPending = true; if (this.revivesUsed === 1) this.reviveBonuses = seededRandom((this.journal.seed ^ REVIVE_BONUS_SALT) >>> 0); }
     this.state = 'ready'; this.readyReason = 'lifeLost'; this.onChange(this); return true;
   }
   /** Declined the revive: the run ends for good. */
@@ -64,6 +71,7 @@ export class Game {
   // The same coordinator runs headlessly or under either platform host.
   constructor(private readonly host?:GameHost, private onChange: (game: Game) => void = () => {}, public levels = new LevelManager(), audio = new AudioSystem()) {
     this.audio=audio;
+    this.remainingLives=this.campaignLives;
     this.configureLevel();this.physics.setSeed(this.journal.seed);this.physics.reset();
     this.physics.onSound = this.audio.play;
     this.physics.onStep = dt => { if (this.state === 'running') { this.score.update(dt); this.journal.tick++; } };
@@ -79,7 +87,12 @@ export class Game {
   powerPointsEnabled = true;
   get powerPoints(){if(!this.powerPointsEnabled)return false;const field=this.physics.endless;return field?!!field.variant.powerPoints:this.levels.isStandard;}
   get rulesVersion(){return this.mode==='endless'?endlessVersion(this.physics.endless!.variant):RULES_VERSION;}
-  get maxLives():number{return this.mode==='endless'?ENDLESS.lives:ARCADE.maxLives;}
+  /** Campaign lives: 3 on the current twelve levels; frozen seasons (replayed with their own level tables) kept 5. */
+  get campaignLives():number{return this.levels.isStandard&&!this.legacyLives?ARCADE.initialLives:LEGACY_LIVES;}
+  /** Replays of seasons before 1.10 (5 lives) on the current level table; call before the first launch. */
+  legacyLives=false;
+  useLegacyLives(){this.legacyLives=true;if(this.mode==='campaign'&&!this.journal.events.length)this.remainingLives=LEGACY_LIVES;}
+  get maxLives():number{return this.mode==='endless'?ENDLESS.lives:this.levels.isStandard&&!this.legacyLives?ARCADE.maxLives:LEGACY_LIVES;}
   /** Level for campaign; stage (+1 per 10 descended rows) for endless. Stored as the score's reached level. */
   get reachedLevel(){const field=this.physics.endless;return field?endlessStage(field.descents):this.levels.current.number;}
   /** Switch between the twelve-level campaign and endless mode; always starts a fresh run. */
@@ -103,9 +116,14 @@ export class Game {
     if(this.pendingRelief&&field&&this.state==='ready'){
       // The run is live from here: bricks broken by a lightning bonus are journaled and scored like any other hit.
       this.state='running';
-      this.pendingRelief=false;const cleared=field.relief(ENDLESS.reliefRows);
+      this.pendingRelief=false;const cleared=field.relief(this.reliefRows);this.reliefRows=ENDLESS.reliefRows;
       this.physics.effects.emit('relief',C.arena.x,field.top+(field.floorRow+.5)*field.step,cleared);
       const kind=this.physics.drawBonus();this.journal.record({type:'bonus',level:this.levels.current.number,kind});this.physics.applyBonus(kind);
+    }
+    if (this.reviveBonusPending && launching && this.mode === 'campaign') {
+      // The run is live from here so lightning hits are journaled and scored.
+      this.reviveBonusPending = false; this.state = 'running';
+      const kind = reviveBonus(this.reviveBonuses); this.journal.record({type:'bonus',level:this.levels.current.number,kind}); this.physics.applyBonus(kind);
     }
     if (this.boostArmed && launching) { this.boostArmed = false; this.boostsUsed++; this.state = 'running'; this.journal.record({type:'boost',level:this.levels.current.number}); this.physics.addBalls(BOOST_BALLS); }
     this.audio.unlock(); this.physics.paused = false; this.physics.accumulator = 0;
@@ -119,7 +137,8 @@ export class Game {
     this.roundActive = false;
     this.journal.reset();this.physics.setSeed(this.journal.seed);
     this.pendingRelief = false; this.awaitingRevive = false; this.revivesUsed = 0; this.boostsUsed = 0; this.boostArmed = false;
-    this.levels.reset(); this.remainingLives = this.mode==='endless'?ENDLESS.lives:ARCADE.initialLives; this.score.reset(); this.result = undefined;
+    this.reviveBonusPending = false;
+    this.levels.reset(); this.remainingLives = this.mode==='endless'?ENDLESS.lives:this.campaignLives; this.score.reset(); this.result = undefined;
     this.configureLevel();
     this.physics.reset(); this.state = 'ready'; this.readyReason = 'initial'; this.onChange(this);
   }
@@ -176,7 +195,7 @@ export class Game {
         this.audio.play('lost');
         this.score.resetCombo(); this.physics.resetRound(this.lives > 0);
         this.state = this.lives > 0 ? 'ready' : 'gameOver';
-        this.readyReason = 'lifeLost'; this.pendingRelief = this.lives > 0;
+        this.readyReason = 'lifeLost'; this.pendingRelief = this.lives > 0; this.reliefRows = ENDLESS.reliefRows;
         this.physics.paused = this.lives === 0;
         if(this.lives===0)this.runOut();
       }

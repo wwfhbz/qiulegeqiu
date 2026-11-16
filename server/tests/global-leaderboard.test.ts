@@ -37,7 +37,7 @@ it('并列分按关卡、用时、首次达成、稳定ID排序，个人排名�
  expect(globalLeaderboard(s.db,0,20)).toEqual(board);for(const row of board)expect(globalPersonalBest(s.db,String(row.player_id))!.rank).toBe(row.rank);
  s.db.prepare("UPDATE players SET status='banned' WHERE id=?").run(ps[1]);expect(globalLeaderboard(s.db,0,1)[0].rank).toBe(1);expect(globalPersonalBest(s.db,ps[1])).toBeNull();
 });
-function run(hits=1){const g=new Game();for(let round=0;round<5;round++){g.start();if(!round){let n=hits;for(let i=0;i<g.physics.blocks.alive.length&&n;i++)if(g.physics.blocks.alive[i]){g.physics.blocks.hit(i);n--;}}Object.assign(g.physics.balls[0],{x:400,y:940,vx:380,vy:0,outsideArena:true});for(let n=0;n<20;n++)g.update(.1);Object.assign(g.physics.balls[0],{x:400,y:1080,vx:0,vy:760,outsideArena:true});g.update(C.step);}return g;}
+function run(hits=1){const g=new Game();for(let round=0;round<g.maxLives;round++){g.start();if(!round){let n=hits;for(let i=0;i<g.physics.blocks.alive.length&&n;i++)if(g.physics.blocks.alive[i]){g.physics.blocks.hit(i);n--;}}Object.assign(g.physics.balls[0],{x:400,y:940,vx:380,vy:0,outsideArena:true});for(let n=0;n<20;n++)g.update(.1);Object.assign(g.physics.balls[0],{x:400,y:1080,vx:0,vy:760,outsideArena:true});g.update(C.step);}return g;}
 it('新版十二关真实日志可提交，微信绑定同一网页玩家并共享最高分，重复提交幂等且伪分/越权拒绝',async()=>{
  const s=await setup(),wh=await web(s);const p=await s.app.inject({method:'POST',url:'/api/players',headers:wh,payload:{nickname:'跨端最高玩家',regionCode:'ISO:CN'}});expect(p.statusCode).toBe(201);
  const login=(await s.app.inject({method:'POST',url:'/api/wechat/login',payload:{code:'same:first'}})).json(),wx={authorization:'Bearer '+login.token,'x-csrf-token':login.csrfToken};

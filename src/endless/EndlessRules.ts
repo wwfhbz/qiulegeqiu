@@ -1,4 +1,4 @@
-import {ENDLESS_RULES_VERSION,ENDLESS_V1_RULES_VERSION,ENDLESS_V2_RULES_VERSION,ENDLESS_V3_RULES_VERSION,ENDLESS_V4_RULES_VERSION,ENDLESS_V5_RULES_VERSION,ENDLESS_V6_RULES_VERSION} from '../../shared/Challenge';
+import {ENDLESS_RULES_VERSION,ENDLESS_V1_RULES_VERSION,ENDLESS_V2_RULES_VERSION,ENDLESS_V3_RULES_VERSION,ENDLESS_V4_RULES_VERSION,ENDLESS_V5_RULES_VERSION,ENDLESS_V6_RULES_VERSION,ENDLESS_V7_RULES_VERSION} from '../../shared/Challenge';
 import type {LevelConfig} from '../Levels';
 import type {PowerKind} from '../PowerRules';
 /**
@@ -60,6 +60,8 @@ export interface EndlessVariant {
  readonly powerPoints?:boolean;
  /** 1.6+: losing a life (all balls gone) restarts the pressure timer, so a relaunch never inherits a nearly full countdown. */
  readonly pressureReset?:boolean;
+ /** 1.7+: rows a rewarded-video revive clears (pressure-death relief stays ENDLESS.reliefRows). */
+ readonly reviveRows?:number;
 }
 /** endless-1.0.0: drops every 8 → 30 bricks; the wall stopped 80% down the bowl. */
 export const ENDLESS_V1:EndlessVariant={drops:{start:8,growEvery:250,max:30},floor:'legacy'};
@@ -96,7 +98,9 @@ export const ENDLESS_V15_SETTINGS:EndlessSettings={initialRows:20,pierceSeconds:
 export const ENDLESS_V6:EndlessVariant={drops:{start:12,growEvery:100,max:50},floor:'raised',crush:true,powerPoints:true,settings:ENDLESS_V15_SETTINGS};
 /** endless-1.6.0: V1.5 balance; a lost life restarts the pressure timer. */
 export const ENDLESS_V7:EndlessVariant={...ENDLESS_V6,pressureReset:true};
-export const ENDLESS_CURRENT=ENDLESS_V7;
+/** endless-1.7.0: V1.6 plus a 20-row clear when reviving with a rewarded video. */
+export const ENDLESS_V8:EndlessVariant={...ENDLESS_V7,reviveRows:20};
+export const ENDLESS_CURRENT=ENDLESS_V8;
 export function endlessSettings(variant:EndlessVariant=ENDLESS_CURRENT):EndlessSettings{return variant.settings??ENDLESS_LEGACY_SETTINGS;}
 /** Relief reward: one of the four ball effects, equally likely, from its own seeded stream. */
 export const BONUS_KINDS=['plus3','pierce','fire','lightning'] as const;
@@ -104,6 +108,11 @@ export type BonusKind=typeof BONUS_KINDS[number];
 export function endlessBonus(random:()=>number):BonusKind{return BONUS_KINDS[Math.min(BONUS_KINDS.length-1,Math.floor(random()*BONUS_KINDS.length))];}
 /** Seed salts for the independent drop and bonus streams (shared by client and verifier). */
 export const DROP_SALT=0x5bd1e995,BONUS_SALT=0x2545f491;
+/** Campaign 1.10: a rewarded revive grants one random effect on the next launch, drawn from its own seeded stream. */
+export const REVIVE_BONUS_KINDS=['triple','lightning','fire','pierce'] as const;
+export type ReviveBonusKind=typeof REVIVE_BONUS_KINDS[number];
+export const REVIVE_BONUS_SALT=0x68e31da4;
+export function reviveBonus(random:()=>number):ReviveBonusKind{return REVIVE_BONUS_KINDS[Math.min(REVIVE_BONUS_KINDS.length-1,Math.floor(random()*REVIVE_BONUS_KINDS.length))];}
 export function dropEvery(destroyed:number,variant:EndlessVariant=ENDLESS_CURRENT){const d=variant.drops;return Math.min(d.max,d.start+Math.floor(destroyed/d.growEvery));}
 export function endlessStage(descents:number){return Math.min(100,1+Math.floor(descents/ENDLESS.rowsPerStage));}
 
@@ -112,6 +121,6 @@ export const ENDLESS_LEVEL:LevelConfig={number:1,name:'无尽模式',speedScale:
 
 /** One reviewed version registry shared by Game and API replay dispatch. Unknown versions never fall back. */
 export const ENDLESS_VARIANTS:Readonly<Record<string,EndlessVariant>>={
- [ENDLESS_V1_RULES_VERSION]:ENDLESS_V1,[ENDLESS_V2_RULES_VERSION]:ENDLESS_V2,[ENDLESS_V3_RULES_VERSION]:ENDLESS_V3,[ENDLESS_V4_RULES_VERSION]:ENDLESS_V4,[ENDLESS_V5_RULES_VERSION]:ENDLESS_V5,[ENDLESS_V6_RULES_VERSION]:ENDLESS_V6,[ENDLESS_RULES_VERSION]:ENDLESS_V7,
+ [ENDLESS_V1_RULES_VERSION]:ENDLESS_V1,[ENDLESS_V2_RULES_VERSION]:ENDLESS_V2,[ENDLESS_V3_RULES_VERSION]:ENDLESS_V3,[ENDLESS_V4_RULES_VERSION]:ENDLESS_V4,[ENDLESS_V5_RULES_VERSION]:ENDLESS_V5,[ENDLESS_V6_RULES_VERSION]:ENDLESS_V6,[ENDLESS_V7_RULES_VERSION]:ENDLESS_V7,[ENDLESS_RULES_VERSION]:ENDLESS_V8,
 };
 export function endlessVersion(variant:EndlessVariant){const version=Object.keys(ENDLESS_VARIANTS).find(key=>ENDLESS_VARIANTS[key]===variant);if(!version)throw Error('未知无尽规则配置');return version;}
