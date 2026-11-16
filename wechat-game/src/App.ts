@@ -121,11 +121,11 @@ export class MiniGameApp {
   // Touch strip under the arena: a quiet hint; dragging here steers the paddle (see down/move).
   // Joined to the arena's bottom edge: same width, rounded bottom corners, and a swipe hint (the real paddle is the only paddle).
   if((!this.panel.open||this.picking)&&v.pad.height>=30){const p={x:v.arena.x,y:v.pad.y,width:v.arena.width,height:v.pad.height};// Fills to the screen bottom: the whole strip steers.
-   c.save();c.beginPath();c.roundRect(p.x,p.y,p.width,p.height,[0,0,10,10]);c.fillStyle='rgba(6,10,24,.95)';c.fill();
-   c.beginPath();c.roundRect(v.arena.x-.5,v.arena.y-.5,v.arena.width+1,p.y+p.height-v.arena.y+1,10);c.strokeStyle='rgba(120,200,255,.2)';c.lineWidth=1;c.stroke();
-   // A quiet swipe hint (no duplicate paddle): a top highlight line, then ‹‹‹ 左右滑动控制挡板 ››› with arrows drifting outward.
-   const cy=p.y+Math.min(p.height/2,p.height*.45),glow=c.createLinearGradient(p.x+p.width*.12,0,p.x+p.width*.88,0);glow?.addColorStop(0,'rgba(79,227,255,0)');glow?.addColorStop(.5,'rgba(79,227,255,.55)');glow?.addColorStop(1,'rgba(79,227,255,0)');
-   c.fillStyle=glow||'rgba(79,227,255,.3)';c.fillRect(p.x+p.width*.12,p.y,p.width*.76,1);c.restore();
+   // Borderless: no frame around the arena; the strip is a plain dark band from the arena's bottom edge to the screen bottom.
+   c.save();c.fillStyle='rgba(6,10,24,.95)';c.fillRect(p.x,p.y,p.width,p.height);
+   // A quiet swipe hint (no duplicate paddle): ‹‹‹ 左右滑动控制挡板 ››› with arrows drifting outward.
+   const cy=p.y+Math.min(p.height/2,p.height*.45);
+   c.restore();
    c.font=`500 12px ${OCEAN.fonts.body}`;const label='左右滑动控制挡板',half=Math.min(c.measureText(label).width,v.width-120)/2+16;
    canvasText(c,label,v.width/2,cy,v.width-120,12,'#8FA6C8','center');
    const pressed=this.touch?.drag&&inside(v.pad,this.touch.x,this.touch.y);

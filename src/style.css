@@ -64,10 +64,10 @@ h1{position:absolute;left:50%;transform:translateX(-50%);margin:0;font-size:20px
 #progress-meter i{display:block;height:100%;width:var(--fill,0%);border-radius:inherit;background:linear-gradient(90deg,#5CE1FF,#3EE0B5 55%,#FFE27A);box-shadow:inset 0 2px 0 rgba(255,255,255,.45);transition:width .25s ease}
 
 /* Play area + touch strip: one thin-edged panel */
-.canvas-wrap{position:relative;margin-top:4px;border-radius:10px 10px 0 0;overflow:hidden;border:1px solid var(--edge);border-bottom:0}
+.canvas-wrap{position:relative;margin:4px -4px 0;overflow:hidden}
 canvas{display:block;width:100%;height:100%;touch-action:none}
 .canvas-wrap[data-state=paused]::after{content:'';position:absolute;inset:0;background:rgba(3,5,12,.55);pointer-events:none;z-index:1}
-.touch-pad{position:relative;height:46px;border-radius:0 0 10px 10px;border:1px solid var(--edge);border-top:1px solid var(--cyan-faint);background:linear-gradient(180deg,rgba(10,18,40,.95),rgba(5,8,18,.95));display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;touch-action:none;-webkit-user-select:none;user-select:none}
+.touch-pad{position:relative;height:46px;margin:0 -4px;background:linear-gradient(180deg,rgba(10,18,40,.95),rgba(5,8,18,.95));display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;touch-action:none;-webkit-user-select:none;user-select:none}
 .touch-pad .power-info{position:absolute;left:10px;right:10px;top:3px;display:flex;justify-content:center;gap:10px;font-size:10px;font-weight:700;color:var(--o-positive);white-space:nowrap;pointer-events:none}
 .touch-pad #combo{color:var(--o-warning)}
 .pad-track{position:relative;width:calc(100% - 40px);height:2px;margin-top:6px;background:rgba(120,200,255,.16)}
@@ -222,7 +222,6 @@ input,textarea,select,[contenteditable]{-webkit-user-select:text;user-select:tex
 
 /* Touch strip: no duplicate paddle — a quiet swipe hint with arrows drifting outward, over a soft glass band. */
 .touch-pad{background:radial-gradient(70% 120% at 50% 0%,rgba(79,227,255,.10),transparent 70%),linear-gradient(180deg,rgba(12,20,46,.96),rgba(5,8,20,.96))}
-.touch-pad::before{content:'';position:absolute;left:12%;right:12%;top:0;height:1px;background:linear-gradient(90deg,transparent,rgba(79,227,255,.55),transparent);pointer-events:none}
 .pad-swipe{display:flex;align-items:center;justify-content:center;gap:14px;pointer-events:none}
 .touch-pad .pad-hint{font-size:12px;letter-spacing:4px;color:#8FA6C8}
 .chev{display:flex;gap:3px;font-style:normal}

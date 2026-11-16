@@ -314,13 +314,11 @@ export class Renderer {
       const long=deg%30===0,r0=a.radius+6,r1=a.radius+(long?16:10);c.beginPath();c.moveTo(a.x+Math.cos(t)*r0,a.y+Math.sin(t)*r0);c.lineTo(a.x+Math.cos(t)*r1,a.y+Math.sin(t)*r1);c.stroke();}
     // Exit posts glow warm so the gap reads as "the goal".
     for(const x of [wall.leftX,wall.rightX]){c.beginPath();c.arc(x,wall.endpointY,5,0,Math.PI*2);c.fillStyle=OCEAN.colors.warning;c.fill();c.beginPath();c.arc(x,wall.endpointY,10,0,Math.PI*2);c.fillStyle=rgba(OCEAN.colors.warning,.18);c.fill();}
-    // U-frame.
-    c.beginPath();c.moveTo(FRAME.left,FRAME.deathY);c.lineTo(FRAME.left,FRAME.top);c.lineTo(FRAME.right,FRAME.top);c.lineTo(FRAME.right,FRAME.deathY);
-    c.lineJoin='round';c.strokeStyle=rgba(OCEAN.colors.accent,.08);c.lineWidth=5;c.stroke();c.strokeStyle=rgba(OCEAN.colors.accent,.35);c.lineWidth=Math.max(1.2,FRAME.width);c.stroke();c.lineCap='butt';
+    // No U-frame: the view's edges are the walls (see Viewport), so the ball bounces off the screen edge.
     // Danger zone: a red haze below the paddle line, not a collider.
     const danger=c.createLinearGradient?.(0,FRAME.deathY-28,0,C.height);
     if(danger){danger.addColorStop(0,rgba(OCEAN.colors.danger,0));danger.addColorStop(.4,rgba(OCEAN.colors.danger,.10));danger.addColorStop(1,rgba(OCEAN.colors.danger,.22));c.fillStyle=danger;c.fillRect(FRAME.left,FRAME.deathY-28,FRAME.right-FRAME.left,C.height-FRAME.deathY+28);}
-    c.beginPath();c.setLineDash?.([6,8]);c.moveTo(FRAME.left,FRAME.deathY);c.lineTo(FRAME.right,FRAME.deathY);c.strokeStyle=rgba(OCEAN.colors.danger,.45);c.lineWidth=1;c.stroke();c.setLineDash?.([]);
+    c.lineCap='butt';
   }
 
   private ring(x:number,y:number,now:number,duration:number,from:number,to:number,color:string,width=2){const r=this.rings[this.ringCursor++%RING_SLOTS];r.x=x;r.y=y;r.start=now;r.duration=duration;r.from=from;r.to=to;r.color=color;r.width=width;}
