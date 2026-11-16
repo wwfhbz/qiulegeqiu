@@ -8,7 +8,7 @@ import {drawHud} from './GameChrome';
 import {HapticTracker} from '../../src/Haptics';
 import {VIEW,viewX,viewFraction} from '../../src/Viewport';
 const MODE_KEY='qiulegeqiu:wechat-mode:v1';
-const SETTING={music:'qiulegeqiu:wechat-music:v1',sfx:'qiulegeqiu:wechat-sfx:v1',vibrate:'qiulegeqiu:wechat-vibrate:v1',trail:'qiulegeqiu:wechat-trail:v1',trails:'qiulegeqiu:wechat-trails:v1',runs:'qiulegeqiu:wechat-runs:v1',guide:'qiulegeqiu:wechat-mp-guide:v1'};
+const SETTING={music:'qiulegeqiu:wechat-music:v1',sfx:'qiulegeqiu:wechat-sfx:v1',vibrate:'qiulegeqiu:wechat-vibrate:v1',trail:'qiulegeqiu:wechat-trail:v1',trails:'qiulegeqiu:wechat-trails:v1',paddle:'qiulegeqiu:wechat-paddle:v1',paddles:'qiulegeqiu:wechat-paddles:v1',runs:'qiulegeqiu:wechat-runs:v1',guide:'qiulegeqiu:wechat-mp-guide:v1'};
 const REVIVE_TITLE='生命耗尽';
 import {OCEAN,brickColor} from '../../shared/VisualTheme';
 import {drawIcon,type IconName} from '../../shared/Icons';
@@ -34,8 +34,8 @@ import {Panel,type Action} from './Panel';
 import {WechatAds} from './Ads';
 import {AD_UNITS} from './AdConfig';
 import {MAX_REVIVES} from '../../shared/Challenge';
-import {TRAIL_SKINS,isTrailSkin} from '../../shared/Skins';
-import type {TrailSkin} from '../../src/Renderer';
+import {TRAIL_SKINS,PADDLE_SKINS,isTrailSkin,isPaddleSkin,migratePaddle} from '../../shared/Skins';
+import type {TrailSkin,PaddleSkin} from '../../src/Renderer';
 import {privacy,agreement} from './Policies';
 import type {Wx,Canvas,Config,TouchEvent} from './Platform';
 interface Region {code:string;prefix:string;name:string;hasChildren:boolean;path:string}
@@ -69,7 +69,7 @@ export class MiniGameApp {
   // A shared score card opens straight into the same mode.
   try{const mode=wx.getLaunchOptionsSync?.().query?.mode;if(mode==='endless'||mode==='campaign'){this.game.setMode(mode);this.platform.write(MODE_KEY,mode);}}catch{/* Optional API. */}
   if(this.platform.read(MODE_KEY)==='endless'){this.game.setMode('endless');this.rankingBoard='endless';}
-  const renderHost=this.platform.rendererHost(cache,()=>({width:this.view.arena.width,height:this.view.arena.height}),()=>this.dpr);renderHost.lowPerformance=()=>this.lowDevice||this.view.width<360;this.renderer=new Renderer(this.arena,renderHost);this.renderer.trail=this.selectedTrail();
+  const renderHost=this.platform.rendererHost(cache,()=>({width:this.view.arena.width,height:this.view.arena.height}),()=>this.dpr);renderHost.lowPerformance=()=>this.lowDevice||this.view.width<360;this.renderer=new Renderer(this.arena,renderHost);this.renderer.trail=this.selectedTrail();this.renderer.paddleSkin=this.selectedPaddle();
   this.sync=new ChallengeSync(this.api,this.game,()=>Date.now(),clientId);this.resize();
   wx.onTouchStart(e=>this.down(e));wx.onTouchMove(e=>this.move(e));wx.onTouchEnd(e=>this.up(e));wx.onTouchCancel(()=>{this.touch=undefined;});
   wx.onHide(()=>this.hide());wx.onShow(()=>{this.active=true;this.previous=0;this.resize();this.platform.resume();this.panel.friend?.resume();this.cloud.resume();});wx.onWindowResize?.(()=>this.resize());
@@ -186,32 +186,47 @@ export class MiniGameApp {
    {label:'放弃，查看结算',run:()=>{this.panel.close();g.endRun();}},
   ],{score:g.score.total,left:g.revivesLeft,max:MAX_REVIVES,endless});}
  /** Every rewarded video goes through here: the reward is only granted when the video was watched to the end. */
- private async watchReward(kind:'revive'|'boost'|`trail:${Exclude<TrailSkin,'none'>}`){
+ private async watchReward(kind:'revive'|'boost'|`trail:${Exclude<TrailSkin,'none'>}`|`paddle:${Exclude<PaddleSkin,'default'>}`){
   if(this.busy)return;this.busy=true;const g=this.game,generation=g.journal.generation;
   try{const result=await this.ads.showRewarded();this.previous=0;
    if(result!=='rewarded'){this.toast(result==='closed'?'完整看完视频才能领取奖励':'暂时没有可播放的视频，请稍后再试');return;}
-   if(kind.startsWith('trail:')){const id=kind.slice(6) as Exclude<TrailSkin,'none'>;this.platform.write(SETTING.trails,[...new Set([...this.unlockedTrails(),id])]);this.useTrail(id);this.toast(`${TRAIL_SKINS.find(t=>t.id===id)!.name}拖尾已永久解锁`);this.settings();return;}
+   if(kind.startsWith('trail:')){const id=kind.slice(6) as Exclude<TrailSkin,'none'>;this.platform.write(SETTING.trails,[...new Set([...this.unlockedTrails(),id])]);this.useTrail(id);this.toast(`${TRAIL_SKINS.find(t=>t.id===id)!.name}拖尾已永久解锁`);this.skins();return;}
+   if(kind.startsWith('paddle:')){const id=kind.slice(7) as Exclude<PaddleSkin,'default'>;this.platform.write(SETTING.paddles,[...new Set([...this.unlockedPaddles(),id])]);this.usePaddle(id);this.toast(`${PADDLE_SKINS.find(t=>t.id===id)!.name}挡板已永久解锁`);this.skins();return;}
    if(g.journal.generation!==generation)return;
    if(kind==='revive'){if(g.revive()){this.panel.close();this.toast('复活成功，继续加油！');}}
    else if(g.armBoost())this.toast('下一球出发时多 3 个分身');
   }finally{this.busy=false;}
  }
  /** Music, effects, vibration and the comet tail; each switch is remembered. */
- private settings(){const a=this.game.audio,trail=this.unlockedTrails().length>0;
+ private settings(){const a=this.game.audio;
   const flip=(key:string,on:boolean,apply:(on:boolean)=>void)=>()=>{apply(on);this.platform.write(key,on);this.settings();};
   const actions:Action[]=[
    {label:`背景音乐：${a.musicOn?'开':'关'}`,half:true,run:flip(SETTING.music,!a.musicOn,on=>{a.unlock();a.setMusic(on);})},
    {label:`音效：${a.sfxOn?'开':'关'}`,half:true,run:flip(SETTING.sfx,!a.sfxOn,on=>a.setSfx(on))},
    {label:`震动：${this.vibrationOn?'开':'关'}`,half:true,run:flip(SETTING.vibrate,!this.vibrationOn,on=>{this.vibrationOn=on;})},
   ];
+  actions.push({label:'皮肤：小球拖尾 · 挡板',run:()=>this.skins()});
+  actions.push({label:'返回菜单',run:()=>this.menu(false)});
+  this.panel.show('设置',['背景音乐、音效和震动可分别开关；顶部喇叭键一键全部静音。','皮肤：3 款小球拖尾和 3 款挡板，只改外观不影响成绩。'],actions);
+ }
+ /** Skins page: ball trails and paddle skins. Each unlocked once by a rewarded video, then freely switched. */
+ private skins(){const actions:Action[]=[];
   // Trail skins: each one unlocked once by a rewarded video, then freely switched (only the look changes).
   const unlocked=this.unlockedTrails(),current=this.selectedTrail();
-  for(const skin of TRAIL_SKINS){if(unlocked.includes(skin.id))actions.push({label:`${skin.name}拖尾：${current===skin.id?'使用中':'使用'}`,half:true,run:()=>{this.useTrail(skin.id);this.settings();}});
+  for(const skin of TRAIL_SKINS){if(unlocked.includes(skin.id))actions.push({label:`${skin.name}拖尾：${current===skin.id?'使用中':'使用'}`,half:true,run:()=>{this.useTrail(skin.id);this.skins();}});
    else if(this.ads.rewardedAvailable)actions.push({label:`▶ 看视频解锁${skin.name}拖尾`,half:true,run:()=>void this.watchReward(`trail:${skin.id}`)});}
-  if(unlocked.length&&current!=='none')actions.push({label:'不使用拖尾',half:true,run:()=>{this.useTrail('none');this.settings();}});
-  actions.push({label:'返回菜单',run:()=>this.menu(false)});
-  this.panel.show('设置',['背景音乐、音效和震动可分别开关；顶部喇叭键一键全部静音。',...(trail||this.ads.rewardedAvailable?['小球拖尾：彗星、爱心、彩虹三款，每款看一次视频永久解锁，只改外观不影响成绩。']:[])],actions);
+  if(unlocked.length&&current!=='none')actions.push({label:'不使用拖尾',half:true,run:()=>{this.useTrail('none');this.skins();}});
+  const paddles=this.unlockedPaddles(),paddle=this.selectedPaddle();
+  for(const skin of PADDLE_SKINS){if(paddles.includes(skin.id))actions.push({label:`${skin.name}：${paddle===skin.id?'使用中':'使用'}`,half:true,run:()=>{this.usePaddle(skin.id);this.skins();}});
+   else if(this.ads.rewardedAvailable)actions.push({label:`▶ 看视频解锁${skin.name}`,half:true,run:()=>void this.watchReward(`paddle:${skin.id}`)});}
+  if(paddles.length&&paddle!=='default')actions.push({label:'默认挡板',half:true,run:()=>{this.usePaddle('default');this.skins();}});
+  actions.push({label:'返回设置',run:()=>this.settings()});
+  const any=this.unlockedTrails().length+paddles.length>0||this.ads.rewardedAvailable;
+  this.panel.show('皮肤',any?['拖尾：彗星 · 爱心 · 彩虹    挡板：霓虹光剑 · 烈焰燃烧 · 黄金荣耀','每款看一次视频永久解锁，只改外观，不影响成绩。']:['开通广告后可看视频解锁皮肤。'],actions);
  }
+ private unlockedPaddles():Exclude<PaddleSkin,'default'>[]{const list=this.platform.read(SETTING.paddles);return Array.isArray(list)?[...new Set(list.map(migratePaddle))].filter((v):v is Exclude<PaddleSkin,'default'>=>isPaddleSkin(v)&&v!=='default'):[];}
+ private selectedPaddle():PaddleSkin{const v=migratePaddle(this.platform.read(SETTING.paddle));return isPaddleSkin(v)&&(v==='default'||this.unlockedPaddles().includes(v))?v:'default';}
+ private usePaddle(id:PaddleSkin){this.platform.write(SETTING.paddle,id);this.renderer.paddleSkin=id;}
  /** Unlocked trail skins (the 2.7 comet setting counts as an unlocked comet). */
  private unlockedTrails():Exclude<TrailSkin,'none'>[]{const list=this.platform.read(SETTING.trails),legacy=this.platform.read(SETTING.trail);
   const ids=Array.isArray(list)?list.filter((v):v is Exclude<TrailSkin,'none'>=>isTrailSkin(v)&&v!=='none'):[];if((legacy==='on'||legacy==='off')&&!ids.includes('comet'))ids.push('comet');return ids;}
