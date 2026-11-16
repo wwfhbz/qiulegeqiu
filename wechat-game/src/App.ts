@@ -136,16 +136,13 @@ export class MiniGameApp {
     const x=v.width/2+side*(half+i*11);c.strokeStyle=pressed?`rgba(255,226,122,${alpha})`:`rgba(79,227,255,${alpha})`;
     c.beginPath();c.moveTo(x-side*3.5,cy-5);c.lineTo(x+side*1.5,cy);c.lineTo(x-side*3.5,cy+5);c.stroke();}
    c.restore();}
-  // Compact native-style utility controls stay below the capsule safe area.
-  // Top bar: small ghost icon buttons sharing the capsule menu's row (left of it), so no row is spent on them.
-  const bs=40,tool=(x:number)=>({x,y:v.top,width:bs,height:v.barHeight});
-  iconButton(tool(6),'menu',()=>this.menu());
-  iconButton({x:v.width-98,y:v.titleY,width:40,height:36},'trophy',()=>void this.board(),'gold');
-  c.font=`900 23px ${OCEAN.fonts.body}`;c.textAlign='left';c.textBaseline='middle';const titleGold=c.createLinearGradient(0,v.top,0,v.top+32);titleGold?.addColorStop(0,'#FFFFFF');titleGold?.addColorStop(.6,'#FFE27A');titleGold?.addColorStop(1,'#FFB31F');c.fillStyle=titleGold||'#FFE27A';c.fillText(GAME_NAME,56,v.top+v.barHeight/2,Math.max(60,v.barRight-64));
+  // Same keys as the web top bar: no separate ☰ (pause is the menu), pause then the gold trophy at the far right.
+  iconButton({x:v.width-50,y:v.titleY,width:40,height:36},'trophy',()=>void this.board(),'gold');
+  c.font=`900 23px ${OCEAN.fonts.body}`;c.textAlign='left';c.textBaseline='middle';const titleGold=c.createLinearGradient(0,v.top,0,v.top+32);titleGold?.addColorStop(0,'#FFFFFF');titleGold?.addColorStop(.6,'#FFE27A');titleGold?.addColorStop(1,'#FFB31F');c.fillStyle=titleGold||'#FFE27A';c.fillText(GAME_NAME,10,v.top+v.barHeight/2,Math.max(60,v.barRight-18));
   neonButton(c,{x:4,y:v.titleY+4,width:118,height:40},'dim',20);
   for(const tab of v.modeTabs){const selected=tab.mode===g.mode,visual={x:tab.x,y:v.titleY+6,width:tab.width,height:36};if(selected)candyButton(c,visual,'gold',18);c.font=`800 14px ${OCEAN.fonts.body}`;c.textAlign='center';c.textBaseline='middle';c.fillStyle=selected?'#5A2C00':OCEAN.colors.secondary;c.fillText(tab.mode==='campaign'?'闯关':'无尽',tab.x+tab.width/2,v.titleY+24,tab.width-8);this.actions.push({rect:tab,run:()=>void this.requestMode(tab.mode)});}
-  // Pause opens the same menu as ☰ (most casual games pause into their menu).
-  iconButton({x:v.width-50,y:v.titleY,width:40,height:36},'pause',()=>this.menu());
+  // Pause opens the menu; like the web key it shows ▶ while the game is paused, and tapping it again resumes.
+  iconButton(this.pauseKey,g.state==='paused'||this.menuOpen?'play':'pause',()=>this.menu());
   this.panel.screen={height:v.height,top:v.titleY,resultTop:v.top+8,muted:this.game.audio.muted};
   this.panel.draw(c,v.width,(this.panel.ranking||this.panel.friend)?v.top:v.hudY,v.bottom,now,g.state!=='paused',this.lowDevice||v.width<360,this.rankingArt,this.dpr);
   if(this.panel.title==='我的资料'){if(this.profile.image){try{c.drawImage(this.profile.image,v.width-56,v.hudY+8,32,32);}catch{defaultAvatar(c,v.width-40,v.hudY+24,16);}}else defaultAvatar(c,v.width-40,v.hudY+24,16);}
@@ -165,18 +162,26 @@ export class MiniGameApp {
   const point=touchPoint(t);if(!point||active.moved||active.drag)return;
   if(this.guide){this.guide=false;return;}
   if(active.mode){const tab=this.view.modeTabs.find(tab=>tab.mode===active.mode);if(tab&&inside(tab,point.x,point.y))void this.requestMode(active.mode);return;}
+  // The pause key stays live over the menu: tapping it again closes the menu and resumes, like the web key.
+  if(this.menuOpen&&inside(this.pauseKey,active.x,active.y)&&inside(this.pauseKey,point.x,point.y)){this.panel.close();if(this.game.state==='paused')this.game.start();this.previous=0;return;}
   if(this.panel.open){this.panel.tap(active.x,active.y,point.x,point.y);return;}
   this.actions.find(a=>inside(a.rect,active.x,active.y)&&inside(a.rect,point.x,point.y))?.run();
  }
- /** Restart sits next to pause: confirm before throwing away a run in progress. */
- private async confirmRestart(){const g=this.game;if(this.busy)return;
-  const inProgress=g.journal.events.length>0&&g.state!=='gameOver'&&g.state!=='victory';
-  if(!inProgress){this.panel.close();g.reset();return;}
-  const generation=g.journal.generation,running=g.state==='running';if(running)g.pause();this.busy=true;
-  try{const answer=await this.modal('重新开始','确定放弃本局，重新开始吗？当前分数不会保留。','重新开始','继续本局');
-   if(g.journal.generation!==generation)return;
-   if(answer.confirm){this.panel.close();g.reset();}else if(running&&this.active&&g.state==='paused')g.start();}
-  finally{this.busy=false;this.previous=0;}
+ /**
+  * Restart and home confirm inside the candy panel, not with wx.showModal: the native dialog refuses button texts
+  * over 4 characters (so "回到主界面" silently failed) and can be dismissed by the host. 继续本局 returns to the menu.
+  */
+ private confirmSheet(title:string,line:string,confirm:string,icon:IconName,run:()=>void){
+  this.panel.show(title,[line],[{label:confirm,icon,primary:true,run},{label:'继续本局',icon:'play',run:()=>this.menu(false)}]);
+ }
+ private get pauseKey():Rect{const v=this.view;return {x:v.width-98,y:v.titleY,width:40,height:36};}
+ private get menuOpen(){return this.panel.open&&(this.panel.title==='游戏暂停'||this.panel.title==='菜单');}
+ private inRun(){const g=this.game;return g.journal.events.length>0&&g.state!=='gameOver'&&g.state!=='victory';}
+ private confirmRestart(){const g=this.game;if(this.busy)return;
+  const restart=()=>{this.panel.close();g.reset();this.previous=0;};
+  if(!this.inRun()){restart();return;}
+  g.pause();const generation=g.journal.generation;
+  this.confirmSheet('重新开始','确定放弃本局，重新开始吗？当前分数不会保留。','重新开始','restart',()=>{if(g.journal.generation===generation)restart();else this.panel.close();});
  }
  readonly ads:WechatAds;private vibrationOn=true;private guide=false;private lastInterstitial=0;
  /** Lives ran out and a rewarded video can bring the run back (up to MAX_REVIVES per run, still ranked). */
@@ -266,20 +271,22 @@ export class MiniGameApp {
   }catch(error){this.online=false;this.toast((error as Error).message);}finally{this.busy=false;if(this.game.journal.generation===generation&&this.game.state===state)activateCentralAction(this.game);if(!this.active)this.game.pause();this.previous=0;}
  }
  private async loginWithPrivacy(){if(this.wx.requirePrivacyAuthorize)await new Promise<void>((r,j)=>this.wx.requirePrivacyAuthorize!({success:r,fail:()=>j(Error('未获得隐私授权，可继续单机'))}));await this.api.login();this.cloud.resume();}
- private modal(title:string,content:string,confirmText='确定',cancelText='取消',editable=false,initialValue=''){return new Promise<{confirm:boolean;content?:string}>(resolve=>this.wx.showModal({title,content:editable?initialValue:content,placeholderText:editable?content:undefined,confirmText,cancelText,editable,success:resolve,fail:()=>resolve({confirm:false})}));}
+ private modal(title:string,content:string,confirmText='确定',cancelText='取消',editable=false,initialValue=''){// wx.showModal fails outright on button texts over 4 characters.
+  const four=(s:string)=>[...s].slice(0,4).join('');return new Promise<{confirm:boolean;content?:string}>(resolve=>this.wx.showModal({title,content:editable?initialValue:content,placeholderText:editable?content:undefined,confirmText:four(confirmText),cancelText:four(cancelText),editable,success:resolve,fail:()=>resolve({confirm:false})}));}
  private toast(message:string){this.wx.showToast({title:message,icon:'none'});}
  private async task(work:()=>Promise<void>){if(this.busy)return;this.busy=true;try{await work();}catch(error){this.wx.showModal({title:'操作未完成',content:(error as Error).message,showCancel:false});}finally{this.busy=false;}}
  /** One menu for ☰ and pause: resume, restart, home, skip (rewarded), sound, skins, leaderboard and more. */
  private menu(fromUser=true){const g=this.game;g.pause();if(fromUser)this.maybeInterstitial();
   const a=g.audio,inRun=g.journal.events.length>0&&g.state!=='gameOver'&&g.state!=='victory';
   const where=g.mode==='endless'?`无尽模式 · 第${g.reachedLevel}阶段`:`闯关模式 · 第${g.levels.current.number}关`;
-  const actions:Action[]=[{label:inRun?'继续游戏':'返回游戏',primary:true,run:()=>{this.panel.close();if(g.state==='paused')g.start();this.previous=0;}},
-   {label:'重新开始',half:true,run:()=>void this.confirmRestart()},{label:'回到主界面',half:true,run:()=>void this.confirmHome()}];
+  const actions:Action[]=[{label:inRun?'继续游戏':'返回游戏',icon:'play',primary:true,run:()=>{this.panel.close();if(g.state==='paused')g.start();this.previous=0;}},
+   {label:'重新开始',icon:'restart',half:true,run:()=>void this.confirmRestart()},{label:'回到主界面',icon:'menu',half:true,run:()=>void this.confirmHome()}];
   if(g.canSkip&&this.ads.rewardedAvailable&&(!this.online||this.sync.skipSupported))actions.push({label:`▶ 看视频跳过本关（还可 ${MAX_SKIPS-g.skipsUsed} 次）`,run:()=>void this.watchReward('skip')});
   const flip=(key:string,on:boolean,apply:(on:boolean)=>void)=>()=>{apply(on);this.platform.write(key,on);this.menu(false);};
-  actions.push({label:`音效：${a.sfxOn?'开':'关'}`,half:true,run:flip(SETTING.sfx,!a.sfxOn,on=>a.setSfx(on))},{label:`背景音乐：${a.musicOn?'开':'关'}`,half:true,run:flip(SETTING.music,!a.musicOn,on=>{a.unlock();a.setMusic(on);})},
-   {label:`震动：${this.vibrationOn?'开':'关'}`,half:true,run:flip(SETTING.vibrate,!this.vibrationOn,on=>{this.vibrationOn=on;})},{label:'皮肤',half:true,run:()=>this.skins()},
-   {label:'排行榜',half:true,run:()=>void this.board()},{label:'更多',half:true,run:()=>this.more()});
+  // Same order and icons as the web menu card; 震动 and 更多 are WeChat-only extras at the end.
+  actions.push({label:`音效：${a.sfxOn?'开':'关'}`,icon:a.sfxOn?'soundOn':'soundOff',half:true,run:flip(SETTING.sfx,!a.sfxOn,on=>a.setSfx(on))},{label:`背景音乐：${a.musicOn?'开':'关'}`,icon:'music',half:true,run:flip(SETTING.music,!a.musicOn,on=>{a.unlock();a.setMusic(on);})},
+   {label:'皮肤',icon:'spark',half:true,run:()=>this.skins()},{label:'排行榜',icon:'trophy',half:true,run:()=>void this.board()},
+   {label:`震动：${this.vibrationOn?'开':'关'}`,icon:'gear',half:true,run:flip(SETTING.vibrate,!this.vibrationOn,on=>{this.vibrationOn=on;})},{label:'更多',icon:'share',half:true,run:()=>this.more()});
   this.panel.show(inRun?'游戏暂停':'菜单',[`${where} · 得分 ${g.score.total}`],actions);
  }
  /** Less-used items, one level down: share, history, account binding, mode switch, policies. */
@@ -293,10 +300,10 @@ export class MiniGameApp {
   {label:'返回菜单',run:()=>this.menu(false)}
  ]);}
  /** Back to the mode picker; asks first if a run is in progress (the run is not submitted). */
- private async confirmHome(){const g=this.game;if(this.busy)return;
-  const inRun=g.journal.events.length>0&&g.state!=='gameOver'&&g.state!=='victory';
-  if(inRun){this.busy=true;const generation=g.journal.generation;try{const answer=await this.modal('回到主界面','确定放弃本局并回到主界面吗？当前分数不会保留。','回到主界面','继续本局');if(!answer.confirm||g.journal.generation!==generation)return;}finally{this.busy=false;this.previous=0;}}
-  this.panel.close();g.reset();this.modePicker();
+ private confirmHome(){const g=this.game;if(this.busy)return;
+  const home=()=>{this.panel.close();g.reset();this.previous=0;this.modePicker();};
+  if(!this.inRun()){home();return;}
+  g.pause();this.confirmSheet('回到主界面','确定放弃本局并回到主界面吗？当前分数不会保留。','回到主界面','menu',home);
  }
  /** Mode switch always starts a fresh run, so confirm if one is in progress; the choice is remembered. */
  /** True until the player picks a mode: on launch, and again after every finished run. */
