@@ -1,8 +1,9 @@
 import { LEVELS } from './Levels';
 /** All arcade difficulty and scoring constants live here. */
 export const ARCADE = {
-  initialLives: 5,
-  maxLives: 5,
+  /** Campaign 1.10+: 3 lives, the same as endless. Earlier seasons replay with LEGACY_LIVES. */
+  initialLives: 3,
+  maxLives: 3,
   emptyBombPoints: 100,
   /** Campaign 1.8+ and endless 1.3+: every power-up caught with the paddle is worth a flat 100 points. */
   powerPoints: 100,
@@ -19,3 +20,6 @@ export const ARCADE = {
   ],
   levels: LEVELS,
 } as const;
+
+/** Lives in every campaign season before 1.10 (verification of frozen seasons only). */
+export const LEGACY_LIVES = 5;

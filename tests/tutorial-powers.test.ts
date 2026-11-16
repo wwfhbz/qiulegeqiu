@@ -33,7 +33,7 @@ it('未接住的密集掉落全部消失，不改变球数、生命和加宽效�
  const g=new Game();g.start();const collected=vi.fn();g.physics.onPowerCollected=collected;
  for(let i=0;i<g.physics.blocks.alive.length;i++)g.physics.blocks.hit(i);
  for(let n=0;n<1100;n++)g.physics.powers.update(C.step,-10000,0,(kind,id)=>g.physics.collect(kind,id));
- expect(g.physics.powers.items.some(p=>p.alive)).toBe(false);expect(collected).not.toHaveBeenCalled();expect(g.physics.balls).toHaveLength(1);expect(g.lives).toBe(5);expect(g.physics.wideRemaining).toBe(0);
+ expect(g.physics.powers.items.some(p=>p.alive)).toBe(false);expect(collected).not.toHaveBeenCalled();expect(g.physics.balls).toHaveLength(1);expect(g.lives).toBe(3);expect(g.physics.wideRemaining).toBe(0);
 });
 it('预分配X3必须落到挡板才生效；20→60、21→24，连续拾取封顶100',()=>{
  const p=load(1),i=p.blocks.powerKinds.findIndex(v=>v===1);p.blocks.hit(i);expect(p.balls).toHaveLength(1);
@@ -44,7 +44,7 @@ it('预分配X3必须落到挡板才生效；20→60、21→24，连续拾取封
 it('普通丢命保留分配、砖块进度、积分；清理残留道具，不重新抽签',()=>{
  const g=new Game();g.start();const i=g.physics.blocks.powerKinds.findIndex(v=>v===1),map=g.physics.blocks.powerKinds.slice();g.physics.blocks.hit(i);const score=g.score.total;
  for(const b of g.physics.balls)Object.assign(b,{x:400,y:1080,vx:0,vy:760,outsideArena:true});g.update(C.step);
- expect(g.lives).toBe(4);expect(g.physics.blocks.powerKinds).toEqual(map);expect(g.physics.blocks.alive[i]).toBe(0);expect(g.score.total).toBe(score);expect(g.physics.powers.items.every(d=>!d.alive)).toBe(true);g.start();expect(g.physics.blocks.hit(i)).toBe(false);
+ expect(g.lives).toBe(2);expect(g.physics.blocks.powerKinds).toEqual(map);expect(g.physics.blocks.alive[i]).toBe(0);expect(g.score.total).toBe(score);expect(g.physics.powers.items.every(d=>!d.alive)).toBe(true);g.start();expect(g.physics.blocks.hit(i)).toBe(false);
 });
 it('Web与微信同一预分配和日志，第二关同为1446砖',()=>{
  const f=wxFixture(),app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false}),web=new Game();
@@ -60,7 +60,7 @@ it('第三至十二关配置、掉落间隔、类型随机序列和24格池保�
 import {scoreHistoryLines} from '../shared/ScoreHistory';
 import {RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,V17_RULES_VERSION,PREVIOUS_RULES_VERSION,LEGACY_RULES_VERSION} from '../shared/Challenge';
 it('独立新版规则与双端个人历史格式：旧记录明确标记、不换算、不显示为当前排名',()=>{
- expect(RULES_VERSION).toBe('1.9.0-arcade-5l-12lv-fullskills-v7');expect(V17_RULES_VERSION).toBe('1.7.0-arcade-5l-12lv-scarce-v5');expect(scoreHistoryLines([{score:6,reached_level:2,rules_version:V17_RULES_VERSION}])).toEqual(['V1.7赛季记录：6 分 · 第2关']);expect(V16_RULES_VERSION).toBe('1.6.0-arcade-5l-12lv-full-v4');expect(scoreHistoryLines([{score:7,reached_level:5,rules_version:V16_RULES_VERSION}])).toEqual(['V1.6赛季记录：7 分 · 第5关']);expect(V15_RULES_VERSION).toBe('1.5.0-arcade-5l-12lv-short-v3');expect(scoreHistoryLines([{score:8,reached_level:4,rules_version:V15_RULES_VERSION}])).toEqual(['V1.5赛季记录：8 分 · 第4关']);expect(V13_RULES_VERSION).toBe('1.3.0-arcade-5l-12lv-drops-v2');expect(RULES_VERSION).not.toBe(PREVIOUS_RULES_VERSION);
+ expect(RULES_VERSION).toBe('1.10.0-arcade-3l-12lv-fullskills-v8');expect(V17_RULES_VERSION).toBe('1.7.0-arcade-5l-12lv-scarce-v5');expect(scoreHistoryLines([{score:6,reached_level:2,rules_version:V17_RULES_VERSION}])).toEqual(['V1.7赛季记录：6 分 · 第2关']);expect(V16_RULES_VERSION).toBe('1.6.0-arcade-5l-12lv-full-v4');expect(scoreHistoryLines([{score:7,reached_level:5,rules_version:V16_RULES_VERSION}])).toEqual(['V1.6赛季记录：7 分 · 第5关']);expect(V15_RULES_VERSION).toBe('1.5.0-arcade-5l-12lv-short-v3');expect(scoreHistoryLines([{score:8,reached_level:4,rules_version:V15_RULES_VERSION}])).toEqual(['V1.5赛季记录：8 分 · 第4关']);expect(V13_RULES_VERSION).toBe('1.3.0-arcade-5l-12lv-drops-v2');expect(RULES_VERSION).not.toBe(PREVIOUS_RULES_VERSION);
  expect(scoreHistoryLines([{score:9,reached_level:3,rules_version:V13_RULES_VERSION}])).toEqual(['V1.3赛季记录：9 分 · 第3关']);
  expect(scoreHistoryLines([{score:314115,reached_level:5,rules_version:PREVIOUS_RULES_VERSION},{score:100,reached_level:1,rules_version:LEGACY_RULES_VERSION}])).toEqual(['旧版十二关记录：314115 分 · 第5关','旧版十关记录：100 分 · 第1关']);
  expect(scoreHistoryLines([],{score:1,reached_level:1})).toEqual([]);expect(scoreHistoryLines(undefined,{score:2,reached_level:1})).toEqual(['旧版记录：2 分 · 第1关']);

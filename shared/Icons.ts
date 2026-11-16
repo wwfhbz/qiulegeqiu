@@ -2,7 +2,7 @@
  * One small, consistent icon set for the casual UI. Web uses the SVG strings; WeChat draws the same
  * shapes on canvas with `drawIcon` so both clients look alike. All icons sit in a 24×24 box.
  */
-export type IconName='pause'|'play'|'restart'|'soundOn'|'soundOff'|'trophy'|'menu'|'flag'|'infinity'|'share'|'music'|'film'|'gear';
+export type IconName='pause'|'play'|'restart'|'soundOn'|'soundOff'|'trophy'|'menu'|'flag'|'infinity'|'share'|'music'|'film'|'gear'|'spark';
 
 const stroke=(d:string)=>`<path d="${d}" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>`;
 const fill=(d:string)=>`<path d="${d}" fill="currentColor"/>`;
@@ -16,6 +16,7 @@ const SVG_BODY:Record<IconName,string>={
  menu:stroke('M5 7h14M5 12h14M5 17h14'),
  flag:stroke('M6 21V4')+fill('M6 4.5h11l-2.4 3.7L17 12H6z'),
  infinity:stroke('M12 12c-2-2.6-3.6-4-5.6-4a4 4 0 0 0 0 8c2 0 3.6-1.4 5.6-4s3.6-4 5.6-4a4 4 0 0 1 0 8c-2 0-3.6-1.4-5.6-4z'),
+ spark:fill('M12 2.5l2.1 6.1 6.4.3-5.1 3.9 1.8 6.2L12 15.3 6.8 19l1.8-6.2-5.1-3.9 6.4-.3z'),
  music:fill('M9 17.5a2.8 2.8 0 1 1-1.6-2.53V5.5l10-2v11a2.8 2.8 0 1 1-1.6-2.53V7.3L9 8.6z'),
  film:fill('M4 6.5A1.5 1.5 0 0 1 5.5 5h9A1.5 1.5 0 0 1 16 6.5v2.1l3.6-2.2A.9.9 0 0 1 21 7.2v9.6a.9.9 0 0 1-1.4.8L16 15.4v2.1a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 4 17.5z'),
  gear:stroke('M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4zM12 3v2.3M12 18.7V21M3 12h2.3M18.7 12H21M5.6 5.6l1.7 1.7M16.7 16.7l1.7 1.7M5.6 18.4l1.7-1.7M16.7 7.3l1.7-1.7'),
@@ -39,6 +40,7 @@ export function drawIcon(c:CanvasRenderingContext2D,name:IconName,x:number,y:num
    c.beginPath();c.moveTo(7,6.5);c.lineTo(4.5,6.5);c.quadraticCurveTo(4.5,10,7.5,10);c.stroke();c.beginPath();c.moveTo(17,6.5);c.lineTo(19.5,6.5);c.quadraticCurveTo(19.5,10,16.5,10);c.stroke();break;
   case 'menu':line([[5,7],[19,7]]);line([[5,12],[19,12]]);line([[5,17],[19,17]]);break;
   case 'flag':line([[6,21],[6,4]]);poly([[6,4.5],[17,4.5],[14.6,8.2],[17,12],[6,12]]);break;
+  case 'spark':poly([[12,2.5],[14.1,8.6],[20.5,8.9],[15.4,12.8],[17.2,19],[12,15.3],[6.8,19],[8.6,12.8],[3.5,8.9],[9.9,8.6]]);break;
   case 'music':c.beginPath();c.arc(6.6,17.5,2.8,0,Math.PI*2);c.fill();c.beginPath();c.arc(14.8,14.5,2.8,0,Math.PI*2);c.fill();c.fillRect(7.8,5.5,1.6,12);c.fillRect(16,3.5,1.6,11);poly([[7.8,5.5],[17.6,3.5],[17.6,7.3],[7.8,9.2]]);break;
   case 'film':c.beginPath();c.roundRect(4,5,12,14,1.5);c.fill();poly([[16,9],[21,6.4],[21,17.6],[16,15]]);break;
   case 'gear':c.beginPath();c.arc(12,12,3.2,0,Math.PI*2);c.stroke();for(let i=0;i<8;i++){const a=i*Math.PI/4;line([[12+Math.cos(a)*6.2,12+Math.sin(a)*6.2],[12+Math.cos(a)*8.8,12+Math.sin(a)*8.8]]);}break;

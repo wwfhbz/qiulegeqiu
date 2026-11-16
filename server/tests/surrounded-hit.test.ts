@@ -17,6 +17,6 @@ it('伪造日志直接击碎砖墙内部的砖块：标记为可疑，进入人�
  const inner=Array.from(blocks.alive.keys()).find(i=>{if(!blocks.alive[i])return false;const r=Math.floor(i/cols),c=i%cols;for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){const rr=r+dr,cc=c+dc;if(rr<0||cc<0||rr>=blocks.rows||cc>=cols||!blocks.alive[rr*cols+cc])return false;}return true;})!;
  expect(inner).toBeDefined();
  const events:ChallengeEvent[]=[{type:'launch',tick:0,level:1,tripleRuleVersion:2,brickPowerVersion:2,trajectoryVersion:1},{type:'hit',tick:600,level:1,index:inner}];
- for(let n=0;n<5;n++){const tick=700+n;events.push({type:'ballLost',tick,level:1},{type:'lost',tick,level:1});events.push(n<4?{type:'launch',tick,level:1}:{type:'finish',tick,level:1});}
+ for(let n=0;n<3;n++){const tick=700+n;events.push({type:'ballLost',tick,level:1},{type:'lost',tick,level:1});events.push(n<2?{type:'launch',tick,level:1}:{type:'finish',tick,level:1});}
  expect(verifyTrace(events,1e9,1,RULES_VERSION).suspicious).toContain(FLAG);
 });

@@ -8,7 +8,7 @@ import {drawHud} from './GameChrome';
 import {HapticTracker} from '../../src/Haptics';
 import {VIEW,viewX,viewFraction} from '../../src/Viewport';
 const MODE_KEY='qiulegeqiu:wechat-mode:v1';
-const SETTING={music:'qiulegeqiu:wechat-music:v1',sfx:'qiulegeqiu:wechat-sfx:v1',vibrate:'qiulegeqiu:wechat-vibrate:v1',trail:'qiulegeqiu:wechat-trail:v1',runs:'qiulegeqiu:wechat-runs:v1',guide:'qiulegeqiu:wechat-mp-guide:v1'};
+const SETTING={music:'qiulegeqiu:wechat-music:v1',sfx:'qiulegeqiu:wechat-sfx:v1',vibrate:'qiulegeqiu:wechat-vibrate:v1',trail:'qiulegeqiu:wechat-trail:v1',trails:'qiulegeqiu:wechat-trails:v1',runs:'qiulegeqiu:wechat-runs:v1',guide:'qiulegeqiu:wechat-mp-guide:v1'};
 const REVIVE_TITLE='生命耗尽';
 import {OCEAN,brickColor} from '../../shared/VisualTheme';
 import {drawIcon,type IconName} from '../../shared/Icons';
@@ -34,6 +34,8 @@ import {Panel,type Action} from './Panel';
 import {WechatAds} from './Ads';
 import {AD_UNITS} from './AdConfig';
 import {MAX_REVIVES} from '../../shared/Challenge';
+import {TRAIL_SKINS,isTrailSkin} from '../../shared/Skins';
+import type {TrailSkin} from '../../src/Renderer';
 import {privacy,agreement} from './Policies';
 import type {Wx,Canvas,Config,TouchEvent} from './Platform';
 interface Region {code:string;prefix:string;name:string;hasChildren:boolean;path:string}
@@ -67,7 +69,7 @@ export class MiniGameApp {
   // A shared score card opens straight into the same mode.
   try{const mode=wx.getLaunchOptionsSync?.().query?.mode;if(mode==='endless'||mode==='campaign'){this.game.setMode(mode);this.platform.write(MODE_KEY,mode);}}catch{/* Optional API. */}
   if(this.platform.read(MODE_KEY)==='endless'){this.game.setMode('endless');this.rankingBoard='endless';}
-  const renderHost=this.platform.rendererHost(cache,()=>({width:this.view.arena.width,height:this.view.arena.height}),()=>this.dpr);renderHost.lowPerformance=()=>this.lowDevice||this.view.width<360;this.renderer=new Renderer(this.arena,renderHost);this.renderer.cometTail=this.platform.read(SETTING.trail)==='on';
+  const renderHost=this.platform.rendererHost(cache,()=>({width:this.view.arena.width,height:this.view.arena.height}),()=>this.dpr);renderHost.lowPerformance=()=>this.lowDevice||this.view.width<360;this.renderer=new Renderer(this.arena,renderHost);this.renderer.trail=this.selectedTrail();
   this.sync=new ChallengeSync(this.api,this.game,()=>Date.now(),clientId);this.resize();
   wx.onTouchStart(e=>this.down(e));wx.onTouchMove(e=>this.move(e));wx.onTouchEnd(e=>this.up(e));wx.onTouchCancel(()=>{this.touch=undefined;});
   wx.onHide(()=>this.hide());wx.onShow(()=>{this.active=true;this.previous=0;this.resize();this.platform.resume();this.panel.friend?.resume();this.cloud.resume();});wx.onWindowResize?.(()=>this.resize());
@@ -179,34 +181,42 @@ export class MiniGameApp {
  readonly ads:WechatAds;private vibrationOn=true;private guide=false;private lastInterstitial=0;
  /** Lives ran out and a rewarded video can bring the run back (up to MAX_REVIVES per run, still ranked). */
  private revivePanel(){const g=this.game,endless=g.mode==='endless';
-  this.panel.showRevive(REVIVE_TITLE,[`本局得分 ${g.score.total}`,`看完一段视频即可复活：+1 条命继续本局${endless?'，并清掉底部 5 行砖':''}`,`本局还可复活 ${g.revivesLeft} 次（共 ${MAX_REVIVES} 次）· 复活后成绩照常上榜`],[
+  this.panel.showRevive(REVIVE_TITLE,[`本局得分 ${g.score.total}`,`看完一段视频即可复活：+1 条命继续本局${endless?'，并一次清掉最底部 20 行砖':''}`,`本局还可复活 ${g.revivesLeft} 次（共 ${MAX_REVIVES} 次）· 复活后成绩照常上榜`],[
    {label:'▶ 看视频复活',run:()=>void this.watchReward('revive')},
    {label:'放弃，查看结算',run:()=>{this.panel.close();g.endRun();}},
   ],{score:g.score.total,left:g.revivesLeft,max:MAX_REVIVES,endless});}
  /** Every rewarded video goes through here: the reward is only granted when the video was watched to the end. */
- private async watchReward(kind:'revive'|'boost'|'trail'){
+ private async watchReward(kind:'revive'|'boost'|`trail:${Exclude<TrailSkin,'none'>}`){
   if(this.busy)return;this.busy=true;const g=this.game,generation=g.journal.generation;
   try{const result=await this.ads.showRewarded();this.previous=0;
    if(result!=='rewarded'){this.toast(result==='closed'?'完整看完视频才能领取奖励':'暂时没有可播放的视频，请稍后再试');return;}
-   if(kind==='trail'){this.platform.write(SETTING.trail,'on');this.renderer.cometTail=true;this.toast('彗星拖尾已永久解锁');this.settings();return;}
+   if(kind.startsWith('trail:')){const id=kind.slice(6) as Exclude<TrailSkin,'none'>;this.platform.write(SETTING.trails,[...new Set([...this.unlockedTrails(),id])]);this.useTrail(id);this.toast(`${TRAIL_SKINS.find(t=>t.id===id)!.name}拖尾已永久解锁`);this.settings();return;}
    if(g.journal.generation!==generation)return;
    if(kind==='revive'){if(g.revive()){this.panel.close();this.toast('复活成功，继续加油！');}}
    else if(g.armBoost())this.toast('下一球出发时多 3 个分身');
   }finally{this.busy=false;}
  }
  /** Music, effects, vibration and the comet tail; each switch is remembered. */
- private settings(){const a=this.game.audio,trail=this.platform.read(SETTING.trail);
+ private settings(){const a=this.game.audio,trail=this.unlockedTrails().length>0;
   const flip=(key:string,on:boolean,apply:(on:boolean)=>void)=>()=>{apply(on);this.platform.write(key,on);this.settings();};
   const actions:Action[]=[
    {label:`背景音乐：${a.musicOn?'开':'关'}`,half:true,run:flip(SETTING.music,!a.musicOn,on=>{a.unlock();a.setMusic(on);})},
    {label:`音效：${a.sfxOn?'开':'关'}`,half:true,run:flip(SETTING.sfx,!a.sfxOn,on=>a.setSfx(on))},
    {label:`震动：${this.vibrationOn?'开':'关'}`,half:true,run:flip(SETTING.vibrate,!this.vibrationOn,on=>{this.vibrationOn=on;})},
   ];
-  if(trail==='on'||trail==='off')actions.push({label:`彗星拖尾：${trail==='on'?'开':'关'}`,half:true,run:()=>{const on=trail!=='on';this.platform.write(SETTING.trail,on?'on':'off');this.renderer.cometTail=on;this.settings();}});
-  else if(this.ads.rewardedAvailable)actions.push({label:'▶ 看视频解锁彗星拖尾',half:true,run:()=>void this.watchReward('trail')});
+  // Trail skins: each one unlocked once by a rewarded video, then freely switched (only the look changes).
+  const unlocked=this.unlockedTrails(),current=this.selectedTrail();
+  for(const skin of TRAIL_SKINS){if(unlocked.includes(skin.id))actions.push({label:`${skin.name}拖尾：${current===skin.id?'使用中':'使用'}`,half:true,run:()=>{this.useTrail(skin.id);this.settings();}});
+   else if(this.ads.rewardedAvailable)actions.push({label:`▶ 看视频解锁${skin.name}拖尾`,half:true,run:()=>void this.watchReward(`trail:${skin.id}`)});}
+  if(unlocked.length&&current!=='none')actions.push({label:'不使用拖尾',half:true,run:()=>{this.useTrail('none');this.settings();}});
   actions.push({label:'返回菜单',run:()=>this.menu(false)});
-  this.panel.show('设置',['背景音乐、音效和震动可分别开关；顶部喇叭键一键全部静音。',...(trail==='on'||trail==='off'?['彗星拖尾：小球高速飞行时拖出金蓝色尾焰，只改外观。']:this.ads.rewardedAvailable?['彗星拖尾：看一次视频永久解锁，只改外观不影响成绩。']:[])],actions);
+  this.panel.show('设置',['背景音乐、音效和震动可分别开关；顶部喇叭键一键全部静音。',...(trail||this.ads.rewardedAvailable?['小球拖尾：彗星、爱心、彩虹三款，每款看一次视频永久解锁，只改外观不影响成绩。']:[])],actions);
  }
+ /** Unlocked trail skins (the 2.7 comet setting counts as an unlocked comet). */
+ private unlockedTrails():Exclude<TrailSkin,'none'>[]{const list=this.platform.read(SETTING.trails),legacy=this.platform.read(SETTING.trail);
+  const ids=Array.isArray(list)?list.filter((v):v is Exclude<TrailSkin,'none'>=>isTrailSkin(v)&&v!=='none'):[];if((legacy==='on'||legacy==='off')&&!ids.includes('comet'))ids.push('comet');return ids;}
+ private selectedTrail():TrailSkin{const v=this.platform.read(SETTING.trail);if(v==='on')return 'comet';return isTrailSkin(v)&&(v==='none'||this.unlockedTrails().includes(v))?v:'none';}
+ private useTrail(id:TrailSkin){this.platform.write(SETTING.trail,id);this.renderer.trail=id;}
  /** Interstitials only at a natural pause (opening the menu), never in the first 3 runs and at most every 3 minutes. */
  private maybeInterstitial(){const runs=Number(this.platform.read(SETTING.runs))||0,now=Date.now();if(runs<3||now-this.lastInterstitial<180000)return;this.lastInterstitial=now;this.ads.showInterstitial();}
  /** One-time card after the second finished run: how to find the game again from 我的小程序. */
@@ -281,7 +291,7 @@ export class MiniGameApp {
  /** The mode picker panel; it has no close button, so a mode must be chosen to play. */
  /** Full-screen pages (mode picker and result page) cover the game, HUD and top bar. */
  private get titleOpen(){return this.panel.title==='选择游戏模式'||!!this.panel.resultView;}
- private modePicker(){this.picking=true;const last=this.game.mode;this.panel.show('选择游戏模式',['闯关模式：12 关逐关突破 · 5 条命 · 闯关榜','无尽模式：砖墙不断下沉 · 3 条命 · 无尽榜','每局结束后可重新选择模式'],[
+ private modePicker(){this.picking=true;const last=this.game.mode;this.panel.show('选择游戏模式',['闯关模式：12 关逐关突破 · 3 条命 · 闯关榜','无尽模式：砖墙不断下沉 · 3 条命 · 无尽榜','每局结束后可重新选择模式'],[
   {label:(last==='campaign'?'▶ ':'')+'闯关模式',run:()=>this.chooseMode('campaign')},{label:(last==='endless'?'▶ ':'')+'无尽模式',run:()=>this.chooseMode('endless')},
   {label:'排行榜',run:()=>void this.board()},{label:'音效',run:()=>{this.game.audio.toggle();this.platform.write('qiulegeqiu:wechat-muted:v1',this.game.audio.muted);}}]);}
  private async history(){return this.task(async()=>{

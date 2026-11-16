@@ -32,6 +32,9 @@ const POPUP_CHANNELS={combo:0,power:1,clear:2} as const;
  * Shared Canvas renderer for Web and WeChat. It only reads Physics; every animation clock here is
  * the wall clock passed to draw(), so presentation can never alter simulation, scoring or replays.
  */
+/** Ball trail skins: comet (gold→cyan), heart (floating pink hearts), rainbow (seven-colour ribbon). */
+export type TrailSkin='none'|'comet'|'heart'|'rainbow';
+function heartPath(c:CanvasRenderingContext2D,x:number,y:number,r:number){c.beginPath();c.moveTo(x,y+r*.9);c.bezierCurveTo(x-r*1.5,y-r*.1,x-r*.7,y-r*1.15,x,y-r*.35);c.bezierCurveTo(x+r*.7,y-r*1.15,x+r*1.5,y-r*.1,x,y+r*.9);}
 export class Renderer {
   private ctx: Ctx;
   private startHint=new StartHint();
@@ -44,8 +47,26 @@ export class Renderer {
   private cachedRevision = -1;
   private ratio = 1;
   private arenaFill?:CanvasGradient|string;private paddleFill?:CanvasGradient|string;
-  /** Cosmetic comet tail behind every ball (no gameplay effect). */
-  cometTail=false;
+  /** Cosmetic ball trail (no gameplay effect): none, comet, heart or rainbow. */
+  trail:TrailSkin='none';
+  /** Back-compat for the 2.7 WeChat setting (comet on/off). */
+  get cometTail(){return this.trail==='comet';}
+  set cometTail(on:boolean){this.trail=on?'comet':'none';}
+  /** Heart: little pink hearts that float out behind the ball. Rainbow: a seven-colour ribbon. At most 24 balls. */
+  private drawSkinTrail(c:CanvasRenderingContext2D,p:Physics,base:number,now:number){
+   let drawn=0;c.save();c.lineCap='round';
+   for(const ball of p.balls)if(ball.alive){if(++drawn>24)break;
+    const speed=Math.hypot(ball.vx,ball.vy)||1,ux=ball.vx/speed,uy=ball.vy/speed,px=-uy,py=ux;
+    if(this.trail==='heart'){
+     for(let k=0;k<4;k++){const d=9+k*11,sway=Math.sin(now/140+k*1.7+ball.x*.05)*2.6*k/3,x=ball.x-ux*d+px*sway,y=ball.y-uy*d+py*sway,r=ball.radius*(1.5-k*.22);
+      c.globalAlpha=.92-k*.2;c.fillStyle=k%2?'#FF9BCB':'#FF5E8A';heartPath(c,x,y,r);c.fill();}
+    }else{
+     const len=Math.max(48,base*2.6),colors=['#FF5E6E','#FF9F43','#FFE45C','#4CD9A0','#4FC3FF','#6C7BFF','#B07CFF'];
+     for(let k=0;k<colors.length;k++){const s0=k*len/colors.length,s1=(k+1)*len/colors.length;c.globalAlpha=.9-k*.09;c.lineWidth=ball.radius*(2-k*.18);c.strokeStyle=colors[k];c.beginPath();c.moveTo(ball.x-ux*s0,ball.y-uy*s0);c.lineTo(ball.x-ux*s1,ball.y-uy*s1);c.stroke();}
+    }
+   }
+   c.restore();
+  }
   private lowDevice=false;private sampleCount=0;private sampleTime=0;private previousDraw=0;
   private generation = -1; private cleared = 0;
   // Wall-clock juice owned by the renderer, never by Physics.
@@ -332,7 +353,8 @@ export class Renderer {
     this.powerFx.track(p.balls,piercing,burning,now,low);this.powerFx.drawUnder(c,this.glowFor,piercing,burning,now);
     // Balls: comet trail, additive glow (budgeted), solid core.
     // Comet tail skin (unlocked by a rewarded video on WeChat): a longer gold→cyan tail. Plain balls keep the short trail.
-    if(this.cometTail){const len=Math.max(46,budget.trailLength*2.6),segments=6;c.lineCap='round';let drawn=0;for(const ball of p.balls)if(ball.alive){if(++drawn>24)break;const speed=Math.hypot(ball.vx,ball.vy)||1,ux=ball.vx/speed,uy=ball.vy/speed;for(let k=0;k<segments;k++){const s0=k*len/segments,s1=(k+1)*len/segments,f=k/(segments-1);c.globalAlpha=.85*(1-f*.85);c.lineWidth=ball.radius*(2.1-f*1.5);c.strokeStyle=p.fireRemaining>0?OCEAN.powers.fire.color:p.pierceRemaining>0?OCEAN.powers.pierce.color:k<2?'#FFE27A':k<4?'#8EE6FF':'#4FA8FF';c.beginPath();c.moveTo(ball.x-ux*s0,ball.y-uy*s0);c.lineTo(ball.x-ux*s1,ball.y-uy*s1);c.stroke();}}c.lineCap='butt';c.globalAlpha=1;}
+    if(this.trail==='heart'||this.trail==='rainbow'){this.drawSkinTrail(c,p,budget.trailLength,now);}
+    else if(this.trail==='comet'){const len=Math.max(46,budget.trailLength*2.6),segments=6;c.lineCap='round';let drawn=0;for(const ball of p.balls)if(ball.alive){if(++drawn>24)break;const speed=Math.hypot(ball.vx,ball.vy)||1,ux=ball.vx/speed,uy=ball.vy/speed;for(let k=0;k<segments;k++){const s0=k*len/segments,s1=(k+1)*len/segments,f=k/(segments-1);c.globalAlpha=.85*(1-f*.85);c.lineWidth=ball.radius*(2.1-f*1.5);c.strokeStyle=p.fireRemaining>0?OCEAN.powers.fire.color:p.pierceRemaining>0?OCEAN.powers.pierce.color:k<2?'#FFE27A':k<4?'#8EE6FF':'#4FA8FF';c.beginPath();c.moveTo(ball.x-ux*s0,ball.y-uy*s0);c.lineTo(ball.x-ux*s1,ball.y-uy*s1);c.stroke();}}c.lineCap='butt';c.globalAlpha=1;}
     else if(budget.trailLength){c.lineCap='round';for(const ball of p.balls)if(ball.alive){const speed=Math.hypot(ball.vx,ball.vy)||1,ux=ball.vx/speed,uy=ball.vy/speed;for(let k=0;k<3;k++){const s0=k*budget.trailLength/3,s1=(k+1)*budget.trailLength/3;c.globalAlpha=budget.trailAlpha*(1.6-k*.5);c.lineWidth=ball.radius*(1.5-k*.4);c.strokeStyle=p.fireRemaining>0?OCEAN.powers.fire.color:p.pierceRemaining>0?OCEAN.powers.pierce.color:OCEAN.ball.trail;c.beginPath();c.moveTo(ball.x-ux*s0,ball.y-uy*s0);c.lineTo(ball.x-ux*s1,ball.y-uy*s1);c.stroke();}}c.lineCap='butt';c.globalAlpha=1;}
     // Burning balls glow orange, piercing balls cyan; colours make the active power readable at a glance.
     const ballGlow=p.fireRemaining>0?OCEAN.powers.fire.color:p.pierceRemaining>0?OCEAN.powers.pierce.color:OCEAN.ball.glow;

@@ -26,7 +26,7 @@ it.each([20,50,100])('连续渲染%i球不改变Physics、Effects、ChallengeJou
 });
 it('Web及微信同样保留600/120、1446/87/58配置（V1.9第二关铺满）、五命与新版规则日志',()=>{
  const f=wxFixture(),wx=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false}),web=new Game();
- try{for(const level of [1,2]){for(const g of [wx.game,web]){g.journal.seed=42;g.physics.setSeed(42);g.start();expect(g.lives).toBe(5);expect(g.physics.blocks.total).toBe(level===1?600:1446);expect(Array.from(g.physics.blocks.powerKinds).filter(n=>n===1)).toHaveLength(level===1?96:87);expect(Array.from(g.physics.blocks.powerKinds).filter(n=>n===2)).toHaveLength(level===1?24:58);}expect(wx.game.journal.events).toEqual(web.journal.events);for(const g of [wx.game,web]){for(let i=0;i<g.physics.blocks.alive.length;i++)g.physics.blocks.hit(i);g.update(0);}}}
+ try{for(const level of [1,2]){for(const g of [wx.game,web]){g.journal.seed=42;g.physics.setSeed(42);g.start();expect(g.lives).toBe(3);expect(g.physics.blocks.total).toBe(level===1?600:1446);expect(Array.from(g.physics.blocks.powerKinds).filter(n=>n===1)).toHaveLength(level===1?96:87);expect(Array.from(g.physics.blocks.powerKinds).filter(n=>n===2)).toHaveLength(level===1?24:58);}expect(wx.game.journal.events).toEqual(web.journal.events);for(const g of [wx.game,web]){for(let i=0;i<g.physics.blocks.alive.length;i++)g.physics.blocks.hit(i);g.update(0);}}}
  finally{wx.dispose();web.dispose();}
 });
 

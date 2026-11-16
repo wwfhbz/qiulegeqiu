@@ -42,3 +42,16 @@ it('不提供复活时照旧：生命耗尽立即结束，日志与原来一致'
  for(let i=0;i<5;i++){loseRound(g);if(g.state==='ready')g.start();}
  expect(g.state).toBe('gameOver');expect(g.awaitingRevive).toBe(false);expect(g.journal.events.at(-1)!.type).toBe('finish');
 });
+it('无尽1.7：看视频复活后下一次发射清掉最底部20行（压线扣命仍只清5行），服务端同步',()=>{
+ const g=new Game();g.setMode('endless');g.journal.seed=9;g.physics.setSeed(9);g.physics.reset();g.canOfferRevive=()=>true;const f=g.physics.endless!;
+ expect(f.variant.reviveRows).toBe(20);g.start();
+ // Sink the wall to the floor so the bottom rows are full, then lose every life.
+ let n=0;while(!f.blocked&&n<400000){g.physics.balls.length=1;Object.assign(g.physics.balls[0],{x:400,y:200,vx:0,vy:0,alive:true});g.update(C.step);n++;}
+ while(g.state!=='gameOver'){if(g.state==='ready')g.start();loseRound(g);}
+ expect(g.awaitingRevive).toBe(true);expect(g.revive()).toBe(true);
+ const rowsWithBricks=()=>{let count=0;for(let row=f.floorRow-19;row<=f.floorRow;row++){let any=false;for(let col=0;col<f.cols;col++)if(f.alive[row*f.cols+col])any=true;if(any)count++;}return count;};
+ expect(rowsWithBricks()).toBeGreaterThan(10);g.start();expect(rowsWithBricks()).toBe(0);
+ const relief=g.physics.effects;void relief;
+ while(g.state!=='gameOver'||g.awaitingRevive){if(g.awaitingRevive){g.endRun();break;}if(g.state==='ready')g.start();loseRound(g);}
+ const v=verifyTrace(g.journal.events,1e9,9,g.rulesVersion);expect(v.summary).toEqual(g.journal.summary(g.score.total,g.reachedLevel,false));
+});

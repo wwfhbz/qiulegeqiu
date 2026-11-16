@@ -17,7 +17,7 @@ export function verifyEndlessTrace(events:ChallengeEvent[],wallMs:number,seed:nu
   try{validateTrajectoryMarkers(events);}catch{throw new ApiError(422,'轨迹版本标记无效');}
   const field=new EndlessField();field.start(seed,variant);const skills=endlessSettings(variant);
   const score=new ScoreSystem('unbounded'),drops:{id:number;kind:PowerKind;tick:number;y:number}[]=[],suspicious=new Set<string>();
-  const dropRandom=seededRandom((seed>>>0^DROP_SALT)>>>0),bonusRandom=seededRandom((seed>>>0^BONUS_SALT)>>>0);let pendingRelief=false,expectBonus=false;let nextDropAt=dropEvery(0,variant),dropSequence=0;
+  const dropRandom=seededRandom((seed>>>0^DROP_SALT)>>>0),bonusRandom=seededRandom((seed>>>0^BONUS_SALT)>>>0);let pendingRelief=false,expectBonus=false,reliefRows:number=ENDLESS.reliefRows;let nextDropAt=dropEvery(0,variant),dropSequence=0;
   let lives:number=ENDLESS.lives,phase:'ready'|'running'|'gameOver'='ready',balls=0,peakBalls=1,lastTick=0,fieldTick=0,bricks=0,finished=false;
   let fireUntil=-1,lightningTick=-1,lightnings=0,hitTick=-1,tickHits=0,tickBallMax=0;
   // Rewarded help: revives only on game over, boosts only on the launch right after a lost life.
@@ -34,11 +34,11 @@ export function verifyEndlessTrace(events:ChallengeEvent[],wallMs:number,seed:nu
     if(e.tick!==hitTick){hitTick=e.tick;tickHits=0;tickBallMax=balls;}tickBallMax=Math.max(tickBallMax,balls);
     switch(e.type){
       case 'launch':if(phase!=='ready')throw new ApiError(422,'重复发射或无效回合');if(e.tripleRuleVersion!==undefined||e.brickPowerVersion!==undefined)throw new ApiError(422,'无尽模式不使用闯关规则标记');phase='running';balls=1;launchTick=e.tick;boosted=false;afterLoss=lostRound;lostRound=false;
-        if(pendingRelief){pendingRelief=false;field.relief(ENDLESS.reliefRows);expectBonus=true;}break;
+        if(pendingRelief){pendingRelief=false;field.relief(reliefRows);reliefRows=ENDLESS.reliefRows;expectBonus=true;}break;
       case 'crushed':
         if(!variant.crush||phase!=='running'||field.pressure<ENDLESS.crushTicks)throw new ApiError(422,'压线扣命无效');
-        lives--;phase=lives>0?'ready':'gameOver';balls=0;drops.length=0;dropSequence=0;score.resetCombo();pendingRelief=lives>0;fireUntil=-1;lostRound=true;break;
-      case 'revive':if(phase!=='gameOver'||lives!==0||revives>=MAX_REVIVES)throw new ApiError(422,'复活无效');revives++;lives=1;phase='ready';pendingRelief=true;lostRound=true;break;
+        lives--;phase=lives>0?'ready':'gameOver';balls=0;drops.length=0;dropSequence=0;score.resetCombo();pendingRelief=lives>0;reliefRows=ENDLESS.reliefRows;fireUntil=-1;lostRound=true;break;
+      case 'revive':if(phase!=='gameOver'||lives!==0||revives>=MAX_REVIVES)throw new ApiError(422,'复活无效');revives++;lives=1;phase='ready';pendingRelief=true;reliefRows=variant.reviveRows??ENDLESS.reliefRows;lostRound=true;break;
       case 'boost':if(phase!=='running'||e.tick!==launchTick||boosted||!afterLoss||boosts>=MAX_BOOSTS)throw new ApiError(422,'加球奖励无效');boosts++;boosted=true;balls=Math.min(C.maxBalls,balls+BOOST_BALLS);break;
       case 'bonus':{
         if(!expectBonus||e.kind!==endlessBonus(bonusRandom))throw new ApiError(422,'压线补偿奖励无效');expectBonus=false;
