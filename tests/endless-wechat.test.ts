@@ -13,7 +13,8 @@ it('微信：打开即显示模式选择（必须选择才能开始），选无�
   expect(f.wx.getStorageSync('qiulegeqiu:wechat-mode:v1')).toBe('endless');
   x.draw(0);expect(f.texts).toContain('第1阶段');expect(f.texts).toContain('已下沉0行');
   const again=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});try{expect(again.game.mode).toBe('endless');expect((again as unknown as Internals).picking).toBe(true);}finally{again.dispose();}
-  const menu=()=>(app as unknown as {menu():void}).menu();
+  // Mode switching lives under 菜单 → 更多 since 2.9.
+  const menu=()=>(app as unknown as {more():void}).more();
   menu();const item=x.panel.actions.find(a=>a.label==='切换到闯关模式');expect(item).toBeDefined();x.panel.actions.at(-1)!.run();
   app.game.start();menu();const locked=x.panel.actions.find(a=>a.label==='本局结束后可切换模式')!;expect(locked).toBeDefined();locked.run();expect(app.game.mode).toBe('endless');x.panel.actions.at(-1)!.run();
   app.game.state='gameOver';menu();x.panel.actions.find(a=>a.label==='切换到闯关模式')!.run();expect(app.game.mode).toBe('campaign');expect(app.game.lives).toBe(3);

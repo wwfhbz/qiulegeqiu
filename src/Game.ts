@@ -11,7 +11,7 @@ import { Blocks } from './Blocks';
 import { EndlessField } from './endless/EndlessField';
 import { ENDLESS, ENDLESS_LEVEL, endlessStage, endlessVersion, REVIVE_BONUS_SALT, reviveBonus } from './endless/EndlessRules';
 import { seededRandom } from './PowerRules';
-import { RULES_VERSION, MAX_REVIVES, MAX_BOOSTS, BOOST_BALLS } from '../shared/Challenge';
+import { RULES_VERSION, MAX_REVIVES, MAX_BOOSTS, BOOST_BALLS, MAX_SKIPS } from '../shared/Challenge';
 export type GameMode = 'campaign' | 'endless';
 
 /** Coordinates the arcade session; physics and rendering remain independent. */
@@ -138,9 +138,21 @@ export class Game {
     this.journal.reset();this.physics.setSeed(this.journal.seed);
     this.pendingRelief = false; this.awaitingRevive = false; this.revivesUsed = 0; this.boostsUsed = 0; this.boostArmed = false;
     this.reviveBonusPending = false;
+    this.skipsUsed = 0;
     this.levels.reset(); this.remainingLives = this.mode==='endless'?ENDLESS.lives:this.campaignLives; this.score.reset(); this.result = undefined;
     this.configureLevel();
     this.physics.reset(); this.state = 'ready'; this.readyReason = 'initial'; this.onChange(this);
+  }
+  skipsUsed = 0;
+  /** Campaign only: a rewarded video may skip the current level (not the last one, at most MAX_SKIPS per run). */
+  get canSkip() { return this.mode === 'campaign' && this.levels.isStandard && !this.legacyLives && !this.levels.isFinal && this.skipsUsed < MAX_SKIPS && (this.state === 'ready' || this.state === 'running' || this.state === 'paused'); }
+  /** Skip to the next level: no clear or life bonus, lives and score carry over, the new level starts ready. */
+  skipLevel() {
+    if (!this.canSkip) return false;
+    const level = this.levels.current.number; this.skipsUsed++; this.roundActive = false;
+    this.journal.record({type:'skip',level});
+    this.levels.next(); this.score.beginLevel(); this.result = undefined; this.configureLevel();
+    this.physics.reset(); this.state = 'ready'; this.readyReason = 'levelStart'; this.onChange(this); return true;
   }
   nextLevel() {
     const previousLevel=this.levels.current.number;

@@ -269,3 +269,18 @@ input,textarea,select,[contenteditable]{-webkit-user-select:text;user-select:tex
 .sp-bar-gold{background:linear-gradient(180deg,#FFF4C2,#FFD24D 50%,#C9770A);box-shadow:0 0 10px rgba(255,210,77,.6),inset 0 0 0 1px #8A4B00}
 .sp-bar-gold::after{content:'';position:absolute;left:50%;top:50%;width:9px;height:9px;transform:translate(-50%,-50%) rotate(45deg);background:linear-gradient(135deg,#FF6FD0,#B0127A);border-radius:1px}
 @media (max-height:700px){.sp-option{padding:8px 4px 6px}.sp-option small{display:none}.sp-card{padding:14px 12px 12px}}
+/* Pause / menu card (web): the same candy card family as the skins, revive and result pages. */
+.pause-menu{position:fixed;inset:0;z-index:44;display:grid;place-items:center;padding:16px;background:rgba(4,6,18,.8);overflow-y:auto}
+.pm-card{width:min(360px,100%);display:flex;flex-direction:column;align-items:stretch;gap:10px;padding:20px 16px 16px;border-radius:24px;text-align:center;
+ background:radial-gradient(90% 40% at 50% 0%,rgba(255,190,60,.14),transparent 70%),linear-gradient(180deg,#2A2266,#151A46 60%,#0E1236);box-shadow:0 6px 0 #5A2AB8,0 0 0 1px rgba(255,255,255,.14),0 24px 60px rgba(0,0,0,.6)}
+.pm-card>strong{font-size:22px;font-weight:900;letter-spacing:3px;color:#fff}
+.pm-sub{margin-top:-4px;font-size:12px;color:#A9C1DE}
+.pm-primary{display:flex;align-items:center;justify-content:center;gap:8px;height:52px;margin-top:4px;border:0;border-radius:16px;font-size:17px;font-weight:900;letter-spacing:3px;color:#5A2C00;background:linear-gradient(180deg,#FFE27A,#FFB31F);box-shadow:0 5px 0 #C9770A}
+.pm-primary svg{width:20px;height:20px}
+.pm-primary:active{transform:translateY(4px);box-shadow:0 1px 0 #C9770A}
+.pm-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px}
+.pm-btn{display:flex;align-items:center;justify-content:center;gap:6px;height:44px;border-radius:14px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.08);color:#EAF6FF;font-size:14px;font-weight:700}
+.pm-btn svg{width:18px;height:18px;flex:none}
+.pm-btn:active{background:rgba(255,255,255,.16)}
+#pm-board svg,#pm-skin svg{color:#FFD24D}#pm-music svg{color:#B9A7FF}
+.pm-foot{margin:2px 0 0;font-size:11px;color:#6F86A8}

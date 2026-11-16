@@ -64,3 +64,19 @@ it('2.9 的冰晶挡板已改为烈焰燃烧：已解锁/已选择冰晶的玩�
  const f=wxFixture();f.storage.set('qiulegeqiu:wechat-paddles:v1',['crystal']);f.storage.set('qiulegeqiu:wechat-paddle:v1','crystal');
  const a=app(f,false),p=a as unknown as Private;try{expect(p.renderer.paddleSkin).toBe('flame');p.skins();expect(a.panel.actions.some(x=>x.label==='烈焰燃烧：使用中')).toBe(true);}finally{a.dispose();}
 });
+it('暂停键打开菜单：继续/重新开始/回到主界面/音效/音乐/震动/皮肤/排行榜/更多；有广告时闯关可看视频跳关（最多2次）',async()=>{
+ const f=wxFixture();withAds(f);const a=app(f),p=a as unknown as Private&{view:{width:number;titleY:number}};
+ try{const g=a.game;g.start();a.frame(50);const t=f.touch(1,p.view.width-30,p.view.titleY+18);f.events.down(t);f.events.up(t);
+  expect(g.state).toBe('paused');expect(a.panel.title).toBe('游戏暂停');
+  const labels=a.panel.actions.map(x=>x.label);for(const l of ['继续游戏','重新开始','回到主界面','音效：开','背景音乐：开','震动：开','皮肤','排行榜','更多'])expect(labels).toContain(l);
+  const skip=()=>a.panel.actions.find(x=>x.label.startsWith('▶ 看视频跳过本关'));expect(skip()!.label).toContain('还可 2 次');
+  skip()!.run();await vi.waitFor(()=>expect(p.busy).toBe(false));expect(g.levels.current.number).toBe(2);expect(g.state).toBe('ready');expect(g.journal.events.at(-1)!.type).toBe('skip');
+  (a as unknown as {menu():void}).menu();skip()!.run();await vi.waitFor(()=>expect(p.busy).toBe(false));expect(g.levels.current.number).toBe(3);
+  (a as unknown as {menu():void}).menu();expect(skip()).toBeUndefined();
+  a.panel.actions.find(x=>x.label==='继续游戏')!.run();expect(a.panel.open).toBe(false);
+  // 回到主界面 asks first while a run is in progress, then shows the mode picker.
+  g.start();(a as unknown as {menu():void}).menu();f.wx.showModal=o=>o.success?.({confirm:true});a.panel.actions.find(x=>x.label==='回到主界面')!.run();await vi.waitFor(()=>expect(a.panel.title).toBe('选择游戏模式'));expect(g.journal.events).toHaveLength(0);
+  // Endless never offers a skip.
+  (a as unknown as Private).chooseMode('endless');a.game.start();(a as unknown as {menu():void}).menu();expect(skip()).toBeUndefined();
+ }finally{a.dispose();}
+});

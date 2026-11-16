@@ -6,7 +6,7 @@ import {GAME_NAME} from '../../shared/Brand';
 import type {CanvasSurface} from '../../src/platform/Contracts';
 import {RankingCanvas,type RankingView,type RankingAction} from './RankingCanvas';
 import {inside,type Rect} from './Layout';
-export interface Action {label:string;run:()=>void;half?:boolean}
+export interface Action {label:string;run:()=>void;half?:boolean;primary?:boolean;/** 'outline': gold-edged secondary button (e.g. several rewarded unlocks in one list). */tone?:'outline'}
 export class Panel {
  friend?:FriendBoard;
  ranking?:RankingCanvas;private rankSurface?:CanvasSurface;private canvasFactory?:()=>CanvasSurface;
@@ -38,20 +38,27 @@ export class Panel {
   if(this.title==='选择游戏模式'){const sc=this.screen??{height:bottom,top,muted:false},v=modePickerLayout(width,sc.height,sc.top,bottom);
    drawModePicker(c,width,sc.height,v,this.actions[1]?.label.startsWith('▶')?1:0,sc.muted,now);
    [...v.rows,...v.tools].forEach((rect,i)=>{const a=this.actions[i];if(a)this.hits.push({rect,run:a.run});});return;}
-  // Deep-space sheet: dark glass over the game, cyan title, thin-edged rows.
-  c.fillStyle='rgba(3,5,12,.94)';c.fillRect(0,top,width,bottom-top);
-  let y=top+16;const picker=this.title==='选择游戏模式';
-  if(picker){glowText(c,GAME_NAME,width/2,y+22,width-40,30,'#FFFFFF','center',OCEAN.fonts.body,800);y+=52;}
-  glowText(c,this.title,width/2,y+12,width-32,picker?13:17,picker?OCEAN.colors.muted:NEON.cyan,'center',OCEAN.fonts.body,700);y+=36;
-  for(const [index,line] of this.lines.entries()){const emphasized=index===0&&(this.title.endsWith('挑战结束')||this.title.endsWith('十二关突破成功'));
-   if(emphasized){glowText(c,line,width/2,y+10,width-32,24,'#FFFFFF');y+=36;continue;}
-   c.font='500 12px '+OCEAN.fonts.body;c.fillStyle=OCEAN.colors.secondary;c.textAlign='center';let text='';for(const ch of [...line]){if(c.measureText(text+ch).width>width-40){c.fillText(text,width/2,y);y+=17;text='';}text+=ch;}c.fillText(text,width/2,y);y+=20;}
-  y+=8;
-  for(let i=0;i<this.actions.length;i++){
-   const action=this.actions[i];const paired=action.half&&this.actions[i+1]?.half;
-   const row=paired?[action,this.actions[++i]]:[action];
-   row.forEach((a,index)=>{const rect={x:16+index*(width/2-8),y,width:paired?width/2-24:width-32,height:42},accent=this.accentFor(a.label);
-    neonButton(c,rect,accent,10,true);c.font='600 14px '+OCEAN.fonts.body;c.textAlign='center';c.textBaseline='middle';c.fillStyle=accent==='dim'?OCEAN.colors.muted:OCEAN.colors.text;c.fillText(a.label,rect.x+rect.width/2,rect.y+rect.height/2,rect.width-20);c.textBaseline='alphabetic';this.hits.push({rect,run:a.run});});
+  // Candy card (same family as the revive and result pages): dimmed game, rounded card, gold primary buttons.
+  const screenH=this.screen?.height??bottom;c.fillStyle='rgba(3,5,12,.8)';c.fillRect(0,0,width,screenH);
+  const w=Math.min(360,width-28),x=(width-w)/2,pad=16,inner=w-pad*2;
+  const lines:{text:string;big:boolean}[]=[];c.font='500 12px '+OCEAN.fonts.body;
+  for(const [index,line] of this.lines.entries()){const big=index===0&&(this.title.endsWith('挑战结束')||this.title.endsWith('十二关突破成功'));if(big){lines.push({text:line,big});continue;}
+   let text='';for(const ch of [...line]){if(c.measureText(text+ch).width>inner){lines.push({text,big:false});text='';}text+=ch;}if(text)lines.push({text,big:false});}
+  const rows:Action[][]=[];for(let i=0;i<this.actions.length;i++){const a=this.actions[i];rows.push(a.half&&this.actions[i+1]?.half?[a,this.actions[++i]]:[a]);}
+  const linesH=lines.reduce((h,l)=>h+(l.big?34:18),0),h=22+30+(lines.length?linesH+12:4)+rows.length*50+8;
+  let y=Math.max(top+6,top+(bottom-top-h)/2);
+  c.fillStyle='#5A2AB8';c.beginPath();c.roundRect(x,y+6,w,h,24);c.fill();
+  const bg=c.createLinearGradient(0,y,0,y+h);bg?.addColorStop(0,'#2A2266');bg?.addColorStop(.6,'#151A46');bg?.addColorStop(1,'#0E1236');c.fillStyle=bg||'#151A46';c.beginPath();c.roundRect(x,y,w,h,24);c.fill();
+  c.strokeStyle='rgba(255,255,255,.14)';c.lineWidth=1;c.stroke();
+  c.font=`900 21px ${OCEAN.fonts.body}`;c.textAlign='center';c.textBaseline='middle';c.fillStyle='#FFFFFF';c.fillText(this.title,width/2,y+34,inner);y+=56;
+  for(const l of lines){if(l.big){glowText(c,l.text,width/2,y+14,inner,24,'#FFE27A');y+=34;continue;}c.font='500 12px '+OCEAN.fonts.body;c.fillStyle='#C9D6EE';c.textAlign='center';c.textBaseline='middle';c.fillText(l.text,width/2,y+8,inner);y+=18;}
+  y+=lines.length?10:0;
+  for(const row of rows){
+   row.forEach((a,index)=>{const half=row.length===2,rect={x:x+pad+(half?index*(inner/2+5):0),y,width:half?inner/2-5:inner,height:42};
+    const outline=a.tone==='outline',gold=!outline&&(!!a.primary||a.label.startsWith('▶')),dim=/^(返回|关闭|取消)/.test(a.label);
+    if(gold){c.fillStyle='#C9770A';c.beginPath();c.roundRect(rect.x,rect.y+4,rect.width,rect.height,14);c.fill();const g=c.createLinearGradient(0,rect.y,0,rect.y+rect.height);g?.addColorStop(0,'#FFE27A');g?.addColorStop(1,'#FFB31F');c.fillStyle=g||'#FFD24D';c.beginPath();c.roundRect(rect.x,rect.y,rect.width,rect.height,14);c.fill();}
+    else{c.fillStyle=outline?'rgba(255,210,77,.08)':'rgba(255,255,255,.08)';c.strokeStyle=outline?'rgba(255,210,77,.6)':'rgba(255,255,255,.18)';c.lineWidth=1;c.beginPath();c.roundRect(rect.x,rect.y,rect.width,rect.height,14);c.fill();c.stroke();}
+    c.font=`${gold?900:700} ${gold?15:14}px ${OCEAN.fonts.body}`;c.textAlign='center';c.textBaseline='middle';c.fillStyle=gold?'#5A2C00':outline?'#FFD98A':dim?'#8FA6C8':'#EAF6FF';c.fillText(a.label,rect.x+rect.width/2,rect.y+rect.height/2,rect.width-16);c.textBaseline='alphabetic';this.hits.push({rect,run:a.run});});
    y+=50;
   }
  }

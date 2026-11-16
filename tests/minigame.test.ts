@@ -91,7 +91,7 @@ it('持续401有明确终止，旧写请求绝不在新身份下自动重放',as
 it.each([[320,568],[390,844]])('微信%s×%s个人历史显示旧版记录并说明参与永久统一排名，菜单不新增整行高度',async(w,h)=>{
  const f=fixture(w,h),app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});(app as unknown as {chooseMode(m:string):void}).chooseMode('campaign');
  vi.spyOn(app.api,'me').mockResolvedValue({rankingAvailable:true,csrfToken:'fixture',player:null,best:null,board:'global',rankingRulesVersion:RULES_VERSION,rankingScope:'all-campaign-versions',historicalBests:[{rules_version:'1.2.0-arcade-5l-12lv-v1',score:314115,reached_level:5,bricks_destroyed:10258,duration_ms:632700,rank:1,display_name:'历史玩家'}]});
- try{app.frame(100);f.events.down(f.touch(1,20,100));f.events.up(f.touch(1,20,100));expect(app.panel.title).toBe('游戏菜单');const action=app.panel.actions.find(a=>a.label==='个人历史记录');expect(action?.half).toBe(true);action!.run();
+ try{app.frame(100);f.events.down(f.touch(1,20,100));f.events.up(f.touch(1,20,100));expect(app.panel.title).toBe('菜单');app.panel.actions.find(a=>a.label==='更多')!.run();expect(app.panel.title).toBe('更多');const action=app.panel.actions.find(a=>a.label==='个人历史记录');expect(action?.half).toBe(true);action!.run();
  await vi.waitFor(()=>expect(app.panel.title).toBe('个人历史记录'));expect(app.panel.lines).toContain('旧版十二关记录：314115 分 · 第5关');expect(app.panel.lines.join('')).toContain('永久统一排行榜');app.frame(116);expect(app.panel.hits.every(hit=>hit.rect.y+hit.rect.height<h-34)).toBe(true);expect(app.game.state).toBe('ready');expect(app.game.journal.events).toHaveLength(0);
  }finally{app.dispose();}
 });

@@ -23,7 +23,7 @@ export function mountGame(root: HTMLElement) {
   const bands=levelBandColors(1),heroBricks=[3,5,7,7,7,5].map((n,row)=>Array.from({length:n},()=>`<i style="background:${bands[row]}"></i>`).join('')).map(r=>`<span>${r}</span>`).join('');
   root.innerHTML = `
   <main class="shell">
-    <header><div class="mode-switch" role="group" aria-label="游戏模式"><button type="button" data-mode="campaign" aria-pressed="true">闯关</button><button type="button" data-mode="endless" aria-pressed="false">无尽</button></div><h1>${GAME_NAME}</h1><div class="top-actions"><button id="mute" class="icon-btn" type="button" aria-label="静音" aria-pressed="false">${iconSvg('soundOn')}</button><button id="pause" class="icon-btn" type="button" aria-label="暂停">${iconSvg('pause')}</button><button id="reset" class="icon-btn" type="button" aria-label="重新开始">${iconSvg('restart')}</button></div></header>
+    <header><div class="mode-switch" role="group" aria-label="游戏模式"><button type="button" data-mode="campaign" aria-pressed="true">闯关</button><button type="button" data-mode="endless" aria-pressed="false">无尽</button></div><h1>${GAME_NAME}</h1><div class="top-actions"><button id="pause" class="icon-btn" type="button" aria-label="暂停 / 菜单">${iconSvg('pause')}</button></div></header>
     <div class="stage-room"><section class="game-panel" aria-label="游戏区域">
       <div class="hud" aria-label="游戏状态">
         <div class="hud-chip hud-level"><span class="label" id="level-label">关卡</span><strong id="level"></strong></div>
@@ -66,6 +66,23 @@ export function mountGame(root: HTMLElement) {
           <button type="button" class="ts-card ts-endless" data-pick="endless"><span class="ts-icon">${iconSvg('infinity')}</span><span class="ts-text"><strong>无尽模式</strong><span class="ts-desc">砖墙不断下沉，坚持越久分越高</span><span class="ts-chips"><em>3 条命</em><em>无限阶段</em><em>无尽榜</em></span></span><span class="ts-go">${iconSvg('play')}</span><span class="ts-last">上次玩过</span></button>
         </div>
         <div class="ts-tools"><button type="button" id="ts-board" class="ts-tool">${iconSvg('trophy')}<span>排行榜</span></button><button type="button" id="ts-sound" class="ts-tool" aria-pressed="false">${iconSvg('soundOn')}<span>音效开</span></button><button type="button" id="ts-music" class="ts-tool" aria-pressed="true">${iconSvg('music')}<span>音乐开</span></button><button type="button" id="ts-skin" class="ts-tool">${iconSvg('spark')}<span>皮肤</span></button></div>
+        <p class="ts-foot">每局结束后可重新选择模式 · V${MINIGAME_VERSION}</p>
+      </div>
+    </section>
+        <div id="pause-menu" class="pause-menu" role="dialog" aria-label="游戏菜单" hidden>
+          <div class="pm-card"><strong id="pm-title">游戏暂停</strong><span id="pm-sub" class="pm-sub"></span>
+            <button type="button" id="pm-resume" class="pm-primary">${iconSvg('play')}<span>继续游戏</span></button>
+            <div class="pm-grid">
+              <button type="button" id="reset" class="pm-btn">${iconSvg('restart')}<span>重新开始</span></button>
+              <button type="button" id="pm-home" class="pm-btn">${iconSvg('menu')}<span>回到主界面</span></button>
+              <button type="button" id="mute" class="pm-btn" aria-pressed="false">${iconSvg('soundOn')}<span>音效：开</span></button>
+              <button type="button" id="pm-music" class="pm-btn">${iconSvg('music')}<span>背景音乐：开</span></button>
+              <button type="button" id="pm-skin" class="pm-btn">${iconSvg('spark')}<span>皮肤</span></button>
+              <button type="button" id="pm-board" class="pm-btn">${iconSvg('trophy')}<span>排行榜</span></button>
+            </div>
+            <p class="pm-foot">看视频跳过本关仅在微信小游戏提供</p>
+          </div>
+        </div>
         <div id="skin-picker" class="skin-picker" role="dialog" aria-label="皮肤" hidden>
           <div class="sp-card"><strong>皮肤</strong><span class="sp-sub">只改外观，不影响成绩</span><span class="sp-section">小球拖尾</span>
             <div class="sp-grid">${[['none','不使用','原版短尾'],...TRAIL_SKINS.map(t=>[t.id,t.name,t.desc])].map(([id,name,desc])=>`<button type="button" class="sp-option" data-trail="${id}"><i class="sp-swatch sp-${id}"></i><b>${name}</b><small>${desc}</small></button>`).join('')}</div>
@@ -73,9 +90,6 @@ export function mountGame(root: HTMLElement) {
             <div class="sp-grid">${[['default','默认','经典蓝色挡板'],...PADDLE_SKINS.map(t=>[t.id,t.name,t.desc])].map(([id,name,desc])=>`<button type="button" class="sp-option" data-paddle="${id}"><i class="sp-bar sp-bar-${id}"></i><b>${name}</b><small>${desc}</small></button>`).join('')}</div>
             <button type="button" class="sp-close" id="sp-close">完成</button></div>
         </div>
-        <p class="ts-foot">每局结束后可重新选择模式 · V${MINIGAME_VERSION}</p>
-      </div>
-    </section>
   </main>`;
   // Lookups and text writes are cached: update() runs every frame, so only real changes touch the DOM.
   const found = new Map<string, HTMLElement>();
@@ -132,7 +146,7 @@ export function mountGame(root: HTMLElement) {
     el('title-screen').hidden = !picking && !ended;
     el('title-screen').classList.toggle('result', ended && !picking);
     if (ended && !picking) showResult(g);
-    const muted=g.audio.muted;if(el('ts-sound').getAttribute('aria-pressed')!==String(muted)){el('ts-sound').setAttribute('aria-pressed',String(muted));el('ts-sound').innerHTML=`${iconSvg(muted?'soundOff':'soundOn')}<span>${muted?'音效关':'音效开'}</span>`;}
+    const muted=!g.audio.sfxOn;if(el('ts-sound').getAttribute('aria-pressed')!==String(muted)){el('ts-sound').setAttribute('aria-pressed',String(muted));el('ts-sound').innerHTML=`${iconSvg(muted?'soundOff':'soundOn')}<span>${muted?'音效关':'音效开'}</span>`;}
     for(const b of pickButtons)b.classList.toggle('last',b.dataset.pick===g.mode);
     text('status', STATE_LABELS[g.state]);
     const timers=[[g.physics.wideRemaining,'加宽'],[g.physics.pierceRemaining,'穿透'],[g.physics.fireRemaining,'火焰']] as const;
@@ -148,7 +162,6 @@ export function mountGame(root: HTMLElement) {
     button('start').hidden = !showAction;
     button('start').disabled = action === null;
     if (action) text('start', g.state==='ready'?START_HINT:action.label);
-    button('pause').disabled = g.state !== 'running' && g.state !== 'paused';
     const pauseIcon = g.state === 'paused' ? 'play' : 'pause';
     if (button('pause').dataset.icon !== pauseIcon) { button('pause').dataset.icon = pauseIcon; button('pause').innerHTML = iconSvg(pauseIcon); button('pause').setAttribute('aria-label', g.state === 'paused' ? '继续' : '暂停'); }
     const completed = g.state === 'levelComplete' || g.state === 'victory';
@@ -170,23 +183,42 @@ export function mountGame(root: HTMLElement) {
   wrap.style.aspectRatio = `${VIEW.width} / ${VIEW.height}`;
   fitGamePanel(root.querySelector('.stage-room')!, root.querySelector('.game-panel')!, wrap);
   // The strip under the arena steers the paddle too, so a thumb never has to cover it.
-  const game = new Game(createWebHost(root.querySelector('canvas')!,()=>!picking&&!document.hidden&&!online?.submitting&&!root.querySelector('dialog[open]'),[el('touch-pad')]),update,undefined,new AudioSystem(createWebAudio));
+  const game = new Game(createWebHost(root.querySelector('canvas')!,()=>!picking&&!document.hidden&&!online?.submitting&&!root.querySelector('dialog[open]')&&el('pause-menu').hidden&&el('skin-picker').hidden,[el('touch-pad')]),update,undefined,new AudioSystem(createWebAudio));
   button('start').onclick = () => activateCentralAction(game);
-  button('pause').onclick = () => game.state === 'paused' ? game.start() : game.pause();
+  // One menu for pause: resume, restart, home, sound, music, skins, leaderboard (casual-game convention).
+  const menuOpen = () => !el('pause-menu').hidden;
+  const openMenu = () => {
+    if (game.state === 'running') game.pause();
+    const run = inProgress(), where = game.mode === 'endless' ? `无尽模式 · 第${game.reachedLevel}阶段` : `闯关模式 · 第${game.levels.current.number}关`;
+    el('pm-title').textContent = run ? '游戏暂停' : '菜单'; el('pm-sub').textContent = `${where} · 得分 ${game.score.total}`;
+    el('pm-resume').querySelector('span')!.textContent = run ? '继续游戏' : '返回游戏'; showMusicLabel(); el('pause-menu').hidden = false; button('pm-resume').focus();
+  };
+  const closeMenu = (resume = true) => { el('pause-menu').hidden = true; if (resume && game.state === 'paused') game.start(); };
+  button('pause').onclick = () => menuOpen() ? closeMenu() : openMenu();
+  button('pm-resume').onclick = () => closeMenu();
+  button('pm-board').onclick = () => { closeMenu(false); root.querySelector<HTMLButtonElement>('header .trophy')?.click(); };
+  button('pm-skin').onclick = () => { el('skin-picker').hidden = false; };
+  button('pm-home').onclick = () => {
+    if (inProgress() && !window.confirm('确定放弃本局并回到主界面吗？当前分数不会保留。')) return;
+    closeMenu(false); game.reset(); picking = true; update(game);
+  };
+  const showMusicLabel = () => { button('pm-music').querySelector('span')!.textContent = `背景音乐：${game.audio.musicOn ? '开' : '关'}`; };
+  button('pm-music').onclick = () => { button('ts-music').click(); showMusicLabel(); };
   const inProgress = () => game.journal.events.length > 0 && game.state !== 'gameOver' && game.state !== 'victory';
   // Restart sits next to pause: confirm before throwing away a run in progress.
   button('reset').onclick = () => {
     if (inProgress()) { const wasRunning = game.state === 'running'; game.pause(); if (!window.confirm('确定放弃本局，重新开始吗？当前分数不会保留。')) { if (wasRunning) game.start(); return; } }
-    game.reset();
+    closeMenu(false); game.reset();
   };
   const MUTE_KEY='qiulegeqiu:muted';
-  const showMute = (muted: boolean) => { button('mute').innerHTML = iconSvg(muted ? 'soundOff' : 'soundOn'); button('mute').setAttribute('aria-pressed', String(muted)); button('mute').setAttribute('aria-label', muted ? '开启音效' : '静音'); };
+  // Sound effects switch (background music has its own); remembered across reloads.
+  const showMute = (muted: boolean) => { button('mute').innerHTML = `${iconSvg(muted ? 'soundOff' : 'soundOn')}<span>音效：${muted ? '关' : '开'}</span>`; button('mute').setAttribute('aria-pressed', String(muted)); };
   button('mute').onclick = () => {
-    game.audio.unlock(); const muted = game.audio.toggle(); showMute(muted);
+    game.audio.unlock(); game.audio.setSfx(!game.audio.sfxOn); const muted = !game.audio.sfxOn; showMute(muted);
     try{localStorage.setItem(MUTE_KEY,muted?'1':'0');}catch{/* Preference only. */}
   };
   // The sound setting survives a reload, like the WeChat build.
-  try{if(localStorage.getItem(MUTE_KEY)==='1'){game.audio.toggle();showMute(true);}}catch{/* Preference only. */}
+  try{if(localStorage.getItem(MUTE_KEY)==='1'){game.audio.setSfx(false);showMute(true);}}catch{/* Preference only. */}
   button('stress').hidden = new URLSearchParams(location.search).get('debug') !== '1';
   button('stress').onclick = () => game.stress();
   // Mode is chosen once when the game opens, and again only after a run ends (game over or victory).
@@ -209,7 +241,7 @@ export function mountGame(root: HTMLElement) {
   const editable=(t:EventTarget|null)=>t instanceof HTMLElement&&!!t.closest('input,textarea,select,[contenteditable]');
   for(const type of ['selectstart','contextmenu','gesturestart','dragstart'])document.addEventListener(type,e=>{if(!editable(e.target))e.preventDefault();});
   online = new LeaderboardUI(root,game);
-  const playable = () => !picking && !document.hidden && !online?.submitting && !root.querySelector('dialog[open]');
+  const playable = () => !picking && !document.hidden && !online?.submitting && !root.querySelector('dialog[open]') && el('pause-menu').hidden && el('skin-picker').hidden;
   document.addEventListener('keydown', e => {
     if (editable(e.target) || e.metaKey || e.ctrlKey || e.altKey) return;
     if (['ArrowLeft','ArrowRight','KeyA','KeyD'].includes(e.code)) { if (playable()) { held.add(e.code); e.preventDefault(); } return; }
@@ -219,7 +251,7 @@ export function mountGame(root: HTMLElement) {
       if (game.state === 'running') game.pause(); else if (game.state === 'paused') game.start(); else if (game.state === 'ready') startFromPlayfield(game); else activateCentralAction(game);
       return;
     }
-    if ((e.code === 'Escape' || e.code === 'KeyP') && game.state === 'running') game.pause();
+    if (e.code === 'Escape' || e.code === 'KeyP') { if (menuOpen()) closeMenu(); else if (game.state === 'running' || game.state === 'paused') openMenu(); }
   });
   document.addEventListener('keyup', e => held.delete(e.code));
   window.addEventListener('blur', () => held.clear());
