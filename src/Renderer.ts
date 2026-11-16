@@ -32,12 +32,13 @@ const POPUP_CHANNELS={combo:0,power:1,clear:2} as const;
  * Shared Canvas renderer for Web and WeChat. It only reads Physics; every animation clock here is
  * the wall clock passed to draw(), so presentation can never alter simulation, scoring or replays.
  */
-/** Ball trail skins: comet (gold→cyan), heart (floating pink hearts), rainbow (seven-colour ribbon). */
+/** Ball trail skins: 'comet' = 星光 (twinkling stars), heart (floating pink hearts), rainbow = 彩虹桥 (arched bands). */
 export type TrailSkin='none'|'comet'|'heart'|'rainbow';
 /** Paddle skins: default, neon light-saber, burning flame, royal gold. */
 export type PaddleSkin='default'|'neon'|'flame'|'gold';
 const PADDLE_GLOW:Record<Exclude<PaddleSkin,'default'>,string>={neon:'#C46CFF',flame:'#FF7A2E',gold:'#FFD24D'};
-const TRAIL_GLOW:Record<Exclude<TrailSkin,'none'>,string>={comet:'#FFD24D',heart:'#FF6FB1',rainbow:'#B07CFF'};
+const TRAIL_GLOW:Record<Exclude<TrailSkin,'none'>,string>={comet:'#FFE27A',heart:'#FF6FB1',rainbow:'#8EE6FF'};
+function starPath(c:CanvasRenderingContext2D,x:number,y:number,r:number,rot:number){c.beginPath();for(let i=0;i<10;i++){const a=rot-Math.PI/2+i*Math.PI/5,rr=i%2?r*.45:r;const px=x+Math.cos(a)*rr,py=y+Math.sin(a)*rr;if(i)c.lineTo(px,py);else c.moveTo(px,py);}c.closePath();}
 function heartPath(c:CanvasRenderingContext2D,x:number,y:number,r:number){c.beginPath();c.moveTo(x,y+r*.9);c.bezierCurveTo(x-r*1.5,y-r*.1,x-r*.7,y-r*1.15,x,y-r*.35);c.bezierCurveTo(x+r*.7,y-r*1.15,x+r*1.5,y-r*.1,x,y+r*.9);}
 export class Renderer {
   private ctx: Ctx;
@@ -59,10 +60,9 @@ export class Renderer {
   private drawSkinBalls(c:CanvasRenderingContext2D,p:Physics,highlights:boolean,now:number){
    let detailed=0;const rainbow=['#FF5E6E','#FF9F43','#FFE45C','#4CD9A0','#4FC3FF','#6C7BFF','#B07CFF'],spin=now/320;
    for(const ball of p.balls)if(ball.alive){const r=ball.radius+.6,x=ball.x,y=ball.y,rich=highlights&&++detailed<=24;
-    if(this.trail==='comet'){c.fillStyle='#FFD24D';c.beginPath();c.arc(x,y,r+.6,0,Math.PI*2);c.fill();c.fillStyle='#FFF8DC';c.beginPath();c.arc(x,y,r-.9,0,Math.PI*2);c.fill();if(rich){c.fillStyle='#FFFFFF';c.beginPath();c.arc(x-r*.25,y-r*.25,r*.4,0,Math.PI*2);c.fill();c.strokeStyle='#8EE6FF';c.lineWidth=.8;c.beginPath();c.arc(x,y,r+1.2,0,Math.PI*2);c.stroke();}}
+    if(this.trail==='comet'){const g=c.createRadialGradient?.(x-r*.3,y-r*.3,0,x,y,r+.6);g?.addColorStop(0,'#FFFBE6');g?.addColorStop(.55,'#FFE27A');g?.addColorStop(1,'#E8A21A');c.fillStyle=g||'#FFD24D';c.beginPath();c.arc(x,y,r+.6,0,Math.PI*2);c.fill();if(rich){c.fillStyle='#FFFFFF';starPath(c,x,y,r*.55,now/500);c.fill();}}
     else if(this.trail==='heart'){c.fillStyle='#FF5E8A';c.beginPath();c.arc(x,y,r+.4,0,Math.PI*2);c.fill();if(rich){c.fillStyle='#FFB3CF';c.beginPath();c.arc(x,y,r-.8,Math.PI*1.05,Math.PI*1.95);c.fill();c.fillStyle='#FFFFFF';heartPath(c,x,y+.3,r*.42);c.fill();}}
-    else{if(rich){for(let k=0;k<rainbow.length;k++){const a0=spin+k*Math.PI*2/rainbow.length,a1=a0+Math.PI*2/rainbow.length+.02;c.fillStyle=rainbow[k];c.beginPath();c.moveTo(x,y);c.arc(x,y,r+.4,a0,a1);c.closePath();c.fill();}c.fillStyle='rgba(255,255,255,.85)';c.beginPath();c.arc(x,y,r*.38,0,Math.PI*2);c.fill();}
-     else{c.fillStyle=rainbow[Math.floor(spin+x*.01)%rainbow.length];c.beginPath();c.arc(x,y,r+.4,0,Math.PI*2);c.fill();}}
+    else{c.fillStyle='#FFFFFF';c.beginPath();c.arc(x,y,r+.2,0,Math.PI*2);c.fill();if(rich){c.lineWidth=1.6;for(let k=0;k<rainbow.length;k++){const a0=spin+k*Math.PI*2/rainbow.length,a1=a0+Math.PI*2/rainbow.length+.03;c.strokeStyle=rainbow[k];c.beginPath();c.arc(x,y,r+.4,a0,a1);c.stroke();}c.fillStyle='rgba(180,220,255,.7)';c.beginPath();c.arc(x-r*.3,y-r*.3,r*.3,0,Math.PI*2);c.fill();}}
    }
   }
   /** Cosmetic paddle skin (no gameplay effect; the hit box is unchanged). */
@@ -109,17 +109,36 @@ export class Renderer {
   /** Back-compat for the 2.7 WeChat setting (comet on/off). */
   get cometTail(){return this.trail==='comet';}
   set cometTail(on:boolean){this.trail=on?'comet':'none';}
-  /** Heart: little pink hearts that float out behind the ball. Rainbow: a seven-colour ribbon. At most 24 balls. */
+  /** Heart: floating pink hearts. 星光: twinkling stars. 彩虹桥: seven bands along the real path (12 balls). At most 24 balls. */
+  /** Recent head positions per ball, for trails that bend along the real path (rainbow bridge). */
+  private trailHistory=new WeakMap<object,{x:number;y:number}[]>();
   private drawSkinTrail(c:CanvasRenderingContext2D,p:Physics,base:number,now:number){
-   let drawn=0;c.save();c.lineCap='round';
-   for(const ball of p.balls)if(ball.alive){if(++drawn>24)break;
+   let drawn=0;c.save();c.lineCap='round';c.lineJoin='round';
+   const bands=['#FF5E6E','#FF9F43','#FFE45C','#4CD9A0','#4FC3FF','#6C7BFF','#B07CFF'];
+   for(const ball of p.balls)if(ball.alive){if(++drawn>(this.trail==='rainbow'?12:24))break;
     const speed=Math.hypot(ball.vx,ball.vy)||1,ux=ball.vx/speed,uy=ball.vy/speed,px=-uy,py=ux;
     if(this.trail==='heart'){
      for(let k=0;k<4;k++){const d=9+k*11,sway=Math.sin(now/140+k*1.7+ball.x*.05)*2.6*k/3,x=ball.x-ux*d+px*sway,y=ball.y-uy*d+py*sway,r=ball.radius*(1.5-k*.22);
       c.globalAlpha=.92-k*.2;c.fillStyle=k%2?'#FF9BCB':'#FF5E8A';heartPath(c,x,y,r);c.fill();}
+    }else if(this.trail==='comet'){
+     // 星光: twinkling five-pointed stars, gold and white, slowly turning and shrinking toward the tail.
+     for(let k=0;k<5;k++){const d=ball.radius*1.6+k*10.5,wobble=Math.sin(now/170+k*1.3+ball.y*.03)*2.2*(k/4),x=ball.x-ux*d+px*wobble,y=ball.y-uy*d+py*wobble,r=ball.radius*(1.55-k*.2),tw=.75+.25*Math.sin(now/90+k*2.1);
+      c.globalAlpha=(.95-k*.17)*tw;c.fillStyle=k%2?'#FFF8DC':'#FFD24D';starPath(c,x,y,r,now/600+k*.7);c.fill();}
+     // A few sparkle dots drifting off the line.
+     c.fillStyle='#FFFFFF';for(let k=0;k<3;k++){const d=14+k*16,side=k%2?1:-1,off=(4+((now/60+k*37)%6))*side;c.globalAlpha=.5*(1-k/3)*(.5+.5*Math.sin(now/110+k));c.beginPath();c.arc(ball.x-ux*d+px*off,ball.y-uy*d+py*off,1.1,0,Math.PI*2);c.fill();}
     }else{
-     const len=Math.max(48,base*2.6),colors=['#FF5E6E','#FF9F43','#FFE45C','#4CD9A0','#4FC3FF','#6C7BFF','#B07CFF'];
-     for(let k=0;k<colors.length;k++){const gap=ball.radius*1.1,s0=gap+k*len/colors.length,s1=gap+(k+1)*len/colors.length;c.globalAlpha=.9-k*.09;c.lineWidth=ball.radius*(2-k*.18);c.strokeStyle=colors[k];c.beginPath();c.moveTo(ball.x-ux*s0,ball.y-uy*s0);c.lineTo(ball.x-ux*s1,ball.y-uy*s1);c.stroke();}
+     // 彩虹桥: seven bands side by side bending along the ball's real path into an arch, ending in two little clouds.
+     let history=this.trailHistory.get(ball);const last=history?.[0];
+     if(!history||!last||Math.hypot(ball.x-last.x,ball.y-last.y)>80){history=[{x:ball.x,y:ball.y}];this.trailHistory.set(ball,history);}
+     else if(Math.hypot(ball.x-last.x,ball.y-last.y)>4){history.unshift({x:ball.x,y:ball.y});if(history.length>9)history.length=9;}
+     const pts=[{x:ball.x,y:ball.y},...history.filter((q,i)=>i>0||Math.hypot(q.x-ball.x,q.y-ball.y)>1)];
+     if(pts.length<2){const len=Math.max(40,base*2.2);pts.push({x:ball.x-ux*len*.5,y:ball.y-uy*len*.5},{x:ball.x-ux*len,y:ball.y-uy*len});}
+     const n=pts.length-1;
+     for(let i=0;i<n;i++){const a=pts[i],b=pts[i+1],dx=b.x-a.x,dy=b.y-a.y,dl=Math.hypot(dx,dy)||1,nx=-dy/dl,ny=dx/dl,t=i/Math.max(1,n),w=ball.radius*.5*(1-t*.55);
+      c.globalAlpha=.9*(1-t*.75);c.lineWidth=w+.6;
+      for(let k=0;k<bands.length;k++){const o=(k-3)*w;c.strokeStyle=bands[k];c.beginPath();c.moveTo(a.x+nx*o,a.y+ny*o);c.lineTo(b.x+nx*o,b.y+ny*o);c.stroke();}}
+     const tail=pts[n],before=pts[Math.max(0,n-1)],tdx=tail.x-before.x,tdy=tail.y-before.y,tl=Math.hypot(tdx,tdy)||1;
+     c.globalAlpha=.55;c.fillStyle='#FFFFFF';for(const [ox,oy,rr] of [[0,0,ball.radius*1.15],[-tdy/tl*ball.radius*1.4,tdx/tl*ball.radius*1.4,ball.radius*.85],[tdy/tl*ball.radius*1.4,-tdx/tl*ball.radius*1.4,ball.radius*.8]] as const){c.beginPath();c.arc(tail.x+ox,tail.y+oy,rr,0,Math.PI*2);c.fill();}
     }
    }
    c.restore();
@@ -412,9 +431,8 @@ export class Renderer {
     const piercing=p.pierceRemaining>0,burning=p.fireRemaining>0;
     this.powerFx.track(p.balls,piercing,burning,now,low);this.powerFx.drawUnder(c,this.glowFor,piercing,burning,now);
     // Balls: comet trail, additive glow (budgeted), solid core.
-    // Comet tail skin (unlocked by a rewarded video on WeChat): a longer gold→cyan tail. Plain balls keep the short trail.
-    if(this.trail==='heart'||this.trail==='rainbow'){this.drawSkinTrail(c,p,budget.trailLength,now);}
-    else if(this.trail==='comet'){const len=Math.max(46,budget.trailLength*2.6),segments=6;c.lineCap='round';let drawn=0;for(const ball of p.balls)if(ball.alive){if(++drawn>24)break;const speed=Math.hypot(ball.vx,ball.vy)||1,ux=ball.vx/speed,uy=ball.vy/speed;for(let k=0;k<segments;k++){const gap=ball.radius*1.1,s0=gap+k*len/segments,s1=gap+(k+1)*len/segments,f=k/(segments-1);c.globalAlpha=.85*(1-f*.85);c.lineWidth=ball.radius*(2.1-f*1.5);c.strokeStyle=p.fireRemaining>0?OCEAN.powers.fire.color:p.pierceRemaining>0?OCEAN.powers.pierce.color:k<2?'#FFE27A':k<4?'#8EE6FF':'#4FA8FF';c.beginPath();c.moveTo(ball.x-ux*s0,ball.y-uy*s0);c.lineTo(ball.x-ux*s1,ball.y-uy*s1);c.stroke();}}c.lineCap='butt';c.globalAlpha=1;}
+    // Trail skins (星光 / 爱心 / 彩虹桥; unlocked by a rewarded video on WeChat). Plain balls keep the short trail.
+    if(this.trail!=='none'){this.drawSkinTrail(c,p,budget.trailLength,now);}
     else if(budget.trailLength){c.lineCap='round';for(const ball of p.balls)if(ball.alive){const speed=Math.hypot(ball.vx,ball.vy)||1,ux=ball.vx/speed,uy=ball.vy/speed;for(let k=0;k<3;k++){const s0=k*budget.trailLength/3,s1=(k+1)*budget.trailLength/3;c.globalAlpha=budget.trailAlpha*(1.6-k*.5);c.lineWidth=ball.radius*(1.5-k*.4);c.strokeStyle=p.fireRemaining>0?OCEAN.powers.fire.color:p.pierceRemaining>0?OCEAN.powers.pierce.color:OCEAN.ball.trail;c.beginPath();c.moveTo(ball.x-ux*s0,ball.y-uy*s0);c.lineTo(ball.x-ux*s1,ball.y-uy*s1);c.stroke();}}c.lineCap='butt';c.globalAlpha=1;}
     // Burning balls glow orange, piercing balls cyan; colours make the active power readable at a glance.
     const ballGlow=p.fireRemaining>0?OCEAN.powers.fire.color:p.pierceRemaining>0?OCEAN.powers.pierce.color:this.trail==='none'?OCEAN.ball.glow:TRAIL_GLOW[this.trail];
