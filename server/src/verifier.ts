@@ -12,7 +12,7 @@ import { C } from '../../src/GameConfig.js';
 import {LEVELS,V17_LEVELS,V16_LEVELS,V15_LEVELS,V13_LEVELS,PREVIOUS_LEVELS,dropMultiplier,powerProfile}  from '../../src/Levels.js';
 import { seededRandom,weightedPower,tripleTarget,type TripleRuleVersion,type PowerKind } from '../../src/PowerRules.js';
 import { Obstacles } from '../../src/Obstacles.js';
-import type { ChallengeEvent, ChallengeSummary } from '../../shared/Challenge.js';
+import { MAX_REVIVES, MAX_BOOSTS, BOOST_BALLS, type ChallengeEvent, type ChallengeSummary } from '../../shared/Challenge.js';
 import { ApiError } from './moderation.js';
 /** Event/rule replay, not authoritative physical replay. Client seed is a declared run parameter, not a secret. */
 export function verifyTrace(events: ChallengeEvent[], wallMs: number,seed=1,rulesVersion:string=LEGACY_RULES_VERSION): { summary: ChallengeSummary; suspicious: string[] } {
@@ -31,6 +31,8 @@ export function verifyTrace(events: ChallengeEvent[], wallMs: number,seed=1,rule
   let tickHits=0,hitTick=-1,expectedBomb:string|null|undefined;
   // 1.9+: lightning/pierce/fire windows (ticks) widen the per-tick budget and legitimately break bricks inside the wall.
   let pierceUntil=-1,fireUntil=-1,lightningTick=-1,lightnings=0;
+  // Rewarded help: revives only on game over, boosts only on the launch right after a lost life.
+  let revives=0,boosts=0,launchTick=-1,boosted=false,afterLoss=false,lostRound=false;
   for(const e of events){
     if(finished||!Number.isSafeInteger(e.tick)||e.tick<lastTick||e.tick>6*3600/C.step||e.level!==level)throw new ApiError(422,'挑战事件顺序或关卡无效');
     if(expectedBomb!==undefined&&e.type!=='bomb')throw new ApiError(422,'缺少炸弹目标事件');
@@ -45,7 +47,7 @@ export function verifyTrace(events: ChallengeEvent[], wallMs: number,seed=1,rule
         if(hasLaunched&&e.brickPowerVersion!==undefined)throw new ApiError(422,'预分配规则只能在首次发射声明');
         if(e.brickPowerVersion!==undefined&&e.brickPowerVersion!==2)throw new ApiError(422,'无效预分配规则版本');
         if(!hasLaunched){if(usesBrickPowers(rulesVersion)&&(e.brickPowerVersion!==2||e.tripleRuleVersion!==2))throw new ApiError(422,'新版排行榜需要新手关预分配道具和新版X3规则，请重新挑战');brickPowerVersion=e.brickPowerVersion??1;if(brickPowerVersion===2&&(!usesBrickPowers(rulesVersion)||e.tripleRuleVersion!==2))throw new ApiError(422,'新手关道具需要十二关与新版X3规则');allocation();tripleRule=e.tripleRuleVersion??1;if(tripleRule===2&&rulesVersion===LEGACY_RULES_VERSION)throw new ApiError(422,'旧十关挑战不支持新版X3规则');hasLaunched=true;}
-        phase='running';balls=1;break;
+        phase='running';balls=1;launchTick=e.tick;boosted=false;afterLoss=lostRound;lostRound=false;break;
       case 'hit':{
         if(phase!=='running'||!balls||!valid[e.index])throw new ApiError(422,'重复或不可能的方块事件');
         // A ball can only reach a brick through open space: a hit on a brick whose eight neighbours are all still
@@ -77,7 +79,9 @@ export function verifyTrace(events: ChallengeEvent[], wallMs: number,seed=1,rule
       }
       case 'bomb':if(expectedBomb===undefined||e.target!==expectedBomb)throw new ApiError(422,'炸弹目标无效');if(expectedBomb===null)score.addBombCompensation();expectedBomb=undefined;break;
       case 'ballLost':if(phase!=='running'||balls<=0)throw new ApiError(422,'重复弹球死亡');balls--;break;
-      case 'lost':if(phase!=='running'||balls!==0||destroyedThisLevel===blocks.total)throw new ApiError(422,'回合扣命无效');lives--;if(lives<0)throw new ApiError(422,'生命异常');phase=lives?'ready':'gameOver';drops.length=0;dropSequence=0;score.resetCombo();break;
+      case 'lost':if(phase!=='running'||balls!==0||destroyedThisLevel===blocks.total)throw new ApiError(422,'回合扣命无效');lives--;if(lives<0)throw new ApiError(422,'生命异常');phase=lives?'ready':'gameOver';drops.length=0;dropSequence=0;score.resetCombo();lostRound=true;break;
+      case 'revive':if(phase!=='gameOver'||lives!==0||revives>=MAX_REVIVES)throw new ApiError(422,'复活无效');revives++;lives=1;phase='ready';lostRound=true;break;
+      case 'boost':if(phase!=='running'||e.tick!==launchTick||boosted||!afterLoss||boosts>=MAX_BOOSTS)throw new ApiError(422,'加球奖励无效');boosts++;boosted=true;balls=Math.min(C.maxBalls,balls+BOOST_BALLS);break;
       case 'clear':if(phase!=='running'||destroyedThisLevel!==blocks.total)throw new ApiError(422,'未完成本关');score.complete(lives);phase=level===levels.length?'victory':'cleared';break;
       case 'next':if(phase!=='cleared')throw new ApiError(422,'无效切关');level++;phase='ready';blocks.reset(levels[level-1].obstacles??[],levels[level-1]);valid=blocks.alive.slice();allocation();destroyedThisLevel=0;drops.length=0;dropSequence=0;score.beginLevel();obstacles.load(levels[level-1].obstacles??[]);levelStartTick=e.tick;break;
       case 'finish':if(phase!=='gameOver'&&phase!=='victory')throw new ApiError(422,'挑战尚未结束');finished=true;break;

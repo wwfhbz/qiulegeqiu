@@ -44,6 +44,8 @@ export class Renderer {
   private cachedRevision = -1;
   private ratio = 1;
   private arenaFill?:CanvasGradient|string;private paddleFill?:CanvasGradient|string;
+  /** Cosmetic comet tail behind every ball (no gameplay effect). */
+  cometTail=false;
   private lowDevice=false;private sampleCount=0;private sampleTime=0;private previousDraw=0;
   private generation = -1; private cleared = 0;
   // Wall-clock juice owned by the renderer, never by Physics.
@@ -329,7 +331,9 @@ export class Renderer {
     const piercing=p.pierceRemaining>0,burning=p.fireRemaining>0;
     this.powerFx.track(p.balls,piercing,burning,now,low);this.powerFx.drawUnder(c,this.glowFor,piercing,burning,now);
     // Balls: comet trail, additive glow (budgeted), solid core.
-    if(budget.trailLength){c.lineCap='round';for(const ball of p.balls)if(ball.alive){const speed=Math.hypot(ball.vx,ball.vy)||1,ux=ball.vx/speed,uy=ball.vy/speed;for(let k=0;k<3;k++){const s0=k*budget.trailLength/3,s1=(k+1)*budget.trailLength/3;c.globalAlpha=budget.trailAlpha*(1.6-k*.5);c.lineWidth=ball.radius*(1.5-k*.4);c.strokeStyle=p.fireRemaining>0?OCEAN.powers.fire.color:p.pierceRemaining>0?OCEAN.powers.pierce.color:OCEAN.ball.trail;c.beginPath();c.moveTo(ball.x-ux*s0,ball.y-uy*s0);c.lineTo(ball.x-ux*s1,ball.y-uy*s1);c.stroke();}}c.lineCap='butt';c.globalAlpha=1;}
+    // Comet tail skin (unlocked by a rewarded video on WeChat): a longer gold→cyan tail. Plain balls keep the short trail.
+    if(this.cometTail){const len=Math.max(46,budget.trailLength*2.6),segments=6;c.lineCap='round';let drawn=0;for(const ball of p.balls)if(ball.alive){if(++drawn>24)break;const speed=Math.hypot(ball.vx,ball.vy)||1,ux=ball.vx/speed,uy=ball.vy/speed;for(let k=0;k<segments;k++){const s0=k*len/segments,s1=(k+1)*len/segments,f=k/(segments-1);c.globalAlpha=.85*(1-f*.85);c.lineWidth=ball.radius*(2.1-f*1.5);c.strokeStyle=p.fireRemaining>0?OCEAN.powers.fire.color:p.pierceRemaining>0?OCEAN.powers.pierce.color:k<2?'#FFE27A':k<4?'#8EE6FF':'#4FA8FF';c.beginPath();c.moveTo(ball.x-ux*s0,ball.y-uy*s0);c.lineTo(ball.x-ux*s1,ball.y-uy*s1);c.stroke();}}c.lineCap='butt';c.globalAlpha=1;}
+    else if(budget.trailLength){c.lineCap='round';for(const ball of p.balls)if(ball.alive){const speed=Math.hypot(ball.vx,ball.vy)||1,ux=ball.vx/speed,uy=ball.vy/speed;for(let k=0;k<3;k++){const s0=k*budget.trailLength/3,s1=(k+1)*budget.trailLength/3;c.globalAlpha=budget.trailAlpha*(1.6-k*.5);c.lineWidth=ball.radius*(1.5-k*.4);c.strokeStyle=p.fireRemaining>0?OCEAN.powers.fire.color:p.pierceRemaining>0?OCEAN.powers.pierce.color:OCEAN.ball.trail;c.beginPath();c.moveTo(ball.x-ux*s0,ball.y-uy*s0);c.lineTo(ball.x-ux*s1,ball.y-uy*s1);c.stroke();}}c.lineCap='butt';c.globalAlpha=1;}
     // Burning balls glow orange, piercing balls cyan; colours make the active power readable at a glance.
     const ballGlow=p.fireRemaining>0?OCEAN.powers.fire.color:p.pierceRemaining>0?OCEAN.powers.pierce.color:OCEAN.ball.glow;
     const bg=budget.highlights?this.glow(ballGlow):undefined;

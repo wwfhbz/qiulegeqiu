@@ -236,3 +236,7 @@ input,textarea,select,[contenteditable]{-webkit-user-select:text;user-select:tex
 .touch-pad:active .chev b{border-color:#FFE27A}
 @media (prefers-reduced-motion:reduce){.chev b{animation:none;opacity:.6}}
 @media (max-width:360px){.pad-swipe{gap:8px}.touch-pad .pad-hint{letter-spacing:2px}}
+.ts-tools{flex-wrap:wrap;justify-content:center;gap:10px}
+.ts-tool{padding:0 14px}
+#ts-music svg{color:#B9A7FF}
+@media (max-width:360px){.ts-tool{padding:0 10px;font-size:12px;gap:4px}}

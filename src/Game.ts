@@ -10,7 +10,7 @@ import type { GameState, ReadyReason } from './GameState';
 import { Blocks } from './Blocks';
 import { EndlessField } from './endless/EndlessField';
 import { ENDLESS, ENDLESS_LEVEL, endlessStage, endlessVersion } from './endless/EndlessRules';
-import { RULES_VERSION } from '../shared/Challenge';
+import { RULES_VERSION, MAX_REVIVES, MAX_BOOSTS, BOOST_BALLS } from '../shared/Challenge';
 export type GameMode = 'campaign' | 'endless';
 
 /** Coordinates the arcade session; physics and rendering remain independent. */
@@ -30,6 +30,36 @@ export class Game {
   private roundActive = false;
   /** Endless: the last life was lost to wall pressure, so the next launch clears rows and grants a bonus. */
   pendingRelief = false;
+  /**
+   * Rewarded-video help (WeChat). The host decides whether a revive can be offered right now (an ad is ready and the
+   * run may still be ranked); while one is on offer the run stays open (no 'finish' yet) until revive() or endRun().
+   */
+  canOfferRevive: () => boolean = () => false;
+  awaitingRevive = false;
+  revivesUsed = 0;
+  boostsUsed = 0;
+  /** A boost bought for the next launch (+3 balls right after it). */
+  boostArmed = false;
+  get revivesLeft() { return MAX_REVIVES - this.revivesUsed; }
+  /** Boosts are only offered after a lost life, never at the start of a level. */
+  get canBoost() { return this.state === 'ready' && this.readyReason === 'lifeLost' && !this.boostArmed && this.boostsUsed < MAX_BOOSTS && this.journal.events.length > 0; }
+  private runOut() {
+    if (this.revivesUsed < MAX_REVIVES && this.canOfferRevive()) { this.awaitingRevive = true; return; }
+    this.journal.record({type:'finish',level:this.levels.current.number});
+  }
+  /** Watched a rewarded video: +1 life and play on (endless also clears the bottom rows on the next launch). */
+  revive() {
+    if (this.state !== 'gameOver' || !this.awaitingRevive || this.revivesUsed >= MAX_REVIVES) return false;
+    this.awaitingRevive = false; this.revivesUsed++;
+    this.journal.record({type:'revive',level:this.levels.current.number});
+    this.remainingLives = 1; this.physics.resetRound(true);
+    if (this.physics.endless) this.pendingRelief = true;
+    this.state = 'ready'; this.readyReason = 'lifeLost'; this.onChange(this); return true;
+  }
+  /** Declined the revive: the run ends for good. */
+  endRun() { if (!this.awaitingRevive) return; this.awaitingRevive = false; this.journal.record({type:'finish',level:this.levels.current.number}); this.onChange(this); }
+  /** Watched a rewarded video for the next ball: it launches with +3 extra balls. */
+  armBoost() { if (!this.canBoost) return false; this.boostArmed = true; this.onChange(this); return true; }
 
   // The same coordinator runs headlessly or under either platform host.
   constructor(private readonly host?:GameHost, private onChange: (game: Game) => void = () => {}, public levels = new LevelManager(), audio = new AudioSystem()) {
@@ -66,6 +96,7 @@ export class Game {
 
   start() {
     if (this.lives <= 0 || (this.state !== 'ready' && this.state !== 'paused')) return;
+    const launching = this.state === 'ready';
     if (this.state === 'ready') { this.journal.record({type:'launch',level:this.levels.current.number,...(this.journal.events.length===0&&this.physics.trajectoryVersion===1?{trajectoryVersion:1 as const}:{}),...(this.journal.events.length===0&&this.mode==='campaign'?{...(this.physics.tripleRuleVersion===2?{tripleRuleVersion:2 as const}:{}),...(this.physics.brickPowerVersion===2&&this.levels.current.brickPowers?{brickPowerVersion:2 as const}:{})}:{})}); this.roundActive = true; for (const b of this.physics.balls) this.physics.aimLaunch(b); }
     // Endless relief after a pressure death: clear the rows nearest the line, then a random effect ball.
     const field=this.physics.endless;
@@ -76,6 +107,7 @@ export class Game {
       this.physics.effects.emit('relief',C.arena.x,field.top+(field.floorRow+.5)*field.step,cleared);
       const kind=this.physics.drawBonus();this.journal.record({type:'bonus',level:this.levels.current.number,kind});this.physics.applyBonus(kind);
     }
+    if (this.boostArmed && launching) { this.boostArmed = false; this.boostsUsed++; this.state = 'running'; this.journal.record({type:'boost',level:this.levels.current.number}); this.physics.addBalls(BOOST_BALLS); }
     this.audio.unlock(); this.physics.paused = false; this.physics.accumulator = 0;
     this.state = 'running'; this.onChange(this);
   }
@@ -86,7 +118,7 @@ export class Game {
   reset() {
     this.roundActive = false;
     this.journal.reset();this.physics.setSeed(this.journal.seed);
-    this.pendingRelief = false;
+    this.pendingRelief = false; this.awaitingRevive = false; this.revivesUsed = 0; this.boostsUsed = 0; this.boostArmed = false;
     this.levels.reset(); this.remainingLives = this.mode==='endless'?ENDLESS.lives:ARCADE.initialLives; this.score.reset(); this.result = undefined;
     this.configureLevel();
     this.physics.reset(); this.state = 'ready'; this.readyReason = 'initial'; this.onChange(this);
@@ -109,6 +141,7 @@ export class Game {
     this.start();
   }
   update(dt: number) {
+    this.audio.tickMusic();
     this.physics.powerPointsShown = this.powerPoints ? ARCADE.powerPoints : 0;
     if (this.state === 'running') {
       this.physics.advance(dt);
@@ -132,7 +165,7 @@ export class Game {
         this.state = this.lives > 0 ? 'ready' : 'gameOver';
         this.readyReason = 'lifeLost';
         this.physics.paused = this.lives === 0;
-        if(this.lives===0)this.journal.record({type:'finish',level:this.levels.current.number});
+        if(this.lives===0)this.runOut();
       } else if (this.roundActive && this.physics.endless?.variant.crush && this.physics.endless.pressure >= ENDLESS.crushTicks) {
         // Pressure death: the wall sat on the death line for 10 running seconds.
         const field=this.physics.endless;
@@ -145,7 +178,7 @@ export class Game {
         this.state = this.lives > 0 ? 'ready' : 'gameOver';
         this.readyReason = 'lifeLost'; this.pendingRelief = this.lives > 0;
         this.physics.paused = this.lives === 0;
-        if(this.lives===0)this.journal.record({type:'finish',level:this.levels.current.number});
+        if(this.lives===0)this.runOut();
       }
     } else if (this.state === 'ready') {
       const maxMove = C.paddle.speed * Math.min(C.maxFrame, Math.max(0, dt));

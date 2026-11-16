@@ -148,3 +148,30 @@ export function drawModePicker(c:CanvasRenderingContext2D,width:number,height:nu
  canvasText(c,`每局结束后可重新选择模式 · V${MINIGAME_VERSION}`,width/2,v.footY,width-40,11,OCEAN.colors.muted,'center');
  c.restore();
 }
+
+export interface ReviveView {score:number;left:number;max:number;endless:boolean}
+/** Revive card over the dimmed game: glowing heart, score, a gold "watch video" button and a quiet "give up". */
+export function drawReviveCard(c:CanvasRenderingContext2D,width:number,height:number,view:ReviveView,now=0){
+ c.save();c.fillStyle='rgba(3,5,12,.78)';c.fillRect(0,0,width,height);
+ const w=Math.min(340,width-40),h=view.endless?372:352,x=(width-w)/2,y=Math.max(40,(height-h)/2-20),cx=width/2;
+ c.fillStyle='#5A2AB8';c.beginPath();c.roundRect(x,y+6,w,h,26);c.fill();
+ const bg=c.createLinearGradient(0,y,0,y+h);bg?.addColorStop(0,'#2A2266');bg?.addColorStop(.6,'#151A46');bg?.addColorStop(1,'#0E1236');c.fillStyle=bg||'#151A46';c.beginPath();c.roundRect(x,y,w,h,26);c.fill();
+ c.strokeStyle='rgba(255,255,255,.14)';c.lineWidth=1;c.stroke();
+ // Heart that gently beats.
+ const beat=1+Math.sin(now/260)*.06,hr=24*beat,hy=y+48;c.fillStyle='rgba(255,94,138,.25)';c.beginPath();c.arc(cx,hy,hr*1.7,0,Math.PI*2);c.fill();
+ c.fillStyle='#FF5E8A';c.beginPath();c.moveTo(cx,hy+hr*.9);c.bezierCurveTo(cx-hr*1.5,hy-hr*.1,cx-hr*.7,hy-hr*1.15,cx,hy-hr*.35);c.bezierCurveTo(cx+hr*.7,hy-hr*1.15,cx+hr*1.5,hy-hr*.1,cx,hy+hr*.9);c.fill();
+ c.fillStyle='rgba(255,255,255,.55)';c.beginPath();c.ellipse(cx-hr*.45,hy-hr*.35,hr*.18,hr*.12,-.6,0,Math.PI*2);c.fill();
+ c.font=`900 24px ${OCEAN.fonts.body}`;c.textAlign='center';c.textBaseline='middle';c.fillStyle='#FFFFFF';c.fillText('生命耗尽',cx,y+98,w-32);
+ canvasText(c,'看完一段视频，+1 条命继续本局',cx,y+126,w-32,13,'#C9D6EE','center');
+ if(view.endless)canvasText(c,'并清掉最底部 5 行砖',cx,y+146,w-32,12,'#8FA6C8','center');
+ const sy=y+(view.endless?176:164);canvasText(c,'本局得分',cx,sy,w-32,12,'#A9C1DE','center');
+ const score=view.score.toLocaleString('zh-CN');c.font=`900 34px ${OCEAN.fonts.numbers}`;c.fillStyle='rgba(140,60,0,.7)';c.fillText(score,cx,sy+30,w-32);
+ const gold=c.createLinearGradient(0,sy+14,0,sy+46);gold?.addColorStop(0,'#FFFFFF');gold?.addColorStop(.5,'#FFE27A');gold?.addColorStop(1,'#FFB31F');c.fillStyle=gold||'#FFE27A';c.fillText(score,cx,sy+28,w-32);
+ const watch={x:x+20,y:y+h-106,width:w-40,height:50},skip={x:x+20,y:y+h-48,width:w-40,height:34};
+ c.fillStyle='#C9770A';c.beginPath();c.roundRect(watch.x,watch.y+5,watch.width,watch.height,18);c.fill();
+ const g2=c.createLinearGradient(0,watch.y,0,watch.y+watch.height);g2?.addColorStop(0,'#FFE27A');g2?.addColorStop(1,'#FFB31F');c.fillStyle=g2||'#FFD24D';c.beginPath();c.roundRect(watch.x,watch.y,watch.width,watch.height,18);c.fill();
+ c.font=`900 17px ${OCEAN.fonts.body}`;const label='看视频复活',lw=c.measureText(label).width,lx=cx-(lw+30)/2;drawIcon(c,'film',lx+11,watch.y+watch.height/2,22,'#5A2C00');c.fillStyle='#5A2C00';c.textAlign='left';c.fillText(label,lx+30,watch.y+watch.height/2);
+ canvasText(c,`还可复活 ${view.left} 次（每局 ${view.max} 次）· 复活后照常上榜`,cx,watch.y-14,w-28,11,'#7E93B5','center');
+ canvasText(c,'放弃，查看结算',cx,skip.y+skip.height/2,w-40,13,'#8FA6C8','center');
+ c.restore();return {watch,skip};
+}

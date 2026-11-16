@@ -64,7 +64,7 @@ export function mountGame(root: HTMLElement) {
           <button type="button" class="ts-card ts-campaign" data-pick="campaign"><span class="ts-icon">${iconSvg('flag')}</span><span class="ts-text"><strong>闯关模式</strong><span class="ts-desc">12 关逐关突破，冲击闯关榜</span><span class="ts-chips"><em>5 条命</em><em>12 关</em><em>闯关榜</em></span></span><span class="ts-go">${iconSvg('play')}</span><span class="ts-last">上次玩过</span></button>
           <button type="button" class="ts-card ts-endless" data-pick="endless"><span class="ts-icon">${iconSvg('infinity')}</span><span class="ts-text"><strong>无尽模式</strong><span class="ts-desc">砖墙不断下沉，坚持越久分越高</span><span class="ts-chips"><em>3 条命</em><em>无限阶段</em><em>无尽榜</em></span></span><span class="ts-go">${iconSvg('play')}</span><span class="ts-last">上次玩过</span></button>
         </div>
-        <div class="ts-tools"><button type="button" id="ts-board" class="ts-tool">${iconSvg('trophy')}<span>排行榜</span></button><button type="button" id="ts-sound" class="ts-tool" aria-pressed="false">${iconSvg('soundOn')}<span>音效开</span></button></div>
+        <div class="ts-tools"><button type="button" id="ts-board" class="ts-tool">${iconSvg('trophy')}<span>排行榜</span></button><button type="button" id="ts-sound" class="ts-tool" aria-pressed="false">${iconSvg('soundOn')}<span>音效开</span></button><button type="button" id="ts-music" class="ts-tool" aria-pressed="true">${iconSvg('music')}<span>音乐开</span></button></div>
         <p class="ts-foot">每局结束后可重新选择模式 · V${MINIGAME_VERSION}</p>
       </div>
     </section>
@@ -219,5 +219,10 @@ export function mountGame(root: HTMLElement) {
   button('tr-submit').onclick=()=>online?.showResult();
   button('ts-board').onclick=()=>root.querySelector<HTMLButtonElement>('header .trophy')?.click();
   button('ts-sound').onclick=()=>{button('mute').click();update(game);};
+  // Background music has its own switch (the speaker still mutes everything); remembered like mute.
+  const MUSIC_KEY='qiulegeqiu:music';
+  const showMusic=()=>{const on=game.audio.musicOn;button('ts-music').setAttribute('aria-pressed',String(on));button('ts-music').innerHTML=`${iconSvg('music')}<span>${on?'音乐开':'音乐关'}</span>`;};
+  try{if(localStorage.getItem(MUSIC_KEY)==='0')game.audio.setMusic(false);}catch{/* Preference only. */}showMusic();
+  button('ts-music').onclick=()=>{game.audio.unlock();game.audio.setMusic(!game.audio.musicOn);try{localStorage.setItem(MUSIC_KEY,game.audio.musicOn?'1':'0');}catch{/* Preference only. */}showMusic();};
   update(game); return game;
 }

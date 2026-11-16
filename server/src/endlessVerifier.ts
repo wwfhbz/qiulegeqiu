@@ -4,7 +4,7 @@ import {ENDLESS,ENDLESS_CURRENT,endlessSettings,dropEvery,endlessPower,endlessBo
 import {ScoreSystem} from '../../src/ScoreSystem.js';
 import {C} from '../../src/GameConfig.js';
 import {seededRandom,type PowerKind} from '../../src/PowerRules.js';
-import type {ChallengeEvent,ChallengeSummary} from '../../shared/Challenge.js';
+import {MAX_REVIVES,MAX_BOOSTS,BOOST_BALLS,type ChallengeEvent,type ChallengeSummary} from '../../shared/Challenge.js';
 import {ApiError} from './moderation.js';
 
 /**
@@ -20,6 +20,8 @@ export function verifyEndlessTrace(events:ChallengeEvent[],wallMs:number,seed:nu
   const dropRandom=seededRandom((seed>>>0^DROP_SALT)>>>0),bonusRandom=seededRandom((seed>>>0^BONUS_SALT)>>>0);let pendingRelief=false,expectBonus=false;let nextDropAt=dropEvery(0,variant),dropSequence=0;
   let lives:number=ENDLESS.lives,phase:'ready'|'running'|'gameOver'='ready',balls=0,peakBalls=1,lastTick=0,fieldTick=0,bricks=0,finished=false;
   let fireUntil=-1,lightningTick=-1,lightnings=0,hitTick=-1,tickHits=0,tickBallMax=0;
+  // Rewarded help: revives only on game over, boosts only on the launch right after a lost life.
+  let revives=0,boosts=0,launchTick=-1,boosted=false,afterLoss=false,lostRound=false;
   for(const e of events){
     if(finished||!Number.isSafeInteger(e.tick)||e.tick<lastTick||e.tick>6*3600/C.step||e.level!==1)throw new ApiError(422,'挑战事件顺序或关卡无效');
     // The wall moves at the start of each simulated tick, before any contact in that tick.
@@ -31,11 +33,13 @@ export function verifyEndlessTrace(events:ChallengeEvent[],wallMs:number,seed:nu
     for(let i=drops.length-1;i>=0;i--)if((e.tick-drops[i].tick)*C.step*C.power.fallSpeed>C.height+C.power.radius-drops[i].y+.02)drops.splice(i,1);
     if(e.tick!==hitTick){hitTick=e.tick;tickHits=0;tickBallMax=balls;}tickBallMax=Math.max(tickBallMax,balls);
     switch(e.type){
-      case 'launch':if(phase!=='ready')throw new ApiError(422,'重复发射或无效回合');if(e.tripleRuleVersion!==undefined||e.brickPowerVersion!==undefined)throw new ApiError(422,'无尽模式不使用闯关规则标记');phase='running';balls=1;
+      case 'launch':if(phase!=='ready')throw new ApiError(422,'重复发射或无效回合');if(e.tripleRuleVersion!==undefined||e.brickPowerVersion!==undefined)throw new ApiError(422,'无尽模式不使用闯关规则标记');phase='running';balls=1;launchTick=e.tick;boosted=false;afterLoss=lostRound;lostRound=false;
         if(pendingRelief){pendingRelief=false;field.relief(ENDLESS.reliefRows);expectBonus=true;}break;
       case 'crushed':
         if(!variant.crush||phase!=='running'||field.pressure<ENDLESS.crushTicks)throw new ApiError(422,'压线扣命无效');
-        lives--;phase=lives>0?'ready':'gameOver';balls=0;drops.length=0;dropSequence=0;score.resetCombo();pendingRelief=lives>0;fireUntil=-1;break;
+        lives--;phase=lives>0?'ready':'gameOver';balls=0;drops.length=0;dropSequence=0;score.resetCombo();pendingRelief=lives>0;fireUntil=-1;lostRound=true;break;
+      case 'revive':if(phase!=='gameOver'||lives!==0||revives>=MAX_REVIVES)throw new ApiError(422,'复活无效');revives++;lives=1;phase='ready';pendingRelief=true;lostRound=true;break;
+      case 'boost':if(phase!=='running'||e.tick!==launchTick||boosted||!afterLoss||boosts>=MAX_BOOSTS)throw new ApiError(422,'加球奖励无效');boosts++;boosted=true;balls=Math.min(C.maxBalls,balls+BOOST_BALLS);break;
       case 'bonus':{
         if(!expectBonus||e.kind!==endlessBonus(bonusRandom))throw new ApiError(422,'压线补偿奖励无效');expectBonus=false;
         if(e.kind==='plus3')balls=Math.min(C.maxBalls,balls+ENDLESS.plusBalls);
@@ -65,7 +69,7 @@ export function verifyEndlessTrace(events:ChallengeEvent[],wallMs:number,seed:nu
         break;
       }
       case 'ballLost':if(phase!=='running'||balls<=0)throw new ApiError(422,'重复弹球死亡');balls--;break;
-      case 'lost':if(phase!=='running'||balls!==0)throw new ApiError(422,'回合扣命无效');lives--;if(variant.pressureReset)field.pressure=0;phase=lives>0?'ready':'gameOver';drops.length=0;dropSequence=0;score.resetCombo();break;
+      case 'lost':if(phase!=='running'||balls!==0)throw new ApiError(422,'回合扣命无效');lives--;if(variant.pressureReset)field.pressure=0;phase=lives>0?'ready':'gameOver';drops.length=0;dropSequence=0;score.resetCombo();lostRound=true;break;
       case 'finish':if(phase!=='gameOver')throw new ApiError(422,'挑战尚未结束');finished=true;break;
       default:throw new ApiError(422,'无尽模式不支持该事件');
     }
