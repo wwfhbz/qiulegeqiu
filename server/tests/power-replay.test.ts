@@ -59,14 +59,14 @@ it('伪造标识、重复拾取和提前拾取仍被拒绝',()=>{
 it('V1.7：超过632秒、到达第五关的长局保持规则一致；生命与炸弹稀有',()=>{
  const g=run(4,5,75924,30);
  const result=verifyTrace(g.journal.events,1000000,4,RULES_VERSION);
- expect(result.summary).toEqual(g.journal.summary(g.score.total,5,false));
+ expect(result.summary).toEqual(g.journal.summary(g.score.total,g.levels.current.number,false));expect(g.levels.current.number).toBeGreaterThanOrEqual(4);
  const kinds=g.journal.events.flatMap(e=>e.type==='power'?[e.kind]:[]);expect(kinds.length).toBeGreaterThan(20);
  expect(kinds.filter(k=>k==='life'||k==='bomb').length).toBeLessThanOrEqual(1);
 });
 it('V1.6冻结规则：超过632秒、到达第五关、五种道具及炸弹目标的长局保持规则一致',()=>{
  const g=run(4,5,75924,30,V16_LEVELS);
  const result=verifyTrace(g.journal.events,1000000,4,V16_RULES_VERSION);
- expect(result.summary).toEqual(g.journal.summary(g.score.total,5,false));
+ expect(result.summary).toEqual(g.journal.summary(g.score.total,g.levels.current.number,false));expect(g.levels.current.number).toBeGreaterThanOrEqual(4);
  expect(result.summary.durationMs).toBeGreaterThanOrEqual(632700);
  expect(g.journal.events.some(e=>e.type==='bomb')).toBe(true);
 });

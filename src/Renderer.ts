@@ -8,6 +8,7 @@ import type { FxEvent } from './Effects';
 import { FRAME } from './WorldGeometry';
 import { VIEW } from './Viewport';
 import { PowerFx } from './PowerFx';
+import { Cell } from './campaign/Patterns';
 import { ENDLESS } from './endless/EndlessRules';
 import type {CanvasSurface,RendererHost} from './platform/Contracts';
 export type {RendererHost} from './platform/Contracts';
@@ -37,6 +38,8 @@ export type TrailSkin='none'|'comet'|'heart'|'rainbow';
 /** Paddle skins: default, neon light-saber, burning flame, royal gold. */
 export type PaddleSkin='default'|'neon'|'flame'|'gold';
 const PADDLE_GLOW:Record<Exclude<PaddleSkin,'default'>,string>={neon:'#C46CFF',flame:'#FF7A2E',gold:'#FFD24D'};
+/** Normal-brick bands on the 1.11 picture levels (no blue, purple, red or grey: those mean special bricks). */
+const PATTERN_BANDS=['#7FF5D6','#5EE6A8','#7FDB6A','#B5E25A','#E8D85A','#F5B94F'] as const;
 const TRAIL_GLOW:Record<Exclude<TrailSkin,'none'>,string>={comet:'#BDEBFF',heart:'#FF6FB1',rainbow:'#FFB3D4'};
 /** One petal: a pointed teardrop of length 2r around (x,y), turned by rot. */
 function petalPath(c:CanvasRenderingContext2D,x:number,y:number,r:number,rot:number){const cs=Math.cos(rot),sn=Math.sin(rot),P=(u:number,v:number)=>[x+u*cs-v*sn,y+u*sn+v*cs] as const;
@@ -171,7 +174,8 @@ export class Renderer {
    if(any)c.restore();
   }
   private lowDevice=false;private sampleCount=0;private sampleTime=0;private previousDraw=0;
-  private generation = -1; private cleared = 0;
+  private generation = -1; private cleared = 0; private cracked = 0;
+  private bossFlash = -1e9;
   // Wall-clock juice owned by the renderer, never by Physics.
   private seenSeq=-1;
   private rings:Ring[]=Array.from({length:RING_SLOTS},()=>({x:0,y:0,start:-1e9,duration:0,from:0,to:0,color:'#fff',width:1}));private ringCursor=0;
@@ -273,6 +277,48 @@ export class Renderer {
     }
     return this.bricks;
   }
+  /** Campaign 1.11 bricks: hard (blue 2-hit / purple 3-hit, cracks as they lose hits), steel and bomb. */
+  private paintSpecial(c:Ctx,x:number,y:number,size:number,kind:number,hp:number){
+    const r=Math.min(2.4,size*.2);
+    if(kind===Cell.Steel){
+      const g=c.createLinearGradient?.(0,y,0,y+size);g?.addColorStop(0,'#D5DCE8');g?.addColorStop(.5,'#9AA3B5');g?.addColorStop(1,'#5E6778');
+      c.fillStyle='#3A4150';c.beginPath();c.roundRect(x,y,size,size,r);c.fill();c.fillStyle=g||'#9AA3B5';c.beginPath();c.roundRect(x+.6,y+.5,size-1.2,size-1.4,Math.max(.5,r-.6));c.fill();
+      c.fillStyle='#4A5262';c.beginPath();c.arc(x+size/2,y+size/2,Math.max(.8,size*.12),0,Math.PI*2);c.fill();return;}
+    if(kind===Cell.Bomb){
+      this.paintBrick(c,x,y,size,'#E8283C');c.fillStyle='#2A0A10';c.beginPath();c.arc(x+size/2,y+size*.55,size*.28,0,Math.PI*2);c.fill();
+      c.fillStyle='#FFE27A';c.beginPath();c.arc(x+size*.68,y+size*.24,Math.max(.7,size*.1),0,Math.PI*2);c.fill();return;}
+    const three=kind===Cell.Hard3,color=three?'#8A4DFF':'#3C6BFF';
+    this.paintBrick(c,x,y,size,color);
+    // Metal frame (double on 3-hit bricks) and cracks for every hit already taken.
+    c.strokeStyle=three?'#E2CCFF':'#B9D0FF';c.lineWidth=Math.max(.6,size*.08);c.strokeRect(x+.9,y+.9,size-1.8,size-1.8);
+    if(three){c.lineWidth=Math.max(.4,size*.05);c.strokeRect(x+size*.26,y+size*.26,size*.48,size*.48);}
+    const lost=(three?3:2)-hp;
+    if(lost>0){c.strokeStyle='rgba(20,10,40,.85)';c.lineWidth=Math.max(.6,size*.09);c.beginPath();c.moveTo(x+size*.18,y+size*.22);c.lineTo(x+size*.5,y+size*.5);c.lineTo(x+size*.38,y+size*.8);
+      if(lost>1){c.moveTo(x+size*.5,y+size*.5);c.lineTo(x+size*.84,y+size*.36);}c.stroke();}
+  }
+  /** Boss: rotating steel rings with openings, a glowing core that flashes when hit, and its hit-point bar. */
+  private drawBoss(c:CanvasRenderingContext2D,p:Physics,now:number){
+    const boss=p.boss!,R=C.arena.radius;
+    boss.config.shields.forEach((s,i)=>{const r=s.radius*R,w=s.width*R,span=Math.PI*2/s.gaps,gap=s.gapDeg*Math.PI/180;
+      for(let g=0;g<s.gaps;g++){const a0=boss.angles[i]+g*span+gap/2,a1=a0+span-gap;
+        c.lineCap='round';c.strokeStyle='#3A4150';c.lineWidth=w+3;c.beginPath();c.arc(boss.x,boss.y,r,a0,a1);c.stroke();
+        c.strokeStyle=boss.stage?'#F2C4DA':'#C9D1E0';c.lineWidth=w;c.beginPath();c.arc(boss.x,boss.y,r,a0,a1);c.stroke();
+        c.strokeStyle='rgba(255,255,255,.55)';c.lineWidth=Math.max(1,w*.18);c.beginPath();c.arc(boss.x,boss.y,r-w*.22,a0,a1);c.stroke();}
+      c.lineCap='butt';});
+    if(!boss.alive)return;
+    const hit=Math.max(0,1-(now-this.bossFlash)/160),pulse=1+.04*Math.sin(now/220),rad=boss.radius*pulse;
+    const glow=this.glow(boss.stage?'#FF6FB1':'#FFB31F');if(glow){c.globalAlpha=.7;c.drawImage(glow as CanvasImageSource,boss.x-rad*2.4,boss.y-rad*2.4,rad*4.8,rad*4.8);c.globalAlpha=1;}
+    const g=c.createRadialGradient?.(boss.x-rad*.35,boss.y-rad*.35,rad*.1,boss.x,boss.y,rad);g?.addColorStop(0,'#FFF6C8');g?.addColorStop(.5,boss.stage>=2?'#FF6FB1':'#FFB31F');g?.addColorStop(1,boss.stage?'#B0246A':'#E0458F');
+    c.fillStyle=g||'#FFB31F';c.beginPath();c.arc(boss.x,boss.y,rad,0,Math.PI*2);c.fill();
+    if(hit>0){c.globalAlpha=hit*.8;c.fillStyle='#FFFFFF';c.beginPath();c.arc(boss.x,boss.y,rad,0,Math.PI*2);c.fill();c.globalAlpha=1;}
+    c.textAlign='center';c.textBaseline='middle';c.font=`900 ${Math.round(rad*.62)}px ${OCEAN.fonts.body}`;c.lineWidth=4;c.strokeStyle='rgba(60,10,40,.8)';c.strokeText(String(boss.hp),boss.x,boss.y+1);c.fillStyle='#FFFFFF';c.fillText(String(boss.hp),boss.x,boss.y+1);
+    // Hit-point bar along the top of the bowl.
+    const w=300,x=C.arena.x-w/2,y=C.arena.y-R+22,k=boss.hp/boss.config.hp;
+    c.fillStyle='rgba(10,6,30,.75)';c.beginPath();c.roundRect(x-6,y-14,w+12,32,12);c.fill();
+    c.font=`800 13px ${OCEAN.fonts.body}`;c.fillStyle='#FFD98A';c.textAlign='left';c.fillText(`BOSS · ${boss.config.name}`,x,y-3);c.textAlign='right';c.fillStyle='#FFFFFF';c.fillText(`${boss.hp}/${boss.config.hp}`,x+w,y-3);
+    c.fillStyle='rgba(255,255,255,.15)';c.fillRect(x,y+6,w,6);const bar=c.createLinearGradient?.(x,0,x+w,0);bar?.addColorStop(0,'#FF6FB1');bar?.addColorStop(1,'#FFB31F');c.fillStyle=bar||'#FF6FB1';c.fillRect(x,y+6,w*k,6);
+    c.textAlign='left';c.textBaseline='alphabetic';
+  }
   private paintBrick(c:Ctx,x:number,y:number,size:number,color:string,gradient=true){
     const r=Math.min(2.4,size*.2),inset=Math.max(.6,size*.08);
     c.fillStyle=shade(color,-.38);c.beginPath();c.roundRect(x,y,size,size,r);c.fill();
@@ -350,6 +396,11 @@ export class Renderer {
       case 'burn':case 'slash':case 'poof':this.powerFx.react(e,now);break;
       case 'crush':this.shake(12,now);this.flash(OCEAN.colors.danger,.35,now,500);this.dangerUntil=now+700;this.ring(e.x,e.y,now,600,20,a.radius,OCEAN.colors.danger,6);this.popup('clear','压线太久！','-1 生命',a.x,a.y,now,OCEAN.colors.danger,48,1400);break;
       case 'relief':this.flash(OCEAN.colors.accent,.22,now,350);this.ring(e.x,e.y,now,700,10,a.radius*.9,OCEAN.colors.accent,6);this.ring(e.x,e.y,now,900,10,a.radius*1.2,'#FFFFFF',3);this.popup('clear','解压！',`清除 ${e.value} 块砖`,a.x,a.y-120,now,OCEAN.colors.accent,46,1300);break;
+      case 'crack':break;
+      case 'blast':this.ring(e.x,e.y,now,380,4,e.value*1.4,'#FF7A2E',4);this.ring(e.x,e.y,now,260,2,e.value,'#FFE27A',2);this.shake(5,now);break;
+      case 'boss':this.bossFlash=now;this.ring(e.x,e.y,now,260,20,70,'#FFE27A',3);break;
+      case 'bossStage':this.bossFlash=now;this.shake(10,now);this.flash('#FF6FB1',.18,now,300);this.popup('clear','Boss 狂暴！','钢盾加速',a.x,a.y-140,now,'#FF6FB1',44,1300);break;
+      case 'bossDown':this.shake(14,now);this.flash('#FFFFFF',.4,now,500);for(let k=0;k<3;k++)this.ring(e.x,e.y,now+k*90,700,10,a.radius*(.5+k*.3),k?OCEAN.colors.warning:'#FFFFFF',6-k);this.popup('clear','Boss 击破！','+3000',a.x,a.y-150,now,OCEAN.colors.warning,54,1600);break;
       case 'hit':case 'descend':break;
     }
   }
@@ -367,17 +418,27 @@ export class Renderer {
         c.clearRect(0, 0, C.width, C.height);
         // Endless colours travel with each brick's world row; campaign uses the level's fixed bands.
         const field=p.endless,rowColor=(row:number)=>field?endlessBrickColor(field.worldRow(row)):brickColor(row,b.step,p.level.number);
-        const palette=field?[...new Set(Array.from({length:b.rows},(_,row)=>rowColor(row)))]:[...levelBandColors(p.level.number)],sprites=this.brickSprites(b.size,palette);
+        // Picture levels: normal bricks stay mint → green → gold so blue/purple hard bricks, red bombs and grey steel read clearly.
+        const palette=field?[...new Set(Array.from({length:b.rows},(_,row)=>rowColor(row)))]:p.level.pattern?[...PATTERN_BANDS]:[...levelBandColors(p.level.number)],sprites=this.brickSprites(b.size,palette);
         for (let row = 0; row < b.rows; row++) for (let col = 0; col < b.cols; col++) if(b.alive[row*b.cols+col]){
           const x=b.left+col*b.step,y=b.top+row*b.step,color=field?palette.indexOf(rowColor(row)):brickColorIndex(row,b.step);
-          if(sprites.length)c.drawImage(sprites[color] as CanvasImageSource,x,y,b.size,b.size);else this.paintBrick(c,x,y,b.size,palette[color],false);
+          const i=row*b.cols+col,kind=b.kinds[i];
+          if(kind>Cell.Normal)this.paintSpecial(c,x,y,b.size,kind,b.hp[i]);
+          else if(sprites.length)c.drawImage(sprites[color] as CanvasImageSource,x,y,b.size,b.size);else this.paintBrick(c,x,y,b.size,palette[color],false);
         }
-        this.generation = b.generation; this.cleared = b.destroyed.length;
+        this.generation = b.generation; this.cleared = b.destroyed.length; this.cracked = b.damaged.length;
       } else {
         // Clear only changed cells, using integral device pixels to avoid fringes.
         for (; this.cleared < b.destroyed.length; this.cleared++) {
           const i = b.destroyed[this.cleared], x = b.left + i % b.cols * b.step, y = b.top + Math.floor(i / b.cols) * b.step;
           c.clearRect(Math.floor(x*this.ratio)/this.ratio, Math.floor(y*this.ratio)/this.ratio, (Math.ceil((x+b.size)*this.ratio)-Math.floor(x*this.ratio))/this.ratio, (Math.ceil((y+b.size)*this.ratio)-Math.floor(y*this.ratio))/this.ratio);
+        }
+        // Cracked hard bricks: repaint the cell with one more crack.
+        for (; this.cracked < b.damaged.length; this.cracked++) {
+          const i = b.damaged[this.cracked]; if (!b.alive[i]) continue;
+          const x = b.left + i % b.cols * b.step, y = b.top + Math.floor(i / b.cols) * b.step;
+          c.clearRect(Math.floor(x*this.ratio)/this.ratio, Math.floor(y*this.ratio)/this.ratio, (Math.ceil((x+b.size)*this.ratio)-Math.floor(x*this.ratio))/this.ratio, (Math.ceil((y+b.size)*this.ratio)-Math.floor(y*this.ratio))/this.ratio);
+          this.paintSpecial(c, x, y, b.size, b.kinds[i], b.hp[i]);
         }
       }
       this.cachedRevision = b.revision;
@@ -426,10 +487,11 @@ export class Renderer {
         const w=220,k=left/(ENDLESS.crushTicks*C.step);c.globalAlpha=1;c.fillStyle='rgba(255,255,255,.15)';c.fillRect(a.x-w/2,y+44,w,5);c.fillStyle=OCEAN.colors.danger;c.fillRect(a.x-w/2,y+44,w*k,5);c.restore();}
     }
     if(!p.endless&&b.remaining>0&&b.remaining<=OCEAN.motion.lastBricks&&b.removed>0){
-      if(this.lastBricksRevision!==b.revision){this.lastBricks.length=0;for(let i=0;i<b.alive.length&&this.lastBricks.length<b.remaining;i++)if(b.alive[i])this.lastBricks.push(i);this.lastBricksRevision=b.revision;}
+      if(this.lastBricksRevision!==b.revision){this.lastBricks.length=0;for(let i=0;i<b.alive.length&&this.lastBricks.length<b.remaining;i++)if(b.alive[i]&&!b.isSteel(i))this.lastBricks.push(i);this.lastBricksRevision=b.revision;}
       const pulse=.5+.5*Math.sin(now/180);c.lineWidth=2;c.strokeStyle=rgba(OCEAN.colors.warning,.35+.45*pulse);
       for(const i of this.lastBricks){const x=b.left+i%b.cols*b.step+b.size/2,y=b.top+Math.floor(i/b.cols)*b.step+b.size/2;c.beginPath();c.arc(x,y,b.size*.9+6+pulse*6,0,Math.PI*2);c.stroke();}
     }
+    if(p.boss)this.drawBoss(c,p,now);
     for(const obstacle of p.obstacles.items){if(obstacle.destroyed)continue;const o=obstacle.config,half=(o.length-o.thickness)/2,color=o.kind==='rotating'?OCEAN.bricks[4]:o.kind==='moving'?OCEAN.bricks[1]:OCEAN.colors.secondary;c.save();c.translate(obstacle.x,obstacle.y);c.rotate(obstacle.angle);c.lineCap='round';c.beginPath();c.moveTo(-half,0);c.lineTo(half,0);c.lineWidth=o.thickness+6;c.strokeStyle=rgba(color,.18);c.stroke();c.lineWidth=o.thickness;c.strokeStyle=color;c.stroke();c.beginPath();c.moveTo(-half+3,0);c.lineTo(half-3,0);c.lineWidth=1.2;c.strokeStyle='rgba(255,255,255,.5)';c.stroke();c.restore();}
     if(p.effects.explosionRemaining>0){c.beginPath();c.arc(p.effects.explosionX,p.effects.explosionY,(.24-p.effects.explosionRemaining)*240,0,Math.PI*2);c.lineWidth=3;c.strokeStyle=OCEAN.colors.warning;c.stroke();}
     if(now<this.dangerUntil){const k=(this.dangerUntil-now)/520,g=this.glow(OCEAN.colors.danger);if(g){c.globalAlpha=.55*k;c.drawImage(g as CanvasImageSource,FRAME.left-80,FRAME.deathY-120,FRAME.right-FRAME.left+160,240);c.globalAlpha=1;}}
@@ -520,10 +582,10 @@ export class Renderer {
       c.save();c.globalAlpha=Math.min(1,hintAlpha/.7);c.textAlign='center';c.textBaseline='middle';
       const fontSize=Math.max(30,Math.min(46,16*VIEW.width/Math.max(1,this.host.viewport().width)));
       c.font=`700 ${fontSize}px ${OCEAN.fonts.body}`;
-      const width=Math.min(C.width-80,c.measureText(START_HINT).width+56),fresh=b.removed===0,cardH=fresh?fontSize*3.9:fontSize*1.7,top=a.y-cardH/2+(fresh?fontSize*.4:0);
+      const intro=b.removed===0&&!p.endless?p.level.intro:undefined,width=Math.min(C.width-80,Math.max(c.measureText(START_HINT).width+56,intro?c.measureText(intro).width*.62+56:0)),fresh=b.removed===0,cardH=fresh?fontSize*(intro?4.7:3.9):fontSize*1.7,top=a.y-cardH/2+(fresh?fontSize*.4:0);
       c.fillStyle='rgba(40,28,112,.9)';c.beginPath();c.roundRect(a.x-width/2,top,width,cardH,18);c.fill();
       c.strokeStyle=rgba(OCEAN.colors.gold,.85);c.lineWidth=2.5;c.stroke();
-      if(fresh){c.font=`800 ${Math.round(fontSize*.62)}px ${OCEAN.fonts.body}`;c.fillStyle=OCEAN.colors.warning;c.fillText(p.endless?'压迫下沉 · 3条命':`第 ${p.level.number} 关`,a.x,top+fontSize*.75);c.font=`900 ${Math.round(fontSize*1.35)}px ${OCEAN.fonts.body}`;c.fillStyle=OCEAN.colors.text;c.fillText(p.level.name,a.x,top+fontSize*1.85);}
+      if(fresh){c.font=`800 ${Math.round(fontSize*.62)}px ${OCEAN.fonts.body}`;c.fillStyle=OCEAN.colors.warning;c.fillText(p.endless?'压迫下沉 · 3条命':`第 ${p.level.number} 关`,a.x,top+fontSize*.75);c.font=`900 ${Math.round(fontSize*1.35)}px ${OCEAN.fonts.body}`;c.fillStyle=OCEAN.colors.text;c.fillText(p.level.name,a.x,top+fontSize*1.85);if(intro){c.font=`800 ${Math.round(fontSize*.56)}px ${OCEAN.fonts.body}`;c.fillStyle='#FFD98A';c.fillText(intro,a.x,top+fontSize*2.95,width-24);}}
       const blink=.75+.25*Math.sin(now/260);c.globalAlpha*=blink;c.font=`700 ${Math.round(fontSize*.72)}px ${OCEAN.fonts.body}`;c.fillStyle=OCEAN.colors.accent;c.fillText(START_HINT,a.x,top+cardH-fontSize*.78,width-24);c.restore();
     }
     c.setTransform(this.ratio,0,0,this.ratio,0,0);

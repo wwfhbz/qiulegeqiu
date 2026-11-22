@@ -13,6 +13,7 @@ import {readFileSync,mkdtempSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {seedRegions} from '../src/regions';
+import {breakAll} from '../../tests/helpers/BreakAll';
 const apps:Awaited<ReturnType<typeof createApp>>[]=[];afterEach(async()=>{for(const s of apps.splice(0))await s.app.close();});
 async function setup(){let clock=Date.now();const s=await createApp({dbPath:':memory:',secure:true,origin:'https://test.local',rateLimit:false,now:()=>clock});apps.push(s);return {...s,advance:()=>{clock+=12000;}};}
 async function client(s:Awaited<ReturnType<typeof setup>>,nickname:string){const r=await s.app.inject({url:'/api/me'}),headers={cookie:'__Secure-qlgq='+r.cookies[0].value,origin:'https://test.local','x-csrf-token':r.json().csrfToken};const p=await s.app.inject({method:'POST',url:'/api/players',headers,payload:{nickname,regionCode:'ISO:CN'}});expect(p.statusCode).toBe(201);return {headers,pid:p.json().id};}
@@ -32,7 +33,7 @@ it('已上线旧规则继续创建、上传、提交；新客户端不能伪报�
  const legacy=trace(LEGACY_RULES_VERSION,1),fresh=new Game();const index=legacy.physics.blocks.alive.findIndex((v,i)=>!!v&&!fresh.physics.blocks.alive[i]);const event=legacy.journal.events.find(e=>e.type==='hit')!;if(event.type==='hit')event.index=index;expect(index).toBeGreaterThanOrEqual(0);expect(()=>verifyTrace(legacy.journal.events,12000,legacy.journal.seed,RULES_VERSION)).toThrow();
  expect((await s.app.inject({url:'/api/leaderboard?rulesVersion=unknown'})).json().rankingScope).toBe('all-campaign-versions');expect((await s.app.inject({method:'POST',url:'/api/challenges',headers:c.headers,payload:{rulesVersion:'unknown'}})).statusCode).toBe(400);expect((await s.app.inject({url:'/api/me?rulesVersion=unknown'})).json().rankingScope).toBe('all-campaign-versions');
 });
-it('十二关完整日志在新规则验证成功，在旧十关规则下拒绝',()=>{const g=new Game();for(let n=1;n<=12;n++){g.start();for(let i=0;i<g.physics.blocks.alive.length;i++)g.physics.blocks.hit(i);g.update(0);if(n>2&&n<12)g.nextLevel();}expect(g.state).toBe('victory');const v=verifyTrace(g.journal.events,3600000,g.journal.seed,RULES_VERSION);expect(v.summary.reachedLevel).toBe(12);expect(v.summary.completedAllLevels).toBe(true);expect(v.summary.score).toBe(g.score.total);expect(()=>verifyTrace(g.journal.events,3600000,g.journal.seed,LEGACY_RULES_VERSION)).toThrow();});
+it('十二关完整日志在新规则验证成功，在旧十关规则下拒绝',()=>{const g=new Game();for(let n=1;n<=12;n++){g.start();breakAll(g);g.update(0);if(n>2&&n<12)g.nextLevel();}expect(g.state).toBe('victory');const v=verifyTrace(g.journal.events,3600000,g.journal.seed,RULES_VERSION);expect(v.summary.reachedLevel).toBe(12);expect(v.summary.completedAllLevels).toBe(true);expect(v.summary.score).toBe(g.score.total);expect(()=>verifyTrace(g.journal.events,3600000,g.journal.seed,LEGACY_RULES_VERSION)).toThrow();});
 it('004迁移幂等，只追加赛季表，原scores和player_bests数据完全不变',()=>{
  const dir=mkdtempSync(join(tmpdir(),'qq12-migration-')),path=join(dir,'board.sqlite');
  try{const old=new DatabaseSync(path);for(const [n,file] of [[1,'001-initial.sql'],[2,'002-challenge-seed.sql'],[3,'003-wechat.sql']] as const){old.exec(readFileSync('migrations/'+file,'utf8'));old.prepare('INSERT INTO schema_migrations VALUES(?,?)').run(n,1);}seedRegions(old);

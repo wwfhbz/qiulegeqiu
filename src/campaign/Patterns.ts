@@ -7,7 +7,7 @@ export const enum Cell { Empty=0, Normal=1, Hard2=2, Hard3=3, Steel=4, Bomb=5 }
 /** Boss: a core with hit points and rotating steel shield rings (each with one or two openings). */
 export interface BossShield {readonly radius:number;readonly width:number;readonly gaps:number;readonly gapDeg:number;readonly speed:number}
 export interface BossConfig {readonly name:string;readonly u:number;readonly v:number;readonly radius:number;readonly hp:number;readonly shields:readonly BossShield[]}
-export interface Pattern {readonly name:string;readonly shape:string;readonly cell:(u:number,v:number)=>Cell;readonly boss?:BossConfig}
+export interface Pattern {readonly name:string;readonly shape:string;readonly cell:(u:number,v:number)=>Cell;readonly boss?:BossConfig;/** Final boss: cells that grow back as 2-hit bricks each time it reaches a new stage. */readonly refill?:(u:number,v:number)=>boolean}
 
 const TAU=Math.PI*2;
 const len=(u:number,v:number)=>Math.hypot(u,v);
@@ -56,6 +56,7 @@ const PATTERNS:readonly Pattern[]=[
   if(d>.56){const a=bearing(u,v+.04);return Math.floor(a/(TAU/24))%2===0?Cell.Steel:Cell.Normal;}
   if(d<.2)return Cell.Bomb;return d<.38?Cell.Hard2:Cell.Normal;}},
  {name:'星核',shape:'最终Boss',cell:(u,v)=>{const d=len(u,v+.08);if(d>.9)return Cell.Empty;if(d<.56)return Cell.Empty;return d<.7?Cell.Hard3:Cell.Hard2;},
+  refill:(u,v)=>{const d=len(u,v+.08);return d>=.56&&d<.66;},
   boss:{name:'星核',u:0,v:-.08,radius:.17,hp:80,shields:[{radius:.3,width:.06,gaps:2,gapDeg:40,speed:.7},{radius:.45,width:.06,gaps:2,gapDeg:34,speed:-.5}]}},
 ];
 export const CAMPAIGN_PATTERNS=PATTERNS;

@@ -4,8 +4,9 @@ import { Game } from '../src/Game';
 import { centralActionFor, activateCentralAction } from '../src/CentralAction';
 import { C } from '../src/GameConfig';
 import { ARCADE } from '../src/ArcadeRules';
+import {breakAll} from './helpers/BreakAll';
 const lose = (g: Game) => { for (const b of g.physics.balls) b.alive = false; g.update(C.step); };
-const clear = (g: Game) => { for(let i=0;i<g.physics.blocks.alive.length;i++)g.physics.blocks.hit(i);g.update(0); };
+const clear = (g: Game) => { breakAll(g);g.update(0); };
 describe('中央状态动作', () => {
  it('首次等待显示开始，点击只发射现有球并隐藏',()=>{const g=new Game();expect(centralActionFor(g)?.label).toBe('▶ 开始游戏');const b=g.physics.balls[0];activateCentralAction(g);activateCentralAction(g);expect(g.state).toBe('running');expect(centralActionFor(g)).toBeNull();expect(g.physics.balls).toEqual([b]);expect(g.lives).toBe(3);});
  it('漏球后显示继续挑战，不重复扣命并保留得分',()=>{const g=new Game();activateCentralAction(g);g.physics.blocks.hit(g.physics.blocks.alive.findIndex(x=>x===1));lose(g);expect(g.lives).toBe(2);expect(g.readyReason).toBe('lifeLost');expect(centralActionFor(g)?.label).toBe('▶ 继续挑战');for(let i=0;i<10;i++)g.update(.1);activateCentralAction(g);activateCentralAction(g);expect(g.lives).toBe(2);expect(g.score.total).toBe(10);expect(g.physics.balls.length).toBe(1);expect(g.state).toBe('running');});

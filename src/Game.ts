@@ -11,6 +11,7 @@ import { Blocks } from './Blocks';
 import { EndlessField } from './endless/EndlessField';
 import { ENDLESS, ENDLESS_LEVEL, endlessStage, endlessVersion, REVIVE_BONUS_SALT, reviveBonus } from './endless/EndlessRules';
 import { seededRandom } from './PowerRules';
+import { BOSS_HIT_POINTS, BOSS_KILL_BONUS } from './campaign/Boss';
 import { RULES_VERSION, MAX_REVIVES, MAX_BOOSTS, BOOST_BALLS, MAX_SKIPS } from '../shared/Challenge';
 export type GameMode = 'campaign' | 'endless';
 
@@ -76,7 +77,10 @@ export class Game {
     this.physics.onSound = this.audio.play;
     this.physics.onStep = dt => { if (this.state === 'running') { this.score.update(dt); this.journal.tick++; } };
     // Endless bricks move, so the journal stores their stable world id instead of the grid slot.
-    this.physics.onBlockDestroyed = index => { const id=this.physics.endless?.worldId(index)??index; if (this.state === 'running' && this.score.hit(id)>0) this.journal.record({type:'hit',level:this.levels.current.number,index:id}); };
+    this.physics.onBlockDestroyed = index => { const id=this.physics.endless?.worldId(index)??index; if (this.state === 'running' && this.score.hit(id)>0) this.journal.record({type:'hit',level:this.levels.current.number,index:id,...(this.physics.blocks.lastCrushed?{crush:true as const}:{})}); };
+    // Campaign 1.11: cracks on hard bricks score per hit; boss core hits, stages and the kill are journaled too.
+    this.physics.onBlockDamaged = index => { if (this.state === 'running') { this.score.chip(); this.journal.record({type:'hit',level:this.levels.current.number,index},false); } };
+    this.physics.onBossHit = revived => { if (this.state !== 'running') return; this.score.chip(BOSS_HIT_POINTS); this.journal.record({type:'boss',level:this.levels.current.number}); if (revived.length) this.score.unscore(revived); if (!this.physics.boss?.alive) this.score.addBonus(BOSS_KILL_BONUS); };
     this.physics.onBallLost = () => { if(this.state==='running')this.journal.record({type:'ballLost',level:this.levels.current.number}); };
     this.physics.onPowerCollected = (kind,dropId) => { if(this.state==='running'&&this.roundActive&&this.physics.balls.some(ball=>ball.alive)){if(kind==='life')this.remainingLives=Math.min(this.maxLives,this.remainingLives+1);if(this.powerPoints)this.score.addPowerPoints();this.journal.record({type:'power',level:this.levels.current.number,kind,...(dropId===undefined?{}:{dropId})});} };
     this.physics.onBomb = target => { if(this.state==='running'){if(target===null)this.score.addBombCompensation();this.journal.record({type:'bomb',level:this.levels.current.number,target});} };
@@ -85,14 +89,14 @@ export class Game {
   /** +100 per caught power applies to the current campaign table and to endless variants that enable it. */
   /** Replays of seasons before +100-per-power turn this off, like the other per-season flags. */
   powerPointsEnabled = true;
-  get powerPoints(){if(!this.powerPointsEnabled)return false;const field=this.physics.endless;return field?!!field.variant.powerPoints:this.levels.isStandard;}
+  get powerPoints(){if(!this.powerPointsEnabled)return false;const field=this.physics.endless;return field?!!field.variant.powerPoints:this.levels.isThreeLife;}
   get rulesVersion(){return this.mode==='endless'?endlessVersion(this.physics.endless!.variant):RULES_VERSION;}
   /** Campaign lives: 3 on the current twelve levels; frozen seasons (replayed with their own level tables) kept 5. */
-  get campaignLives():number{return this.levels.isStandard&&!this.legacyLives?ARCADE.initialLives:LEGACY_LIVES;}
+  get campaignLives():number{return this.levels.isThreeLife&&!this.legacyLives?ARCADE.initialLives:LEGACY_LIVES;}
   /** Replays of seasons before 1.10 (5 lives) on the current level table; call before the first launch. */
   legacyLives=false;
   useLegacyLives(){this.legacyLives=true;if(this.mode==='campaign'&&!this.journal.events.length)this.remainingLives=LEGACY_LIVES;}
-  get maxLives():number{return this.mode==='endless'?ENDLESS.lives:this.levels.isStandard&&!this.legacyLives?ARCADE.maxLives:LEGACY_LIVES;}
+  get maxLives():number{return this.mode==='endless'?ENDLESS.lives:this.levels.isThreeLife&&!this.legacyLives?ARCADE.maxLives:LEGACY_LIVES;}
   /** Level for campaign; stage (+1 per 10 descended rows) for endless. Stored as the score's reached level. */
   get reachedLevel(){const field=this.physics.endless;return field?endlessStage(field.descents):this.levels.current.number;}
   /** Switch between the twelve-level campaign and endless mode; always starts a fresh run. */
@@ -145,7 +149,7 @@ export class Game {
   }
   skipsUsed = 0;
   /** Campaign only: a rewarded video may skip the current level (not the last one, at most MAX_SKIPS per run). */
-  get canSkip() { return this.mode === 'campaign' && this.levels.isStandard && !this.legacyLives && !this.levels.isFinal && this.skipsUsed < MAX_SKIPS && (this.state === 'ready' || this.state === 'running' || this.state === 'paused'); }
+  get canSkip() { return this.mode === 'campaign' && this.levels.isThreeLife && !this.legacyLives && !this.levels.isFinal && this.skipsUsed < MAX_SKIPS && (this.state === 'ready' || this.state === 'running' || this.state === 'paused'); }
   /** Skip to the next level: no clear or life bonus, lives and score carry over, the new level starts ready. */
   skipLevel() {
     if (!this.canSkip) return false;
@@ -177,7 +181,7 @@ export class Game {
     if (this.state === 'running') {
       this.physics.advance(dt);
       // Clear is checked first, including when the final ball leaves on the same tick.
-      if (this.physics.blocks.remaining === 0 && this.mode === 'campaign') {
+      if (this.physics.blocks.remaining === 0 && !this.physics.boss?.alive && this.mode === 'campaign') {
         this.roundActive = false;
         this.result = this.score.complete(this.lives);
         this.journal.record({type:'clear',level:this.levels.current.number});
