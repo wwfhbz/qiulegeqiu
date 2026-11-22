@@ -16,5 +16,7 @@ export class LevelManager {
   get count() { return this.configurations.length; }
   get isFinal() { return this.index === this.count - 1; }
   reset() { this.index = 0; }
+  /** Level map practice: start on any level (1-based). */
+  jump(number: number) { this.index = Math.max(0, Math.min(this.count - 1, number - 1)); }
   next() { if (this.isFinal) return false; this.index++; return true; }
 }

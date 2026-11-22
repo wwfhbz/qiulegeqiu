@@ -14,6 +14,8 @@ import { START_HINT, startFromPlayfield } from './PlayfieldStart';
 import { STATE_LABELS } from './GameState';
 import { ARCADE } from './ArcadeRules';
 import { fitGamePanel } from './ViewportLayout';
+import { CampaignProgress, MAX_STARS, starText } from './campaign/Progress';
+import { LEVELS } from './Levels';
 
 /** DOM presentation and inputs only; scoring, lives and levels are owned by Game. */
 export function mountGame(root: HTMLElement) {
@@ -38,10 +40,11 @@ export function mountGame(root: HTMLElement) {
       <div class="canvas-wrap"><canvas id="arena-canvas" aria-label="圆形弹球竞技场，移动鼠标或拖动控制挡板"></canvas>
         <span id="status" class="sr-only" role="status"></span><span id="removed" class="sr-only"></span><span id="total" class="sr-only"></span>
         <section id="settlement" class="settlement" aria-live="polite" hidden>
-          <h2 id="result-title"></h2><p id="result-tip"></p>
+          <h2 id="result-title"></h2><p id="result-stars" class="result-stars" hidden></p><p id="result-tip"></p>
           <div class="result-total"><span id="result-label"></span><strong id="result-score">0</strong></div><p id="score-details"></p>
         </section>
         <div id="central-layer" class="central-layer" hidden><button id="start" class="central-start" type="button" aria-controls="arena-canvas">开始游戏</button></div>
+        <div id="practice-actions" class="practice-actions" hidden><button type="button" id="pr-next" class="pr-primary">下一关 ▶</button><button type="button" id="pr-retry">再来一次</button><button type="button" id="pr-map">关卡地图</button></div>
       </div>
       <div class="touch-pad" id="touch-pad" role="presentation" data-fill><div class="power-info"><span id="wide"></span><span id="combo"></span><span id="limit-warn"></span></div><div class="pad-swipe" aria-hidden="true"><i class="chev left"><b></b><b></b><b></b></i><span class="pad-hint">左右滑动控制挡板</span><i class="chev right"><b></b><b></b><b></b></i></div></div>
     </section></div>
@@ -65,6 +68,7 @@ export function mountGame(root: HTMLElement) {
           <button type="button" class="ts-card ts-campaign" data-pick="campaign"><span class="ts-icon">${iconSvg('flag')}</span><span class="ts-text"><strong>闯关模式</strong><span class="ts-desc">12 关逐关突破，冲击闯关榜</span><span class="ts-chips"><em>3 条命</em><em>12 关</em><em>闯关榜</em></span></span><span class="ts-go">${iconSvg('play')}</span><span class="ts-last">上次玩过</span></button>
           <button type="button" class="ts-card ts-endless" data-pick="endless"><span class="ts-icon">${iconSvg('infinity')}</span><span class="ts-text"><strong>无尽模式</strong><span class="ts-desc">砖墙不断下沉，坚持越久分越高</span><span class="ts-chips"><em>3 条命</em><em>无限阶段</em><em>无尽榜</em></span></span><span class="ts-go">${iconSvg('play')}</span><span class="ts-last">上次玩过</span></button>
         </div>
+        <button type="button" id="ts-map" class="ts-map"><span class="ts-map-star">★</span><span>关卡地图 · 单关练习</span><b id="ts-map-stars">0/36</b></button>
         <div class="ts-tools"><button type="button" id="ts-settings" class="ts-tool">${iconSvg('gear')}<span>设置</span></button><button type="button" id="ts-skin" class="ts-tool">${iconSvg('spark')}<span>皮肤</span></button><button type="button" id="ts-board" class="ts-tool">${iconSvg('trophy')}<span>排行榜</span></button></div>
         <p class="ts-foot">每局结束后可重新选择模式 · V${MINIGAME_VERSION}</p>
       </div>
@@ -85,6 +89,12 @@ export function mountGame(root: HTMLElement) {
               <button type="button" id="set-music" class="st-row" role="switch" aria-checked="true">${iconSvg('music')}<span>音乐</span><i class="st-switch"></i></button>
               <button type="button" id="set-sfx" class="st-row" role="switch" aria-checked="true">${iconSvg('soundOn')}<span>音效</span><i class="st-switch"></i></button>
             </div>
+          </div>
+        </div>
+        <div id="level-map" class="level-map" role="dialog" aria-label="关卡地图" hidden>
+          <div class="lm-card"><div class="lm-head"><strong>关卡地图</strong><span id="lm-total" class="lm-total">★ 0/36</span><button type="button" id="lm-close" class="st-x" aria-label="关闭">✕</button></div>
+            <p class="lm-sub">单关练习不计排行榜 · 不丢命 ★★★ · 丢 1 条命 ★★ · 通关 ★</p>
+            <div id="lm-nodes" class="lm-nodes"></div>
           </div>
         </div>
         <div id="skin-picker" class="skin-picker" role="dialog" aria-label="皮肤" hidden>
@@ -145,7 +155,8 @@ export function mountGame(root: HTMLElement) {
     const locked = g.journal.events.length > 0 && g.state !== 'gameOver' && g.state !== 'victory';
     for(const b of modeButtons){b.setAttribute('aria-pressed',String(b.dataset.mode===g.mode));b.disabled=locked&&b.dataset.mode!==g.mode;b.title=locked?'本局结束后可切换模式':'';}
     // The mode picker owns the screen before the first run and after every finished run.
-    const ended = g.state === 'gameOver' || g.state === 'victory';
+    const ended = (g.state === 'gameOver' || g.state === 'victory') && !g.practice;
+    const practiceOver = g.practice && (g.state === 'gameOver' || g.state === 'levelComplete');
     // The same full-screen page doubles as the result page after every finished run.
     el('title-screen').hidden = !picking && !ended;
     el('title-screen').classList.toggle('result', ended && !picking);
@@ -159,7 +170,9 @@ export function mountGame(root: HTMLElement) {
     text('limit-warn', g.journal.truncated ? '记录已满，本局无法上榜' : g.journal.nearLimit ? '记录即将满额，请尽快结束本局' : '');
     steerWithKeys(g);
     const action = centralActionFor(g);
-    const showAction = action !== null && !picking && !ended;
+    const showAction = action !== null && !picking && !ended && !practiceOver;
+    el('practice-actions').hidden = !practiceOver || picking;
+    button('pr-next').hidden = !(g.state === 'levelComplete' && !g.levels.isFinal);
     el('central-layer').hidden = !showAction;
     button('start').classList.toggle('sr-only',g.state==='ready');
     button('start').hidden = !showAction;
@@ -171,8 +184,9 @@ export function mountGame(root: HTMLElement) {
     el('settlement').hidden = !completed && g.state !== 'gameOver';
     if (completed || g.state === 'gameOver') {
       text('result-title', GAME_NAME+' · '+(g.state === 'gameOver' ? '游戏结束' : g.state === 'victory' ? '全部关卡突破！' : `第${level.number}关突破成功`));
-      text('result-tip', g.state === 'gameOver' ? (field ? `坚持到第${g.reachedLevel}阶段，砖墙共下沉${field.descents}行。` : '生命已耗尽。在下方选择模式，开始新一局。') : g.state === 'victory' ? '最终核心已击碎，你完成了这次挑战。可在下方选择模式再来一局。' : `保留 ${g.lives} 条生命和累计分数，迎接下一关。`);
+      text('result-tip', g.practice ? (g.state === 'gameOver' ? '单关练习：生命耗尽，再来一次吧。' : '单关练习：不计排行榜，可以接着打下一关或再来一次。') : g.state === 'gameOver' ? (field ? `坚持到第${g.reachedLevel}阶段，砖墙共下沉${field.descents}行。` : '生命已耗尽。在下方选择模式，开始新一局。') : g.state === 'victory' ? '最终核心已击碎，你完成了这次挑战。可在下方选择模式再来一局。' : `保留 ${g.lives} 条生命和累计分数，迎接下一关。`);
       text('result-label', g.state === 'levelComplete' ? '本关得分' : '最终分数');
+      el('result-stars').hidden = !(completed && g.lastStars);text('result-stars', g.lastStars ? starText(g.lastStars) + (g.practice ? '　单关练习' : '') : '');
       text('result-score', String(g.state === 'levelComplete' ? g.result!.levelTotal : g.score.total));
       text('score-details', completed ? `本关得分 ${g.result!.blockScore} + 通关 ${g.result!.clearBonus} + 生命 ${g.result!.lifeBonus}　累计 ${g.score.total}` : (field ? `无尽模式 · 第${g.reachedLevel}阶段 · 消除 ${g.journal.bricksDestroyed} 块` : `本次到达第${level.number}关 · 累计 ${g.score.total} 分`));
     }
@@ -186,7 +200,7 @@ export function mountGame(root: HTMLElement) {
   wrap.style.aspectRatio = `${VIEW.width} / ${VIEW.height}`;
   fitGamePanel(root.querySelector('.stage-room')!, root.querySelector('.game-panel')!, wrap);
   // The strip under the arena steers the paddle too, so a thumb never has to cover it.
-  const game = new Game(createWebHost(root.querySelector('canvas')!,()=>!picking&&!document.hidden&&!online?.submitting&&!root.querySelector('dialog[open]')&&el('pause-menu').hidden&&el('skin-picker').hidden&&el('settings-menu').hidden,[el('touch-pad')]),update,undefined,new AudioSystem(createWebAudio));
+  const game = new Game(createWebHost(root.querySelector('canvas')!,()=>!picking&&!document.hidden&&!online?.submitting&&!root.querySelector('dialog[open]')&&el('pause-menu').hidden&&el('skin-picker').hidden&&el('settings-menu').hidden&&el('level-map').hidden,[el('touch-pad')]),update,undefined,new AudioSystem(createWebAudio));
   button('start').onclick = () => activateCentralAction(game);
   // One menu for pause: resume, restart, home, sound, music, skins, leaderboard (casual-game convention).
   const menuOpen = () => !el('pause-menu').hidden;
@@ -286,5 +300,24 @@ export function mountGame(root: HTMLElement) {
   button('ts-skin').onclick=()=>openOverlay('skin-picker');
   button('sp-close').onclick=()=>closeOverlay('skin-picker');
   el('skin-picker').onclick=e=>{if(e.target===el('skin-picker'))closeOverlay('skin-picker');};
+  // Level map: best stars per level (this browser only); open levels can be practised on their own (unranked).
+  const progress = new CampaignProgress({read:()=>{try{return localStorage.getItem('qiulegeqiu:stars');}catch{return null;}},write:v=>{try{localStorage.setItem('qiulegeqiu:stars',v);}catch{/* Preference only. */}}});
+  game.onLevelCleared = (level, stars) => { progress.record(level, stars); showStars(); };
+  const showStars = () => { text('ts-map-stars', `${progress.total}/${MAX_STARS}`); text('lm-total', `★ ${progress.total}/${MAX_STARS}`); };
+  const renderMap = () => {
+    el('lm-nodes').innerHTML = LEVELS.map((l, i) => {
+      const n = i + 1, open = progress.unlocked(n), stars = progress.stars[i], boss = !!l.pattern?.boss;
+      return `<button type="button" class="lm-node${boss ? ' boss' : ''}${open ? '' : ' locked'}${stars === 3 ? ' perfect' : ''}" data-level="${n}" ${open ? '' : 'disabled'} aria-label="第${n}关 ${l.name}${open ? '' : '（未解锁）'}"><span class="lm-num">${open ? n : '🔒'}</span><span class="lm-name">${l.name}</span><span class="lm-stars">${starText(stars)}</span>${boss ? '<em>BOSS</em>' : ''}</button>`;
+    }).join('');
+    for (const b of Array.from(el('lm-nodes').querySelectorAll<HTMLButtonElement>('[data-level]'))) b.onclick = () => { el('level-map').hidden = true; picking = false; game.startPractice(Number(b.dataset.level)); update(game); };
+  };
+  const openMap = () => { renderMap(); showStars(); el('level-map').hidden = false; };
+  button('ts-map').onclick = openMap;
+  button('lm-close').onclick = () => { el('level-map').hidden = true; };
+  el('level-map').onclick = e => { if (e.target === el('level-map')) el('level-map').hidden = true; };
+  button('pr-next').onclick = () => { game.nextLevel(); update(game); };
+  button('pr-retry').onclick = () => { game.startPractice(game.practiceLevel); update(game); };
+  button('pr-map').onclick = () => { game.reset(); picking = true; update(game); openMap(); };
+  showStars();
   update(game); return game;
 }

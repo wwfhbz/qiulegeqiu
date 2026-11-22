@@ -12,15 +12,17 @@ export function modePickerLayout(width:number,height:number,top:number,bottom:nu
  const side=width<=360?12:18,w=Math.min(420,width-side*2),x=(width-w)/2,room=bottom-top;
  const tight=room<560,cardH=tight?80:92,gap=tight?12:14,toolH=38,logoH=tight?46:58,tagH=tight?0:22;
  const hero=Math.max(70,Math.min(width*.5,200,room*(tight?.2:.26)));
- const content=hero+logoH+tagH+cardH*2+gap+toolH+18;
- const free=Math.max(0,room-content),step=free/6;// space-evenly over the six gaps around five blocks + footer
+ const mapH=44,content=hero+logoH+tagH+cardH*2+gap+mapH+toolH+18;
+ const free=Math.max(0,room-content),step=free/7;// space-evenly over the six gaps around five blocks + footer
  let y=top+step;
  const heroRect={x:(width-hero)/2,y,width:hero,height:hero};y+=hero+step;
  const logoY=y+logoH/2;y+=logoH;const tagY=y+tagH/2;y+=tagH+step;
  const rows=[0,1].map(i=>({x,y:y+i*(cardH+gap),width:w,height:cardH}));y+=cardH*2+gap+step;
+ // Level map: single-level practice and the star total.
+ const map={x,y,width:w,height:mapH};y+=mapH+step;
  // Three pills like the web title screen: 设置 · 皮肤 · 排行榜.
  const toolW=Math.min(108,(w-16)/3),tools=[0,1,2].map(i=>({x:width/2-toolW*1.5-8+i*(toolW+8),y,width:toolW,height:toolH}));y+=toolH+step;
- return {hero:heroRect,logoY,tagY:tagH?tagY:undefined,rows,tools,footY:Math.min(bottom-8,y+6),tight,compact:false};
+ return {hero:heroRect,logoY,tagY:tagH?tagY:undefined,rows,map,tools,footY:Math.min(bottom-8,y+6),tight,compact:false};
 }
 
 /**
@@ -122,7 +124,7 @@ export function drawResultPage(c:CanvasRenderingContext2D,width:number,height:nu
  c.restore();
 }
 
-export function drawModePicker(c:CanvasRenderingContext2D,width:number,height:number,v:ReturnType<typeof modePickerLayout>,selected:number,muted:boolean,now=0){
+export function drawModePicker(c:CanvasRenderingContext2D,width:number,height:number,v:ReturnType<typeof modePickerLayout>,selected:number,muted:boolean,now=0,stars='0/36'){
  c.save();backdrop(c,width,height,now);
  // Hero: a little arena with a brick dome, a bouncing ball, a sliding paddle and an orbiting spark.
  const h=v.hero,cx=h.x+h.width/2,cy=h.y+h.height/2,r=h.width/2;
@@ -145,6 +147,11 @@ export function drawModePicker(c:CanvasRenderingContext2D,width:number,height:nu
  if(v.tagY!==undefined)canvasText(c,'圆形弹球 · 击碎星际砖墙',width/2,v.tagY,width-40,13,'#A9C1DE','center');
 
  modeCards(c,v.rows,selected,v.tight,false,'上次玩过');
+ // Level map: gold-edged wide button with the star total.
+ {const m=v.map;const g=c.createLinearGradient(0,m.y,0,m.y+m.height);g?.addColorStop(0,'rgba(255,210,77,.18)');g?.addColorStop(1,'rgba(255,210,77,.05)');c.fillStyle=g||'rgba(255,210,77,.1)';c.strokeStyle='rgba(255,210,77,.6)';c.lineWidth=1.2;c.beginPath();c.roundRect(m.x,m.y,m.width,m.height,16);c.fill();c.stroke();
+  c.font=`900 19px ${OCEAN.fonts.body}`;c.textAlign='center';c.textBaseline='middle';c.fillStyle='#FFD24D';c.fillText('★',m.x+26,m.y+m.height/2+1);
+  c.font=`800 15px ${OCEAN.fonts.body}`;c.textAlign='left';c.fillStyle='#FFE9A8';c.fillText('关卡地图 · 单关练习',m.x+44,m.y+m.height/2+1,m.width-130);
+  c.font=`800 13px ${OCEAN.fonts.body}`;const sw=c.measureText(stars).width+20;c.fillStyle='rgba(0,0,0,.25)';c.beginPath();c.roundRect(m.x+m.width-sw-12,m.y+m.height/2-11,sw,22,11);c.fill();c.fillStyle='#FFD24D';c.textAlign='center';c.fillText(stars,m.x+m.width-12-sw/2,m.y+m.height/2+1);}
  void muted;pillTools(c,v.tools,[{label:'设置',icon:'gear',color:'#FFD24D'},{label:'皮肤',icon:'spark',color:'#FF8CC6'},{label:'排行榜',icon:'trophy',color:'#FFD24D'}]);
  canvasText(c,`每局结束后可重新选择模式 · V${MINIGAME_VERSION}`,width/2,v.footY,width-40,11,OCEAN.colors.muted,'center');
  c.restore();
@@ -175,4 +182,37 @@ export function drawReviveCard(c:CanvasRenderingContext2D,width:number,height:nu
  canvasText(c,`还可复活 ${view.left} 次（每局 ${view.max} 次）· 复活后照常上榜`,cx,watch.y-14,w-28,11,'#7E93B5','center');
  canvasText(c,'放弃，查看结算',cx,skip.y+skip.height/2,w-40,13,'#8FA6C8','center');
  c.restore();return {watch,skip};
+}
+
+export interface MapView {readonly names:readonly string[];readonly stars:readonly number[];readonly open:readonly boolean[];readonly boss:readonly boolean[];readonly total:number;readonly max:number}
+/**
+ * Level map (mirrors .level-map on the web): twelve nodes on a winding path, three per row, each with its best stars.
+ * Returns the node rectangles (index = level - 1) and the close button.
+ */
+export function drawLevelMap(c:CanvasRenderingContext2D,width:number,height:number,top:number,bottom:number,view:MapView,now=0){
+ c.save();backdrop(c,width,height,now);
+ const side=width<=360?10:16,w=Math.min(420,width-side*2),x=(width-w)/2,pad=12,head=54,sub=22;
+ const rows=4,cellW=(w-pad*2)/3,cellH=Math.max(78,Math.min(104,(bottom-top-head-sub-40)/rows)),h=head+sub+rows*cellH+pad*2,y=Math.max(top+4,top+(bottom-top-h)/2);
+ c.fillStyle='#5A2AB8';c.beginPath();c.roundRect(x,y+6,w,h,24);c.fill();
+ const bg=c.createLinearGradient(0,y,0,y+h);bg?.addColorStop(0,'#2A2266');bg?.addColorStop(.6,'#151A46');bg?.addColorStop(1,'#0E1236');c.fillStyle=bg||'#151A46';c.beginPath();c.roundRect(x,y,w,h,24);c.fill();c.strokeStyle='rgba(255,255,255,.14)';c.lineWidth=1;c.stroke();
+ c.font=`900 21px ${OCEAN.fonts.body}`;c.textAlign='center';c.textBaseline='middle';c.fillStyle='#FFFFFF';c.fillText('关卡地图',width/2-34,y+30);
+ const total=`★ ${view.total}/${view.max}`;c.font=`800 13px ${OCEAN.fonts.body}`;const tw=c.measureText(total).width+18;c.fillStyle='rgba(255,210,77,.16)';c.beginPath();c.roundRect(width/2+18,y+19,tw,22,11);c.fill();c.fillStyle='#FFD24D';c.fillText(total,width/2+18+tw/2,y+30);
+ const close={x:x+w-44,y:y+12,width:34,height:34};c.fillStyle='#9E1F33';c.beginPath();c.arc(close.x+17,close.y+19,16,0,Math.PI*2);c.fill();c.fillStyle='#E8384F';c.beginPath();c.arc(close.x+17,close.y+17,16,0,Math.PI*2);c.fill();
+ c.strokeStyle='#FFFFFF';c.lineWidth=3;c.lineCap='round';c.beginPath();c.moveTo(close.x+11,close.y+11);c.lineTo(close.x+23,close.y+23);c.moveTo(close.x+23,close.y+11);c.lineTo(close.x+11,close.y+23);c.stroke();c.lineCap='butt';
+ canvasText(c,'单关练习不计排行榜 · 不丢命★★★ · 丢1命★★ · 通关★',width/2,y+head+4,w-24,11,'#8FA6C8','center');
+ const nodes:Rect[]=[],centres:[number,number][]=[];
+ for(let i=0;i<view.names.length;i++){const row=Math.floor(i/3),k=i%3,col=row%2?2-k:k;const r={x:x+pad+col*cellW+4,y:y+head+sub+pad+row*cellH,width:cellW-8,height:cellH-8};nodes.push(r);centres.push([r.x+r.width/2,r.y+24]);}
+ // Path: dotted gold line through the node centres in level order.
+ c.setLineDash?.([4,6]);c.strokeStyle='rgba(255,210,77,.4)';c.lineWidth=2.5;c.beginPath();centres.forEach(([px,py],i)=>{if(i)c.lineTo(px,py);else c.moveTo(px,py);});c.stroke();c.setLineDash?.([]);
+ nodes.forEach((r,i)=>{const open=view.open[i],stars=view.stars[i],boss=view.boss[i],[cx,cy]=centres[i];
+  c.globalAlpha=open?1:.45;c.fillStyle=stars===3?'rgba(255,210,77,.12)':'rgba(255,255,255,.06)';c.strokeStyle=stars===3?'rgba(255,210,77,.6)':'rgba(255,255,255,.14)';c.lineWidth=1;c.beginPath();c.roundRect(r.x,r.y,r.width,r.height,16);c.fill();c.stroke();
+  c.fillStyle=open?(boss?'#A82A66':'#C9770A'):'rgba(0,0,0,.3)';c.beginPath();c.arc(cx,cy+3,18,0,Math.PI*2);c.fill();
+  const g=c.createLinearGradient(0,cy-18,0,cy+18);if(open){g?.addColorStop(0,boss?'#FF8CC6':'#FFE27A');g?.addColorStop(1,boss?'#E0458F':'#FFB31F');}c.fillStyle=open?(g||'#FFD24D'):'rgba(255,255,255,.14)';c.beginPath();c.arc(cx,cy,18,0,Math.PI*2);c.fill();
+  c.font=`900 ${open?17:13}px ${OCEAN.fonts.body}`;c.fillStyle=open?(boss?'#FFFFFF':'#5A2C00'):'#C9D6EE';c.fillText(open?String(i+1):'锁',cx,cy+1);
+  if(boss){c.font=`900 9px ${OCEAN.fonts.body}`;c.fillStyle='#FF8CC6';c.textAlign='right';c.fillText('BOSS',r.x+r.width-6,r.y+10);c.textAlign='center';}
+  c.font=`800 12px ${OCEAN.fonts.body}`;c.fillStyle='#EAF6FF';c.fillText(view.names[i],cx,r.y+r.height-28,r.width-8);
+  // Earned stars gold, missing ones grey (the hollow ☆ glyph is too close to ★ in some phone fonts).
+  c.font=`700 14px ${OCEAN.fonts.body}`;for(let k=0;k<3;k++){c.fillStyle=k<stars?'#FFD24D':'rgba(255,255,255,.2)';c.fillText('★',cx+(k-1)*16,r.y+r.height-11);}c.globalAlpha=1;});
+ c.restore();
+ return {nodes,close};
 }

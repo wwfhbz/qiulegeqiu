@@ -8,6 +8,7 @@ import {drawHud} from './GameChrome';
 import {HapticTracker} from '../../src/Haptics';
 import {VIEW,viewX,viewFraction} from '../../src/Viewport';
 const MODE_KEY='qiulegeqiu:wechat-mode:v1';
+const STARS_KEY='qiulegeqiu:wechat-stars:v1';
 const SETTING={music:'qiulegeqiu:wechat-music:v1',sfx:'qiulegeqiu:wechat-sfx:v1',vibrate:'qiulegeqiu:wechat-vibrate:v1',trail:'qiulegeqiu:wechat-trail:v1',trails:'qiulegeqiu:wechat-trails:v1',paddle:'qiulegeqiu:wechat-paddle:v1',paddles:'qiulegeqiu:wechat-paddles:v1',runs:'qiulegeqiu:wechat-runs:v1',guide:'qiulegeqiu:wechat-mp-guide:v1'};
 const REVIVE_TITLE='生命耗尽';
 import {OCEAN,brickColor} from '../../shared/VisualTheme';
@@ -37,6 +38,8 @@ import {MAX_REVIVES,MAX_SKIPS} from '../../shared/Challenge';
 import {TRAIL_SKINS,PADDLE_SKINS,isTrailSkin,isPaddleSkin,migratePaddle} from '../../shared/Skins';
 import type {TrailSkin,PaddleSkin} from '../../src/Renderer';
 import {privacy,agreement} from './Policies';
+import {CampaignProgress,MAX_STARS,STAR_SKIN_UNLOCKS} from '../../src/campaign/Progress';
+import {LEVELS} from '../../src/Levels';
 import type {Wx,Canvas,Config,TouchEvent} from './Platform';
 interface Region {code:string;prefix:string;name:string;hasChildren:boolean;path:string}
 // This ID is only an idempotency key, never an authentication credential.
@@ -44,7 +47,7 @@ function clientId(){return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/
 /** Candy key in custom colours (top, bottom, drop edge): the dark gear key and the pink skins key. */
 function flatCandy(c:CanvasRenderingContext2D,r:Rect,[top,bottom,edge]:[string,string,string]){c.fillStyle=edge;c.beginPath();c.roundRect(r.x,r.y+3,r.width,r.height,12);c.fill();const g=c.createLinearGradient(0,r.y,0,r.y+r.height);g?.addColorStop(0,top);g?.addColorStop(1,bottom);c.fillStyle=g||bottom;c.beginPath();c.roundRect(r.x,r.y,r.width,r.height,12);c.fill();c.strokeStyle='rgba(255,255,255,.22)';c.lineWidth=1;c.stroke();}
 export class MiniGameApp {
- readonly game:Game;readonly api:WechatApi;readonly panel=new Panel();readonly canvas:Canvas;
+ readonly game:Game;readonly progress:CampaignProgress;readonly api:WechatApi;readonly panel=new Panel();readonly canvas:Canvas;
  readonly platform:WechatPlatform;readonly profile:Profile;private cloud:CloudSync;private scoreShareImage?:string;private sharing=false;
  private rankingArt?:CanvasImageSource;
  private backgroundFill?:CanvasGradient|string;
@@ -61,6 +64,9 @@ export class MiniGameApp {
   this.ctx=context(this.canvas);context(this.arena);context(cache);
   this.api=new WechatApi(wx,config);this.profile=new Profile(wx);this.cloud=new CloudSync(wx,this.api);
   this.game=new Game(undefined,()=>{},undefined,this.platform.createAudio());
+  // Level map stars (this phone only; never part of scoring).
+  this.progress=new CampaignProgress({read:()=>{const v=this.platform.read(STARS_KEY);return typeof v==='string'?v:null;},write:v=>this.platform.write(STARS_KEY,v)});
+  this.game.onLevelCleared=(level,stars)=>{this.progress.record(level,stars);this.panel.mapStars=`${this.progress.total}/${MAX_STARS}`;};this.panel.mapStars=`${this.progress.total}/${MAX_STARS}`;
   // 2.9: the top-bar speaker is gone; an old master mute becomes "effects off + music off" in the menu switches.
   if(this.platform.read('qiulegeqiu:wechat-muted:v1')===true){this.platform.write(SETTING.sfx,false);this.platform.write(SETTING.music,false);this.platform.write('qiulegeqiu:wechat-muted:v1',false);}
   // Settings (each remembered): background music, sound effects, vibration, and the comet-tail skin.
@@ -87,9 +93,10 @@ export class MiniGameApp {
   // Before the first choice the picker stays up; if another panel closes over it, show it again.
   if(this.picking&&!this.panel.open)this.modePicker();
   else if(this.game.awaitingRevive&&this.panel.title!==REVIVE_TITLE&&!this.busy)this.revivePanel();
-  else if(!this.panel.open&&!this.busy&&(this.game.state==='gameOver'||this.game.state==='victory')&&this.lastEnd===this.game.journal.generation)this.resultPage();
+  else if(this.game.practice&&!this.panel.open&&!this.busy&&(this.game.state==='levelComplete'||this.game.state==='gameOver'))this.practicePanel();
+  else if(!this.game.practice&&!this.panel.open&&!this.busy&&(this.game.state==='gameOver'||this.game.state==='victory')&&this.lastEnd===this.game.journal.generation)this.resultPage();
   this.game.update(dt);this.haptics();if(this.online)this.sync.observe();if(!this.panel.ranking&&!this.panel.friend&&!this.titleOpen)this.renderer.draw(this.game.physics,this.game.state==='ready',now);this.draw(now);
-  if((this.game.state==='gameOver'||this.game.state==='victory')&&!this.game.awaitingRevive&&this.lastEnd!==this.game.journal.generation){this.lastEnd=this.game.journal.generation;this.result();}
+  if(!this.game.practice&&(this.game.state==='gameOver'||this.game.state==='victory')&&!this.game.awaitingRevive&&this.lastEnd!==this.game.journal.generation){this.lastEnd=this.game.journal.generation;this.result();}
   // The banner lives only at the bottom of the result page, never during play.
   if(this.panel.resultView&&!this.guide)this.ads.showBanner(this.view.width,this.view.height,this.view.bottom);else this.ads.hideBanner();
  }
@@ -110,10 +117,10 @@ export class MiniGameApp {
   // Long endless runs: warn before the record limit makes the run impossible to submit.
   if(g.journal.truncated||g.journal.nearLimit)canvasText(c,g.journal.truncated?'记录已满，本局无法上榜':'记录即将满额，请尽快结束本局',v.width/2,v.buttonsY-22,v.width-16,11,OCEAN.colors.warning,'center');
   const action=centralActionFor(g);
-  if(g.state==='levelComplete'&&g.result){c.fillStyle=OCEAN.colors.text;c.font='14px sans-serif';c.fillText(`第${g.levels.current.number}关突破！本关 ${g.result.levelTotal} 分`,v.width/2,v.arena.y+(C.arena.y-VIEW.y)*v.scale-38);}
+  if(g.state==='levelComplete'&&g.result){c.fillStyle=OCEAN.colors.text;c.font='14px sans-serif';c.fillText(`第${g.levels.current.number}关突破！本关 ${g.result.levelTotal} 分${g.lastStars?'  '+'★'.repeat(g.lastStars)+` ${g.lastStars}星`:''}`,v.width/2,v.arena.y+(C.arena.y-VIEW.y)*v.scale-38);}
   if(g.state==='paused'){c.fillStyle=OCEAN.alpha.veil;c.fillRect(v.arena.x,v.arena.y,v.arena.width,v.arena.height);}
   // After a finished run the central button reopens the mode picker instead of retrying the same mode.
-  const ended=g.state==='gameOver'||g.state==='victory';
+  const ended=(g.state==='gameOver'||g.state==='victory')&&!g.practice;
   if(ended&&!this.busy&&!this.panel.open){const centerY=v.arena.y+(C.arena.y-VIEW.y)*v.scale;button({x:v.width/2-70,y:centerY-22,width:140,height:44},'选择模式',()=>this.modePicker());}
   else if(action&&g.state!=='ready'&&!this.busy){const centerY=v.arena.y+(C.arena.y-VIEW.y)*v.scale;button({x:v.width/2-70,y:centerY-22,width:140,height:44},action.label.replace('▶ ',''),()=>void this.activate());}
   // After a lost life (never at a level start): an optional rewarded video for +3 balls on the next launch.
@@ -238,22 +245,25 @@ export class MiniGameApp {
   // Trail skins: each one unlocked once by a rewarded video, then freely switched (only the look changes).
   const unlocked=this.unlockedTrails(),current=this.selectedTrail();
   for(const skin of TRAIL_SKINS){if(unlocked.includes(skin.id))actions.push({label:`${skin.name}拖尾：${current===skin.id?'使用中':'使用'}`,half:true,run:()=>{this.useTrail(skin.id);this.skins();}});
-   else if(this.ads.rewardedAvailable)actions.push({label:`▶ 看视频解锁${skin.name}拖尾`,half:true,tone:'outline',run:()=>void this.watchReward(`trail:${skin.id}`)});}
+   else{if(this.ads.rewardedAvailable)actions.push({label:`▶ 看视频解锁${skin.name}拖尾`,half:true,tone:'outline',run:()=>void this.watchReward(`trail:${skin.id}`)});actions.push(this.starLock(`trail:${skin.id}`,`${skin.name}拖尾`));}}
   if(unlocked.length&&current!=='none')actions.push({label:'不使用拖尾',half:true,run:()=>{this.useTrail('none');this.skins();}});
   const paddles=this.unlockedPaddles(),paddle=this.selectedPaddle();
   for(const skin of PADDLE_SKINS){if(paddles.includes(skin.id))actions.push({label:`${skin.name}：${paddle===skin.id?'使用中':'使用'}`,half:true,run:()=>{this.usePaddle(skin.id);this.skins();}});
-   else if(this.ads.rewardedAvailable)actions.push({label:`▶ 看视频解锁${skin.name}`,half:true,tone:'outline',run:()=>void this.watchReward(`paddle:${skin.id}`)});}
+   else{if(this.ads.rewardedAvailable)actions.push({label:`▶ 看视频解锁${skin.name}`,half:true,tone:'outline',run:()=>void this.watchReward(`paddle:${skin.id}`)});actions.push(this.starLock(`paddle:${skin.id}`,skin.name));}}
   if(paddles.length&&paddle!=='default')actions.push({label:'默认挡板',half:true,run:()=>{this.usePaddle('default');this.skins();}});
   actions.push({label:'完成',primary:true,run:()=>{this.panel.close();if(this.overlayResume&&this.game.state==='paused')this.game.start();this.overlayResume=false;this.previous=0;}});
-  const any=this.unlockedTrails().length+paddles.length>0||this.ads.rewardedAvailable;
-  this.panel.show('皮肤',any?['拖尾：流星 · 爱心 · 花瓣    挡板：霓虹光剑 · 烈焰燃烧 · 黄金荣耀','每款看一次视频永久解锁，只改外观，不影响成绩。']:['开通广告后可看视频解锁皮肤。'],actions);
+  this.panel.show('皮肤',[`关卡地图攒星解锁${this.ads.rewardedAvailable?'，或看一次视频解锁':''} · 当前 ★${this.progress.total}`,'只改外观，不影响成绩。'],actions);
  }
- private unlockedPaddles():Exclude<PaddleSkin,'default'>[]{const list=this.platform.read(SETTING.paddles);return Array.isArray(list)?[...new Set(list.map(migratePaddle))].filter((v):v is Exclude<PaddleSkin,'default'>=>isPaddleSkin(v)&&v!=='default'):[];}
+ private unlockedPaddles():Exclude<PaddleSkin,'default'>[]{const list=this.platform.read(SETTING.paddles);const own=Array.isArray(list)?[...new Set(list.map(migratePaddle))].filter((v):v is Exclude<PaddleSkin,'default'>=>isPaddleSkin(v)&&v!=='default'):[];return [...new Set([...own,...PADDLE_SKINS.map(s=>s.id).filter(id=>this.starUnlocked('paddle:'+id))])];}
+ /** A locked skin: shows how many stars it needs; tapping says how many are still missing. */
+ private starLock(key:string,name:string):Action{const need=STAR_SKIN_UNLOCKS[key]??MAX_STARS;return {label:`★${need} 解锁${name}`,half:true,tone:'outline',run:()=>this.toast(`再拿 ${Math.max(0,need-this.progress.total)} 颗星解锁${name}`)};}
+ /** Skins also unlock by collecting stars on the level map (no video needed). */
+ private starUnlocked(key:string){const need=STAR_SKIN_UNLOCKS[key];return need!==undefined&&this.progress.total>=need;}
  private selectedPaddle():PaddleSkin{const v=migratePaddle(this.platform.read(SETTING.paddle));return isPaddleSkin(v)&&(v==='default'||this.unlockedPaddles().includes(v))?v:'default';}
  private usePaddle(id:PaddleSkin){this.platform.write(SETTING.paddle,id);this.renderer.paddleSkin=id;}
  /** Unlocked trail skins (the 2.7 comet setting counts as an unlocked comet). */
  private unlockedTrails():Exclude<TrailSkin,'none'>[]{const list=this.platform.read(SETTING.trails),legacy=this.platform.read(SETTING.trail);
-  const ids=Array.isArray(list)?list.filter((v):v is Exclude<TrailSkin,'none'>=>isTrailSkin(v)&&v!=='none'):[];if((legacy==='on'||legacy==='off')&&!ids.includes('comet'))ids.push('comet');return ids;}
+  const ids=Array.isArray(list)?list.filter((v):v is Exclude<TrailSkin,'none'>=>isTrailSkin(v)&&v!=='none'):[];if((legacy==='on'||legacy==='off')&&!ids.includes('comet'))ids.push('comet');for(const t of TRAIL_SKINS)if(!ids.includes(t.id)&&this.starUnlocked('trail:'+t.id))ids.push(t.id);return ids;}
  private selectedTrail():TrailSkin{const v=this.platform.read(SETTING.trail);if(v==='on')return 'comet';return isTrailSkin(v)&&(v==='none'||this.unlockedTrails().includes(v))?v:'none';}
  private useTrail(id:TrailSkin){this.platform.write(SETTING.trail,id);this.renderer.trail=id;}
  /** Interstitials only at a natural pause (opening the menu), never in the first 3 runs and at most every 3 minutes. */
@@ -335,10 +345,19 @@ export class MiniGameApp {
  }
  /** The mode picker panel; it has no close button, so a mode must be chosen to play. */
  /** Full-screen pages (mode picker and result page) cover the game, HUD and top bar. */
- private get titleOpen(){return this.panel.title==='选择游戏模式'||!!this.panel.resultView;}
+ private get titleOpen(){return this.panel.title==='选择游戏模式'||!!this.panel.resultView||!!this.panel.mapView;}
  private modePicker(){this.picking=true;const last=this.game.mode;this.panel.show('选择游戏模式',['闯关模式：12 关逐关突破 · 3 条命 · 闯关榜','无尽模式：砖墙不断下沉 · 3 条命 · 无尽榜','每局结束后可重新选择模式'],[
   {label:(last==='campaign'?'▶ ':'')+'闯关模式',run:()=>this.chooseMode('campaign')},{label:(last==='endless'?'▶ ':'')+'无尽模式',run:()=>this.chooseMode('endless')},
-  {label:'设置',run:()=>this.settings()},{label:'皮肤',run:()=>this.skins()},{label:'排行榜',run:()=>void this.board()}]);}
+  {label:'关卡地图',run:()=>this.levelMap()},{label:'设置',run:()=>this.settings()},{label:'皮肤',run:()=>this.skins()},{label:'排行榜',run:()=>void this.board()}]);}
+ /** Level map: open levels start a single-level practice run (unranked, never uploaded). */
+ private levelMap(){const p=this.progress;this.panel.mapStars=`${p.total}/${MAX_STARS}`;
+  this.panel.showMap([{label:'关闭',run:()=>this.modePicker()},...LEVELS.map(l=>({label:`第${l.number}关`,run:()=>{if(!p.unlocked(l.number))return;this.picking=false;this.online=false;this.lastEnd=-1;this.panel.close();this.game.startPractice(l.number);this.renderer.resize();}}))],
+   {names:LEVELS.map(l=>l.name),stars:p.stars,open:LEVELS.map(l=>p.unlocked(l.number)),boss:LEVELS.map(l=>!!l.pattern?.boss),total:p.total,max:MAX_STARS});}
+ /** End of a practice level: stars, then next level / retry / back to the map. */
+ private practicePanel(){const g=this.game,n=g.levels.current.number,cleared=g.state==='levelComplete',actions:Action[]=[];
+  if(cleared&&!g.levels.isFinal)actions.push({label:'下一关',icon:'play',primary:true,run:()=>{this.panel.close();g.nextLevel();this.renderer.resize();}});
+  actions.push({label:'再来一次',icon:'restart',primary:!cleared||g.levels.isFinal,run:()=>{this.panel.close();g.startPractice(n);this.renderer.resize();}},{label:'关卡地图',icon:'flag',run:()=>{g.reset();this.levelMap();}});
+  this.panel.show(cleared?`第${n}关 · ${g.levels.current.name}  ${'★'.repeat(g.lastStars)}`:`第${n}关 · 练习失败`,[cleared?(g.lastStars===3?'完美！3 星，没有丢命':g.lastStars===2?'2 星：丢了 1 条命，不丢命可得 3 星':'1 星：少丢命可以拿更多星'):'生命耗尽，再试一次吧',`单关练习不计排行榜 · 总星数 ${this.progress.total}/${MAX_STARS}`],actions);}
  private async history(){return this.task(async()=>{
   this.me=await this.api.me();const lines=scoreHistoryLines(this.me.historicalBests,this.me.historicalBest);
   this.panel.show('个人历史记录',lines.length?[...lines,'历史有效成绩已参与所属模式永久统一排行榜。']:['暂无旧版有效记录'],[{label:'返回设置',run:()=>this.settings()}]);
