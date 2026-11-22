@@ -24,5 +24,16 @@ export class CampaignProgress {
     return true;
   }
 }
-/** WeChat: star totals that also unlock each skin (the alternative to a rewarded video). */
-export const STAR_SKIN_UNLOCKS: Readonly<Record<string, number>> = { 'trail:comet': 6, 'paddle:neon': 12, 'trail:heart': 18, 'paddle:flame': 24, 'trail:rainbow': 30, 'paddle:gold': 36 };
+/** WeChat paddles unlock by the lifetime star total alone. */
+export const STAR_SKIN_UNLOCKS: Readonly<Record<string, number>> = { 'paddle:neon': 12, 'paddle:flame': 24, 'paddle:gold': 36 };
+/** V2.15 thresholds at which trails unlocked by stars alone (kept for players who earned them then). */
+export const LEGACY_TRAIL_STAR_UNLOCKS: Readonly<Record<string, number>> = { comet: 6, heart: 18, rainbow: 30 };
+/**
+ * WeChat trails need 12 lifetime stars first. Then a rewarded video unlocks one for good; while no rewarded video
+ * is available, 3 stars buy 24 hours of use instead (spent stars come off the balance, never off the lifetime total).
+ */
+export const TRAIL_STAR_GATE = 12, TRAIL_TRIAL_COST = 3, TRAIL_TRIAL_MS = 24 * 3600 * 1000;
+/** Stars left to spend: lifetime total minus what trials have used. */
+export function starBalance(total: number, spent: number) { return Math.max(0, total - Math.max(0, spent)); }
+/** Hours (rounded up) left on a trial, 0 when expired or never bought. */
+export function trialHoursLeft(expiresAt: number | undefined, now: number) { return expiresAt && expiresAt > now ? Math.ceil((expiresAt - now) / 3600000) : 0; }

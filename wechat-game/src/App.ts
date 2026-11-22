@@ -8,7 +8,7 @@ import {drawHud} from './GameChrome';
 import {HapticTracker} from '../../src/Haptics';
 import {VIEW,viewX,viewFraction} from '../../src/Viewport';
 const MODE_KEY='qiulegeqiu:wechat-mode:v1';
-const STARS_KEY='qiulegeqiu:wechat-stars:v1';
+const STARS_KEY='qiulegeqiu:wechat-stars:v1',STARS_SPENT_KEY='qiulegeqiu:wechat-stars-spent:v1',TRIALS_KEY='qiulegeqiu:wechat-trail-trials:v1',TRAIL_GRANDFATHER_KEY='qiulegeqiu:wechat-trail-stars-kept:v1';
 const SETTING={music:'qiulegeqiu:wechat-music:v1',sfx:'qiulegeqiu:wechat-sfx:v1',vibrate:'qiulegeqiu:wechat-vibrate:v1',trail:'qiulegeqiu:wechat-trail:v1',trails:'qiulegeqiu:wechat-trails:v1',paddle:'qiulegeqiu:wechat-paddle:v1',paddles:'qiulegeqiu:wechat-paddles:v1',runs:'qiulegeqiu:wechat-runs:v1',guide:'qiulegeqiu:wechat-mp-guide:v1'};
 const REVIVE_TITLE='生命耗尽';
 import {OCEAN,brickColor} from '../../shared/VisualTheme';
@@ -38,7 +38,7 @@ import {MAX_REVIVES,MAX_SKIPS} from '../../shared/Challenge';
 import {TRAIL_SKINS,PADDLE_SKINS,isTrailSkin,isPaddleSkin,migratePaddle} from '../../shared/Skins';
 import type {TrailSkin,PaddleSkin} from '../../src/Renderer';
 import {privacy,agreement} from './Policies';
-import {CampaignProgress,MAX_STARS,STAR_SKIN_UNLOCKS} from '../../src/campaign/Progress';
+import {CampaignProgress,MAX_STARS,STAR_SKIN_UNLOCKS,LEGACY_TRAIL_STAR_UNLOCKS,TRAIL_STAR_GATE,TRAIL_TRIAL_COST,TRAIL_TRIAL_MS,starBalance,trialHoursLeft} from '../../src/campaign/Progress';
 import {LEVELS} from '../../src/Levels';
 import type {Wx,Canvas,Config,TouchEvent} from './Platform';
 interface Region {code:string;prefix:string;name:string;hasChildren:boolean;path:string}
@@ -67,6 +67,8 @@ export class MiniGameApp {
   // Level map stars (this phone only; never part of scoring).
   this.progress=new CampaignProgress({read:()=>{const v=this.platform.read(STARS_KEY);return typeof v==='string'?v:null;},write:v=>this.platform.write(STARS_KEY,v)});
   this.game.onLevelCleared=(level,stars)=>{this.progress.record(level,stars);this.panel.mapStars=`${this.progress.total}/${MAX_STARS}`;};this.panel.mapStars=`${this.progress.total}/${MAX_STARS}`;
+  // V2.15 unlocked trails by stars alone: keep those for good, once (new unlocks follow the 12-star + video rule).
+  if(this.platform.read(TRAIL_GRANDFATHER_KEY)!==true){const own=this.platform.read(SETTING.trails),list:string[]=Array.isArray(own)?own.filter((v):v is string=>typeof v==='string'&&isTrailSkin(v)):[];for(const [id,need] of Object.entries(LEGACY_TRAIL_STAR_UNLOCKS))if(this.progress.total>=need&&!list.includes(id))list.push(id);this.platform.write(SETTING.trails,list);this.platform.write(TRAIL_GRANDFATHER_KEY,true);}
   // 2.9: the top-bar speaker is gone; an old master mute becomes "effects off + music off" in the menu switches.
   if(this.platform.read('qiulegeqiu:wechat-muted:v1')===true){this.platform.write(SETTING.sfx,false);this.platform.write(SETTING.music,false);this.platform.write('qiulegeqiu:wechat-muted:v1',false);}
   // Settings (each remembered): background music, sound effects, vibration, and the comet-tail skin.
@@ -95,7 +97,7 @@ export class MiniGameApp {
   else if(this.game.awaitingRevive&&this.panel.title!==REVIVE_TITLE&&!this.busy)this.revivePanel();
   else if(this.game.practice&&!this.panel.open&&!this.busy&&(this.game.state==='levelComplete'||this.game.state==='gameOver'))this.practicePanel();
   else if(!this.game.practice&&!this.panel.open&&!this.busy&&(this.game.state==='gameOver'||this.game.state==='victory')&&this.lastEnd===this.game.journal.generation)this.resultPage();
-  this.game.update(dt);this.haptics();if(this.online)this.sync.observe();if(!this.panel.ranking&&!this.panel.friend&&!this.titleOpen)this.renderer.draw(this.game.physics,this.game.state==='ready',now);this.draw(now);
+  this.game.update(dt);this.haptics();this.checkTrialExpiry(now);if(this.online)this.sync.observe();if(!this.panel.ranking&&!this.panel.friend&&!this.titleOpen)this.renderer.draw(this.game.physics,this.game.state==='ready',now);this.draw(now);
   if(!this.game.practice&&(this.game.state==='gameOver'||this.game.state==='victory')&&!this.game.awaitingRevive&&this.lastEnd!==this.game.journal.generation){this.lastEnd=this.game.journal.generation;this.result();}
   // The banner lives only at the bottom of the result page, never during play.
   if(this.panel.resultView&&!this.guide)this.ads.showBanner(this.view.width,this.view.height,this.view.bottom);else this.ads.hideBanner();
@@ -244,17 +246,35 @@ export class MiniGameApp {
  private skins(){const actions:Action[]=[];if(this.game.state==='running'){this.game.pause();this.overlayResume=true;}
   // Trail skins: each one unlocked once by a rewarded video, then freely switched (only the look changes).
   const unlocked=this.unlockedTrails(),current=this.selectedTrail();
-  for(const skin of TRAIL_SKINS){if(unlocked.includes(skin.id))actions.push({label:`${skin.name}拖尾：${current===skin.id?'使用中':'使用'}`,half:true,run:()=>{this.useTrail(skin.id);this.skins();}});
-   else{if(this.ads.rewardedAvailable)actions.push({label:`▶ 看视频解锁${skin.name}拖尾`,half:true,tone:'outline',run:()=>void this.watchReward(`trail:${skin.id}`)});actions.push(this.starLock(`trail:${skin.id}`,`${skin.name}拖尾`));}}
+  for(const skin of TRAIL_SKINS){const trial=this.ownedTrails().includes(skin.id)?0:trialHoursLeft(this.trials()[skin.id],Date.now());if(unlocked.includes(skin.id))actions.push({label:`${skin.name}拖尾：${current===skin.id?'使用中':'使用'}${trial?` · 剩${trial}小时`:''}`,half:true,run:()=>{this.useTrail(skin.id);this.skins();}});
+   else actions.push(this.trailLock(skin.id,skin.name));}
   if(unlocked.length&&current!=='none')actions.push({label:'不使用拖尾',half:true,run:()=>{this.useTrail('none');this.skins();}});
   const paddles=this.unlockedPaddles(),paddle=this.selectedPaddle();
   for(const skin of PADDLE_SKINS){if(paddles.includes(skin.id))actions.push({label:`${skin.name}：${paddle===skin.id?'使用中':'使用'}`,half:true,run:()=>{this.usePaddle(skin.id);this.skins();}});
-   else{if(this.ads.rewardedAvailable)actions.push({label:`▶ 看视频解锁${skin.name}`,half:true,tone:'outline',run:()=>void this.watchReward(`paddle:${skin.id}`)});actions.push(this.starLock(`paddle:${skin.id}`,skin.name));}}
+   else actions.push(this.starLock(`paddle:${skin.id}`,skin.name));}
   if(paddles.length&&paddle!=='default')actions.push({label:'默认挡板',half:true,run:()=>{this.usePaddle('default');this.skins();}});
   actions.push({label:'完成',primary:true,run:()=>{this.panel.close();if(this.overlayResume&&this.game.state==='paused')this.game.start();this.overlayResume=false;this.previous=0;}});
-  this.panel.show('皮肤',[`关卡地图攒星解锁${this.ads.rewardedAvailable?'，或看一次视频解锁':''} · 当前 ★${this.progress.total}`,'只改外观，不影响成绩。'],actions);
+  this.panel.show('皮肤',[`挡板：攒星解锁 · 拖尾：满 ${TRAIL_STAR_GATE} 星后${this.ads.rewardedAvailable?'看一次视频永久解锁':`花 ${TRAIL_TRIAL_COST} 星试用 24 小时`}`,`累计 ★${this.progress.total} · 可用 ★${this.starsAvailable}（试用会花掉星星）`],actions);
  }
  private unlockedPaddles():Exclude<PaddleSkin,'default'>[]{const list=this.platform.read(SETTING.paddles);const own=Array.isArray(list)?[...new Set(list.map(migratePaddle))].filter((v):v is Exclude<PaddleSkin,'default'>=>isPaddleSkin(v)&&v!=='default'):[];return [...new Set([...own,...PADDLE_SKINS.map(s=>s.id).filter(id=>this.starUnlocked('paddle:'+id))])];}
+ /** Trails unlocked for good (rewarded video, the legacy comet switch, or kept from V2.15). */
+ private ownedTrails():Exclude<TrailSkin,'none'>[]{const list=this.platform.read(SETTING.trails),legacy=this.platform.read(SETTING.trail);
+  const ids=Array.isArray(list)?list.filter((v):v is Exclude<TrailSkin,'none'>=>isTrailSkin(v)&&v!=='none'):[];if((legacy==='on'||legacy==='off')&&!ids.includes('comet'))ids.push('comet');return ids;}
+ /** 24-hour trials bought with stars: trail id → expiry (ms). */
+ private trials():Record<string,number>{const v=this.platform.read(TRIALS_KEY);return v&&typeof v==='object'&&!Array.isArray(v)?v as Record<string,number>:{};}
+ get starsAvailable(){return starBalance(this.progress.total,Number(this.platform.read(STARS_SPENT_KEY))||0);}
+ /** A locked trail: first 12 lifetime stars; then a rewarded video (permanent) or, with no video available, 3 stars for 24 hours. */
+ private trailLock(id:Exclude<TrailSkin,'none'>,name:string):Action{
+  if(this.progress.total<TRAIL_STAR_GATE)return {label:`★${TRAIL_STAR_GATE} 解锁${name}拖尾`,half:true,tone:'outline',run:()=>this.toast(`再拿 ${TRAIL_STAR_GATE-this.progress.total} 颗星，就能解锁${name}拖尾`)};
+  if(this.ads.rewardedAvailable)return {label:`▶ 看视频解锁${name}拖尾`,half:true,tone:'outline',run:()=>void this.watchReward(`trail:${id}`)};
+  return {label:`★${TRAIL_TRIAL_COST} 试用${name}24小时`,half:true,tone:'outline',run:()=>{
+   if(this.starsAvailable<TRAIL_TRIAL_COST){this.toast(`可用星星不足 ${TRAIL_TRIAL_COST} 颗，去关卡地图拿更多星吧`);return;}
+   this.platform.write(STARS_SPENT_KEY,(Number(this.platform.read(STARS_SPENT_KEY))||0)+TRAIL_TRIAL_COST);
+   this.platform.write(TRIALS_KEY,{...this.trials(),[id]:Date.now()+TRAIL_TRIAL_MS});this.useTrail(id);this.toast(`${name}拖尾可用 24 小时，花掉 ${TRAIL_TRIAL_COST} 颗星`);this.skins();}};
+ }
+ /** A trial ran out while in use: back to no trail. Checked every few seconds from the frame loop. */
+ private trialCheckAt=0;
+ private checkTrialExpiry(now:number){if(now<this.trialCheckAt)return;this.trialCheckAt=now+5000;const t=this.renderer.trail;if(t!=='none'&&!this.unlockedTrails().includes(t)){this.useTrail('none');this.toast('拖尾试用已到期');}}
  /** A locked skin: shows how many stars it needs; tapping says how many are still missing. */
  private starLock(key:string,name:string):Action{const need=STAR_SKIN_UNLOCKS[key]??MAX_STARS;return {label:`★${need} 解锁${name}`,half:true,tone:'outline',run:()=>this.toast(`再拿 ${Math.max(0,need-this.progress.total)} 颗星解锁${name}`)};}
  /** Skins also unlock by collecting stars on the level map (no video needed). */
@@ -262,8 +282,7 @@ export class MiniGameApp {
  private selectedPaddle():PaddleSkin{const v=migratePaddle(this.platform.read(SETTING.paddle));return isPaddleSkin(v)&&(v==='default'||this.unlockedPaddles().includes(v))?v:'default';}
  private usePaddle(id:PaddleSkin){this.platform.write(SETTING.paddle,id);this.renderer.paddleSkin=id;}
  /** Unlocked trail skins (the 2.7 comet setting counts as an unlocked comet). */
- private unlockedTrails():Exclude<TrailSkin,'none'>[]{const list=this.platform.read(SETTING.trails),legacy=this.platform.read(SETTING.trail);
-  const ids=Array.isArray(list)?list.filter((v):v is Exclude<TrailSkin,'none'>=>isTrailSkin(v)&&v!=='none'):[];if((legacy==='on'||legacy==='off')&&!ids.includes('comet'))ids.push('comet');for(const t of TRAIL_SKINS)if(!ids.includes(t.id)&&this.starUnlocked('trail:'+t.id))ids.push(t.id);return ids;}
+ private unlockedTrails():Exclude<TrailSkin,'none'>[]{const ids=this.ownedTrails(),now=Date.now(),trials=this.trials();for(const t of TRAIL_SKINS)if(!ids.includes(t.id)&&trialHoursLeft(trials[t.id],now))ids.push(t.id);return ids;}
  private selectedTrail():TrailSkin{const v=this.platform.read(SETTING.trail);if(v==='on')return 'comet';return isTrailSkin(v)&&(v==='none'||this.unlockedTrails().includes(v))?v:'none';}
  private useTrail(id:TrailSkin){this.platform.write(SETTING.trail,id);this.renderer.trail=id;}
  /** Interstitials only at a natural pause (opening the menu), never in the first 3 runs and at most every 3 minutes. */

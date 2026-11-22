@@ -49,10 +49,14 @@ it('设置（⚙）：音乐/音效/震动为开关行并记住；皮肤键单�
   label('音效').run();expect(a.game.audio.sfxOn).toBe(false);label('震动').run();expect(f.storage.get('qiulegeqiu:wechat-vibrate:v1')).toBe(false);
   // Settings does not repeat the pause menu.
   for(const l of ['继续游戏','重新开始','回到主界面','皮肤','排行榜'])expect(a.panel.actions.some(x=>x.label===l)).toBe(false);p.skins();
+  // Trails need 12 stars before the video is offered; paddles unlock by stars alone (no video).
+  expect(a.panel.actions.some(x=>x.label==='★12 解锁流星拖尾')).toBe(true);expect(a.panel.actions.some(x=>x.label.startsWith('▶'))).toBe(false);expect(a.panel.actions.some(x=>x.label==='★12 解锁霓虹光剑')).toBe(true);
+  for(let n=1;n<=4;n++)a.progress.record(n,3);p.skins();
   label('▶ 看视频解锁流星拖尾').run();await vi.waitFor(()=>expect(p.busy).toBe(false));expect(p.renderer.cometTail).toBe(true);expect(f.storage.get('qiulegeqiu:wechat-trail:v1')).toBe('comet');expect(f.storage.get('qiulegeqiu:wechat-trails:v1')).toEqual(['comet']);
   expect(a.panel.actions.some(x=>x.label==='流星拖尾：使用中')).toBe(true);label('▶ 看视频解锁爱心拖尾').run();await vi.waitFor(()=>expect(p.busy).toBe(false));expect((p.renderer as unknown as {trail:string}).trail).toBe('heart');expect(a.panel.actions.some(x=>x.label==='流星拖尾：使用')).toBe(true);label('流星拖尾').run();expect((p.renderer as unknown as {trail:string}).trail).toBe('comet');
-  label('▶ 看视频解锁黄金荣耀').run();await vi.waitFor(()=>expect(p.busy).toBe(false));expect(p.renderer.paddleSkin).toBe('gold');expect(f.storage.get('qiulegeqiu:wechat-paddles:v1')).toEqual(['gold']);label('默认挡板').run();expect(p.renderer.paddleSkin).toBe('default');label('黄金荣耀').run();expect(p.renderer.paddleSkin).toBe('gold');
-  const again=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false,ads:ADS});try{expect((again as unknown as Private).renderer.paddleSkin).toBe('gold');expect(again.game.audio.musicOn).toBe(false);expect((again as unknown as Private).renderer.cometTail).toBe(true);}finally{again.dispose();}
+  expect(a.panel.actions.some(x=>x.label.includes('看视频解锁霓虹')||x.label.includes('看视频解锁黄金'))).toBe(false);expect(a.panel.actions.some(x=>x.label==='★24 解锁烈焰燃烧')).toBe(true);
+  label('霓虹光剑').run();expect(p.renderer.paddleSkin).toBe('neon');label('默认挡板').run();expect(p.renderer.paddleSkin).toBe('default');label('霓虹光剑').run();expect(p.renderer.paddleSkin).toBe('neon');
+  const again=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false,ads:ADS});try{expect((again as unknown as Private).renderer.paddleSkin).toBe('neon');expect(again.game.audio.musicOn).toBe(false);expect((again as unknown as Private).renderer.cometTail).toBe(true);}finally{again.dispose();}
  }finally{a.dispose();}
 });
 it('第二局结束后只出现一次"添加到我的小程序"引导，点任意处关闭',()=>{
