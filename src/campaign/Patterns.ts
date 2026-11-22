@@ -25,29 +25,33 @@ function inGap(angle:number,count:number,deg:number,offset=0){const span=TAU/cou
 const STAR=starPolygon(0,-.02,.93,.43);
 const PATTERNS:readonly Pattern[]=[
  {name:'初试身手',shape:'圆盘',cell:()=>Cell.Normal},
- {name:'心动',shape:'爱心',cell:(u,v)=>{const x=u/.74,y=-(v+.04)/.74+.2,q=x*x+y*y-1;return q*q*q-x*x*y*y*y<=0?Cell.Normal:Cell.Empty;}},
- {name:'星光',shape:'五角星',cell:(u,v)=>!inPolygon(u,v,STAR)?Cell.Empty:polygonEdgeDist(u,v,STAR)<.085?Cell.Hard2:Cell.Normal},
- {name:'微笑',shape:'笑脸',cell:(u,v)=>{const d=len(u,v+.05);if(d>.8)return Cell.Empty;if(d>.73)return Cell.Hard2;
+ {name:'渐入佳境',shape:'圆盘',cell:()=>Cell.Normal},
+ // From level 3 on, every picture sits on a full bowl of normal bricks, so the levels keep their volume.
+ {name:'星光',shape:'五角星',cell:(u,v)=>polygonEdgeDist(u,v,STAR)<.06?Cell.Hard2:Cell.Normal},
+ {name:'微笑',shape:'笑脸',cell:(u,v)=>{const d=len(u,v+.05);if(d>=.73&&d<=.8)return Cell.Hard2;
   if(len(u-.29,v+.27)<.12||len(u+.29,v+.27)<.12)return Cell.Bomb;
   const m=len(u,v+.12);if(m>.38&&m<.5&&v>.1)return Cell.Bomb;return Cell.Normal;}},
- {name:'城堡',shape:'圆环',cell:(u,v)=>{const d=len(u,v),a=bearing(u,v);if(d>.92)return Cell.Empty;
+ {name:'城堡',shape:'圆环',cell:(u,v)=>{const d=len(u,v),a=bearing(u,v);
   if(d>.58&&d<.67)return inGap(a,4,22,Math.PI/4)?Cell.Empty:Cell.Steel;
-  if(d<.2)return Cell.Hard2;if(d<.58)return Cell.Normal;return d>.74?Cell.Normal:Cell.Empty;}},
- {name:'双子',shape:'双圆',cell:(u,v)=>{for(const cu of [-.45,.45]){const d=len(u-cu,v+.06);if(d<.43)return d>.35?Cell.Hard3:d<.14?Cell.Hard2:Cell.Normal;}return Cell.Empty;}},
- {name:'漩涡',shape:'螺旋',cell:(u,v)=>{const d=len(u,v);if(d>.9)return Cell.Empty;if(d<.12)return Cell.Hard2;
+  return d<.26?Cell.Hard2:Cell.Normal;}},
+ {name:'双子',shape:'双圆',cell:(u,v)=>{for(const cu of [-.45,.45]){const d=len(u-cu,v+.06);if(d<.43)return d>.35?Cell.Hard3:d<.14?Cell.Hard2:Cell.Normal;}
+  // A narrow open channel between the twins; everything else is normal bricks.
+  return Math.abs(u)<.035&&v>-.5&&v<.4?Cell.Empty:Cell.Normal;}},
+ {name:'漩涡',shape:'螺旋',cell:(u,v)=>{const d=len(u,v);if(d<.12)return Cell.Hard2;
   // Archimedean spiral wall r = .14 + .26·θ/2π (about 2.9 turns out to the rim), drawn as a band.
   const a=bearing(u,v);let near=Infinity;for(let k=0;k<4;k++){const r=.14+.26*(a+k*TAU)/TAU;near=Math.min(near,Math.abs(d-r));}
-  return near<.035?Cell.Steel:Cell.Normal;}},
- {name:'守门巨像',shape:'Boss',cell:(u,v)=>{const d=len(u,v+.08);if(d>.9)return Cell.Empty;if(d<.46)return Cell.Empty;return d<.62?Cell.Hard2:Cell.Normal;},
+  return near<.035?Cell.Steel:near<.07?Cell.Hard2:Cell.Normal;}},
+ {name:'守门巨像',shape:'Boss',cell:(u,v)=>{const d=len(u,v+.08);if(d<.42)return Cell.Empty;return d<.6?Cell.Hard2:Cell.Normal;},
   boss:{name:'守门巨像',u:0,v:-.08,radius:.15,hp:40,shields:[{radius:.32,width:.07,gaps:1,gapDeg:70,speed:.6}]}},
- {name:'连环',shape:'棋盘',cell:(u,v)=>{if(len(u,v)>.9)return Cell.Empty;const t=.2,i=Math.floor((u+1)/t),j=Math.floor((v+1)/t);
-  if((i+j)%2===0)return Cell.Hard2;const cu=-1+(i+.5)*t,cv=-1+(j+.5)*t;return len(u-cu,v-cv)<.045?Cell.Bomb:Cell.Normal;}},
- {name:'迷宫',shape:'迷宫',cell:(u,v)=>{const d=len(u,v),a=bearing(u,v);if(d>.92)return Cell.Empty;
+ {name:'连环',shape:'棋盘',cell:(u,v)=>{const t=.2,i=Math.floor((u+1)/t),j=Math.floor((v+1)/t);
+  const cu=-1+(i+.5)*t,cv=-1+(j+.5)*t;
+  if((i+j)%2===0)return Math.max(Math.abs(u-cu),Math.abs(v-cv))<.07?Cell.Hard2:Cell.Normal;return len(u-cu,v-cv)<.045?Cell.Bomb:Cell.Normal;}},
+ {name:'迷宫',shape:'迷宫',cell:(u,v)=>{const d=len(u,v),a=bearing(u,v);
   // Three steel rings, each with two openings that do not line up, plus short radial walls between them.
   const rings:[number,number][]=[[.3,0],[.55,Math.PI/2],[.8,Math.PI/4]];
   for(const [r,off] of rings)if(Math.abs(d-r)<.03)return inGap(a,2,26,off)?Cell.Normal:Cell.Steel;
   for(const [r0,r1,deg] of [[.3,.55,60],[.3,.55,240],[.55,.8,150],[.55,.8,330]] as const){const w=deg*Math.PI/180;if(d>r0&&d<r1&&Math.abs(Math.sin(a-w))*d<.03&&Math.cos(a-w)>0)return Cell.Steel;}
-  return d<.12?Cell.Hard2:Cell.Normal;}},
+  return d<.55?Cell.Hard2:Cell.Normal;}},
  {name:'堡垒',shape:'三层城',cell:(u,v)=>{const d=len(u,v+.04);if(d>.9)return Cell.Empty;if(d>.78)return Cell.Hard3;if(d>.68)return Cell.Normal;
   if(d>.56){const a=bearing(u,v+.04);return Math.floor(a/(TAU/24))%2===0?Cell.Steel:Cell.Normal;}
   if(d<.2)return Cell.Bomb;return d<.38?Cell.Hard2:Cell.Normal;}},
