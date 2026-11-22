@@ -6,6 +6,7 @@ import {C} from '../src/GameConfig';
 import {allocateBrickPowers,brickPowerCounts,TUTORIAL_POWERS} from '../src/BrickPowerRules';
 import {MiniGameApp} from '../wechat-game/src/App';
 import {wxFixture} from './helpers/WxFixture';
+import {breakAll} from './helpers/BreakAll';
 function counts(values:Uint8Array){return [0,1,2].map(n=>Array.from(values).filter(v=>v===n).length);}
 function load(level:number,seed=4,levels:readonly LevelConfig[]=LEVELS){const p=new Physics();p.level=levels[level-1];p.setSeed(seed);p.reset();return p;}
 it.each([[1,600,96,24,480,LEVELS,[2],[1,2]],[2,1446,87,58,1301,LEVELS,[1],[0,1]],[1,600,210,0,390,V15_LEVELS,[3,4],[3,4]],[2,1200,360,240,600,V15_LEVELS,[5],[3]],[1,600,480,0,120,V13_LEVELS,[8],[8]]] as const)('第%i关%d砖：X3=%d，加宽=%d，无道具=%d；50个种子配额准确且分层均匀',(level,total,triple,wide,none,levels,perGroup,triplesPerGroup)=>{
@@ -31,7 +32,7 @@ it.each([[1,120,96,24],[2,145,87,58]])('第%i关同帧击碎所有砖仍生成%d
 });
 it('未接住的密集掉落全部消失，不改变球数、生命和加宽效果',()=>{
  const g=new Game();g.start();const collected=vi.fn();g.physics.onPowerCollected=collected;
- for(let i=0;i<g.physics.blocks.alive.length;i++)g.physics.blocks.hit(i);
+ breakAll(g);
  for(let n=0;n<1100;n++)g.physics.powers.update(C.step,-10000,0,(kind,id)=>g.physics.collect(kind,id));
  expect(g.physics.powers.items.some(p=>p.alive)).toBe(false);expect(collected).not.toHaveBeenCalled();expect(g.physics.balls).toHaveLength(1);expect(g.lives).toBe(3);expect(g.physics.wideRemaining).toBe(0);
 });
@@ -48,7 +49,7 @@ it('普通丢命保留分配、砖块进度、积分；清理残留道具，不�
 });
 it('Web与微信同一预分配和日志，第二关同为1446砖',()=>{
  const f=wxFixture(),app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false}),web=new Game();
- try{for(const level of [1,2]){for(const g of [web,app.game]){g.journal.seed=42;g.physics.setSeed(42);g.start();expect(g.physics.blocks.total).toBe(level===1?600:1446);}expect(web.physics.blocks.powerKinds).toEqual(app.game.physics.blocks.powerKinds);expect(web.journal.events).toEqual(app.game.journal.events);if(level===1){for(const g of [web,app.game]){for(let i=0;i<g.physics.blocks.alive.length;i++)g.physics.blocks.hit(i);g.update(0);}}}
+ try{for(const level of [1,2]){for(const g of [web,app.game]){g.journal.seed=42;g.physics.setSeed(42);g.start();expect(g.physics.blocks.total).toBe(level===1?600:1446);}expect(web.physics.blocks.powerKinds).toEqual(app.game.physics.blocks.powerKinds);expect(web.journal.events).toEqual(app.game.journal.events);if(level===1){for(const g of [web,app.game]){breakAll(g);g.update(0);}}}
  }finally{web.dispose();app.dispose();}
 });
 it('第三至十二关配置、掉落间隔、类型随机序列和24格池保持不变',()=>{
@@ -60,7 +61,7 @@ it('第三至十二关配置、掉落间隔、类型随机序列和24格池保�
 import {scoreHistoryLines} from '../shared/ScoreHistory';
 import {RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,V17_RULES_VERSION,PREVIOUS_RULES_VERSION,LEGACY_RULES_VERSION} from '../shared/Challenge';
 it('独立新版规则与双端个人历史格式：旧记录明确标记、不换算、不显示为当前排名',()=>{
- expect(RULES_VERSION).toBe('1.10.0-arcade-3l-12lv-fullskills-v8');expect(V17_RULES_VERSION).toBe('1.7.0-arcade-5l-12lv-scarce-v5');expect(scoreHistoryLines([{score:6,reached_level:2,rules_version:V17_RULES_VERSION}])).toEqual(['V1.7赛季记录：6 分 · 第2关']);expect(V16_RULES_VERSION).toBe('1.6.0-arcade-5l-12lv-full-v4');expect(scoreHistoryLines([{score:7,reached_level:5,rules_version:V16_RULES_VERSION}])).toEqual(['V1.6赛季记录：7 分 · 第5关']);expect(V15_RULES_VERSION).toBe('1.5.0-arcade-5l-12lv-short-v3');expect(scoreHistoryLines([{score:8,reached_level:4,rules_version:V15_RULES_VERSION}])).toEqual(['V1.5赛季记录：8 分 · 第4关']);expect(V13_RULES_VERSION).toBe('1.3.0-arcade-5l-12lv-drops-v2');expect(RULES_VERSION).not.toBe(PREVIOUS_RULES_VERSION);
+ expect(RULES_VERSION).toBe('1.11.0-arcade-3l-12lv-patterns-v9');expect(V17_RULES_VERSION).toBe('1.7.0-arcade-5l-12lv-scarce-v5');expect(scoreHistoryLines([{score:6,reached_level:2,rules_version:V17_RULES_VERSION}])).toEqual(['V1.7赛季记录：6 分 · 第2关']);expect(V16_RULES_VERSION).toBe('1.6.0-arcade-5l-12lv-full-v4');expect(scoreHistoryLines([{score:7,reached_level:5,rules_version:V16_RULES_VERSION}])).toEqual(['V1.6赛季记录：7 分 · 第5关']);expect(V15_RULES_VERSION).toBe('1.5.0-arcade-5l-12lv-short-v3');expect(scoreHistoryLines([{score:8,reached_level:4,rules_version:V15_RULES_VERSION}])).toEqual(['V1.5赛季记录：8 分 · 第4关']);expect(V13_RULES_VERSION).toBe('1.3.0-arcade-5l-12lv-drops-v2');expect(RULES_VERSION).not.toBe(PREVIOUS_RULES_VERSION);
  expect(scoreHistoryLines([{score:9,reached_level:3,rules_version:V13_RULES_VERSION}])).toEqual(['V1.3赛季记录：9 分 · 第3关']);
  expect(scoreHistoryLines([{score:314115,reached_level:5,rules_version:PREVIOUS_RULES_VERSION},{score:100,reached_level:1,rules_version:LEGACY_RULES_VERSION}])).toEqual(['旧版十二关记录：314115 分 · 第5关','旧版十关记录：100 分 · 第1关']);
  expect(scoreHistoryLines([],{score:1,reached_level:1})).toEqual([]);expect(scoreHistoryLines(undefined,{score:2,reached_level:1})).toEqual(['旧版记录：2 分 · 第1关']);

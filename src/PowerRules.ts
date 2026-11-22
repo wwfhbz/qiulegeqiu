@@ -12,6 +12,12 @@ export const POWER_WEIGHTS={
   firstSkills:[{kind:'triple',weight:485},{kind:'wide',weight:485},{kind:'lightning',weight:10},{kind:'pierce',weight:10},{kind:'fire',weight:10}],
   /** V1.9 levels 4–12: the V1.7 mix with lightning, pierce and fire at 1% of drops each (taken evenly from ÷2/×3/wide). */
   scarceSkills:[{kind:'halve',weight:320},{kind:'triple',weight:320},{kind:'wide',weight:324},{kind:'life',weight:3},{kind:'bomb',weight:3},{kind:'lightning',weight:10},{kind:'pierce',weight:10},{kind:'fire',weight:10}],
+  /** V1.11 picture levels 3–7: lightning, pierce and fire at 2% each to help crack hard bricks. */
+  patterns:[{kind:'halve',weight:300},{kind:'triple',weight:300},{kind:'wide',weight:330},{kind:'life',weight:5},{kind:'bomb',weight:5},{kind:'lightning',weight:20},{kind:'pierce',weight:20},{kind:'fire',weight:20}],
+  /** V1.11 levels 9–11: fewer ×3 so a ball storm no longer clears the wall on its own. */
+  patternsLate:[{kind:'halve',weight:360},{kind:'triple',weight:240},{kind:'wide',weight:330},{kind:'life',weight:5},{kind:'bomb',weight:5},{kind:'lightning',weight:20},{kind:'pierce',weight:20},{kind:'fire',weight:20}],
+  /** V1.11 boss levels 8 and 12: generous lightning, pierce and fire. */
+  boss:[{kind:'halve',weight:200},{kind:'triple',weight:250},{kind:'wide',weight:300},{kind:'life',weight:10},{kind:'bomb',weight:0},{kind:'lightning',weight:80},{kind:'pierce',weight:80},{kind:'fire',weight:80}],
 } as const;
 export type PowerProfile=keyof typeof POWER_WEIGHTS;
 export function weightedPower(level:number|PowerProfile,random:()=>number=Math.random):PowerKind{const rows:readonly {kind:PowerKind;weight:number}[]=typeof level==='number'?(level===1?POWER_WEIGHTS.first:POWER_WEIGHTS.later):POWER_WEIGHTS[level];let value=random()*rows.reduce((sum,row)=>sum+row.weight,0);for(const row of rows){value-=row.weight;if(value<0)return row.kind;}return rows[rows.length-1].kind;}

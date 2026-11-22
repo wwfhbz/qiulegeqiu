@@ -3,28 +3,35 @@ import {allocateBrickPowers,brickPowerCounts,brickPowerKind,type BrickPowerVersi
 import {LEGACY_LEVELS} from '../../src/LegacyLevels.js';
 import {verifyEndlessTrace} from './endlessVerifier.js';
 import {ENDLESS_VARIANTS} from '../../src/endless/EndlessRules.js';
-import {V17_RULES_VERSION,V18_RULES_VERSION,V19_RULES_VERSION,RULES_VERSION,V16_RULES_VERSION,V15_RULES_VERSION,V13_RULES_VERSION,PREVIOUS_RULES_VERSION,LEGACY_RULES_VERSION,usesBrickPowers} from '../../shared/Challenge.js';
+import {V17_RULES_VERSION,V18_RULES_VERSION,V19_RULES_VERSION,V110_RULES_VERSION,isThreeLifeCampaign,RULES_VERSION,V16_RULES_VERSION,V15_RULES_VERSION,V13_RULES_VERSION,PREVIOUS_RULES_VERSION,LEGACY_RULES_VERSION,usesBrickPowers} from '../../shared/Challenge.js';
 import { Blocks } from '../../src/Blocks.js';
 import { ScoreSystem } from '../../src/ScoreSystem.js';
 import { ARCADE, LEGACY_LIVES } from '../../src/ArcadeRules.js';
 import { ENDLESS, REVIVE_BONUS_SALT, reviveBonus } from '../../src/endless/EndlessRules.js';
 import { C } from '../../src/GameConfig.js';
-import {LEVELS,V17_LEVELS,V16_LEVELS,V15_LEVELS,V13_LEVELS,PREVIOUS_LEVELS,dropMultiplier,powerProfile}  from '../../src/Levels.js';
+import {LEVELS,V110_LEVELS,V17_LEVELS,V16_LEVELS,V15_LEVELS,V13_LEVELS,PREVIOUS_LEVELS,dropMultiplier,powerProfile}  from '../../src/Levels.js';
 import { seededRandom,weightedPower,tripleTarget,type TripleRuleVersion,type PowerKind } from '../../src/PowerRules.js';
 import { Obstacles } from '../../src/Obstacles.js';
 import { MAX_REVIVES, MAX_BOOSTS, BOOST_BALLS, MAX_SKIPS, type ChallengeEvent, type ChallengeSummary } from '../../shared/Challenge.js';
 import { ApiError } from './moderation.js';
+import { Cell } from '../../src/campaign/Patterns.js';
+import { Boss, BOSS_HIT_POINTS, BOSS_KILL_BONUS } from '../../src/campaign/Boss.js';
+import { Physics } from '../../src/Physics.js';
 /** Event/rule replay, not authoritative physical replay. Client seed is a declared run parameter, not a secret. */
 export function verifyTrace(events: ChallengeEvent[], wallMs: number,seed=1,rulesVersion:string=LEGACY_RULES_VERSION): { summary: ChallengeSummary; suspicious: string[] } {
   try{validateTrajectoryMarkers(events);}catch{throw new ApiError(422,'轨迹版本标记无效');}
   // Each endless version replays with its own frozen variant.
   if(Object.hasOwn(ENDLESS_VARIANTS,rulesVersion))return verifyEndlessTrace(events,wallMs,seed,ENDLESS_VARIANTS[rulesVersion]);
-  const levels=rulesVersion===RULES_VERSION||rulesVersion===V19_RULES_VERSION?LEVELS:rulesVersion===V18_RULES_VERSION||rulesVersion===V17_RULES_VERSION?V17_LEVELS:rulesVersion===V16_RULES_VERSION?V16_LEVELS:rulesVersion===V15_RULES_VERSION?V15_LEVELS:rulesVersion===V13_RULES_VERSION?V13_LEVELS:rulesVersion===PREVIOUS_RULES_VERSION?PREVIOUS_LEVELS:rulesVersion===LEGACY_RULES_VERSION?LEGACY_LEVELS:undefined;if(!levels)throw new ApiError(422,'不支持的规则版本');
+  const levels=rulesVersion===RULES_VERSION?LEVELS:rulesVersion===V110_RULES_VERSION||rulesVersion===V19_RULES_VERSION?V110_LEVELS:rulesVersion===V18_RULES_VERSION||rulesVersion===V17_RULES_VERSION?V17_LEVELS:rulesVersion===V16_RULES_VERSION?V16_LEVELS:rulesVersion===V15_RULES_VERSION?V15_LEVELS:rulesVersion===V13_RULES_VERSION?V13_LEVELS:rulesVersion===PREVIOUS_RULES_VERSION?PREVIOUS_LEVELS:rulesVersion===LEGACY_RULES_VERSION?LEGACY_LEVELS:undefined;if(!levels)throw new ApiError(422,'不支持的规则版本');
   const blocks=new Blocks(),score=new ScoreSystem(blocks.alive.length),obstacles=new Obstacles(),random=seededRandom(seed);
   blocks.reset(levels[0].obstacles??[],levels[0]);obstacles.load(levels[0].obstacles??[]);
   // Campaign 1.10+ plays with 3 lives; every earlier season with 5.
-  const startLives=rulesVersion===RULES_VERSION?ARCADE.initialLives:LEGACY_LIVES,maxLives=rulesVersion===RULES_VERSION?ARCADE.maxLives:LEGACY_LIVES;
-  let valid=blocks.alive.slice(),level=1,lives:number=startLives,phase='ready',balls=0,lastTick=0,bricks=0,finished=false,levelStartTick=0;
+  const startLives=isThreeLifeCampaign(rulesVersion)?ARCADE.initialLives:LEGACY_LIVES,maxLives=isThreeLifeCampaign(rulesVersion)?ARCADE.maxLives:LEGACY_LIVES;
+  // 1.11+: bricks have hit points (steel is never in `valid`), bombs blast their neighbours, levels 8/12 have a boss.
+  const patterns=rulesVersion===RULES_VERSION;
+  let boss:Boss|undefined=patterns&&levels[0].pattern?.boss?new Boss(levels[0].pattern.boss):undefined,remaining=blocks.total;
+  let blastTick=-1,blasts=0;
+  let valid=blocks.hp.slice(),level=1,lives:number=startLives,phase='ready',balls=0,lastTick=0,bricks=0,finished=false,levelStartTick=0;
   let brickPowerVersion:BrickPowerVersion=1;
   const allocation=()=>{blocks.powerKinds.set(allocateBrickPowers(blocks.alive,brickPowerVersion===2?levels[level-1].brickPowers:undefined,seed,level));};
   const dropCapacity=()=>brickPowerVersion===2&&levels[level-1].brickPowers?brickPowerCounts(blocks.total,levels[level-1].brickPowers!).drops:C.power.maxDrops;
@@ -59,8 +66,14 @@ export function verifyTrace(events: ChallengeEvent[], wallMs: number,seed=1,rule
         // standing cannot come from real play (campaign has no pierce, fire or lightning). Flag it for review.
         {const cols=blocks.cols,row=Math.floor(e.index/cols),col=e.index%cols;let open=false;
          for(let dr=-1;dr<=1&&!open;dr++)for(let dc=-1;dc<=1;dc++){if(!dr&&!dc)continue;const r=row+dr,c=col+dc;if(r<0||c<0||r>=blocks.rows||c>=cols||!valid[r*cols+c]){open=true;break;}}
-         if(!open&&e.tick>pierceUntil&&e.tick>fireUntil&&e.tick!==lightningTick)suspicious.add('击碎了四周无空隙的砖块');}valid[e.index]=0;score.hit(e.index);bricks++;destroyedThisLevel++;
-        if(hitTick!==e.tick){hitTick=e.tick;tickHits=0;}if(++tickHits>Math.max(tickBallMax,balls)*12*(e.tick<=fireUntil?9:1)+(e.tick===lightningTick?lightnings*ENDLESS.lightningBricks:0))suspicious.add('单步击碎数量异常');
+         if(!open&&e.tick>pierceUntil&&e.tick>fireUntil&&e.tick!==lightningTick&&e.tick!==blastTick)suspicious.add('击碎了四周无空隙的砖块');}
+        if(e.crush&&(!patterns||e.tick>fireUntil||valid[e.index]<2))throw new ApiError(422,'火焰击碎硬砖无效');
+        if(hitTick!==e.tick){hitTick=e.tick;tickHits=0;}if(++tickHits>Math.max(tickBallMax,balls)*12*(e.tick<=fireUntil?9:1)+(e.tick===lightningTick?lightnings*ENDLESS.lightningBricks:0)+(e.tick===blastTick?blasts*Math.ceil(Math.PI*Physics.BLAST_RADIUS**2+2):0))suspicious.add('单步击碎数量异常');
+        valid[e.index]=e.crush?0:valid[e.index]-1;
+        // A crack on a hard brick scores like a break but destroys nothing.
+        if(valid[e.index]>0){score.chip();break;}
+        score.hit(e.index);bricks++;destroyedThisLevel++;remaining--;
+        if(patterns&&blocks.kinds[e.index]===Cell.Bomb){if(blastTick!==e.tick){blastTick=e.tick;blasts=0;}blasts++;}
         const interval=Math.round(C.power.dropEvery/dropMultiplier(levels[level-1]));
         const legacyKind=destroyedThisLevel%interval===0?weightedPower(powerProfile(levels[level-1]),random):undefined;
         const kind=brickPowerVersion===2&&levels[level-1].brickPowers?brickPowerKind(blocks.powerKinds[e.index]):legacyKind;
@@ -80,16 +93,22 @@ export function verifyTrace(events: ChallengeEvent[], wallMs: number,seed=1,rule
         if(e.kind==='pierce')pierceUntil=e.tick+Math.ceil(ENDLESS.pierceSeconds/C.step)+1;
         if(e.kind==='fire')fireUntil=e.tick+Math.ceil(ENDLESS.fireSeconds/C.step)+1;
         if(e.kind==='lightning'){if(lightningTick!==e.tick){lightningTick=e.tick;lightnings=0;}lightnings++;}
-        if(rulesVersion===RULES_VERSION||rulesVersion===V19_RULES_VERSION||rulesVersion===V18_RULES_VERSION)score.addPowerPoints();break;
+        if(isThreeLifeCampaign(rulesVersion)||rulesVersion===V19_RULES_VERSION||rulesVersion===V18_RULES_VERSION)score.addPowerPoints();break;
       }
       case 'bomb':if(expectedBomb===undefined||e.target!==expectedBomb)throw new ApiError(422,'炸弹目标无效');if(expectedBomb===null)score.addBombCompensation();expectedBomb=undefined;break;
+      case 'boss':{
+        if(!boss?.alive||phase!=='running'||balls<=0)throw new ApiError(422,'Boss命中无效');
+        const stage=boss.damage();score.chip(BOSS_HIT_POINTS);
+        // The final boss grows its refill band back as 2-hit bricks on each new stage.
+        if(stage!==undefined)for(const i of blocks.refillCells)if(!valid[i]){valid[i]=2;remaining++;score.unscore([i]);}
+        if(!boss.alive)score.addBonus(BOSS_KILL_BONUS);break;}
       case 'ballLost':if(phase!=='running'||balls<=0)throw new ApiError(422,'重复弹球死亡');balls--;break;
-      case 'lost':if(phase!=='running'||balls!==0||destroyedThisLevel===blocks.total)throw new ApiError(422,'回合扣命无效');lives--;if(lives<0)throw new ApiError(422,'生命异常');phase=lives?'ready':'gameOver';drops.length=0;dropSequence=0;score.resetCombo();lostRound=true;break;
-      case 'revive':if(phase!=='gameOver'||lives!==0||revives>=MAX_REVIVES)throw new ApiError(422,'复活无效');revives++;lives=1;phase='ready';lostRound=true;if(rulesVersion===RULES_VERSION)bonusPending=true;break;
+      case 'lost':if(phase!=='running'||balls!==0||(patterns?remaining===0&&!boss?.alive:destroyedThisLevel===blocks.total))throw new ApiError(422,'回合扣命无效');lives--;if(lives<0)throw new ApiError(422,'生命异常');phase=lives?'ready':'gameOver';drops.length=0;dropSequence=0;score.resetCombo();lostRound=true;break;
+      case 'revive':if(phase!=='gameOver'||lives!==0||revives>=MAX_REVIVES)throw new ApiError(422,'复活无效');revives++;lives=1;phase='ready';lostRound=true;if(isThreeLifeCampaign(rulesVersion))bonusPending=true;break;
       case 'boost':if(phase!=='running'||e.tick!==launchTick||boosted||!afterLoss||boosts>=MAX_BOOSTS)throw new ApiError(422,'加球奖励无效');boosts++;boosted=true;balls=Math.min(C.maxBalls,balls+BOOST_BALLS);break;
-      case 'clear':if(phase!=='running'||destroyedThisLevel!==blocks.total)throw new ApiError(422,'未完成本关');score.complete(lives);phase=level===levels.length?'victory':'cleared';break;
-      case 'skip':if(rulesVersion!==RULES_VERSION||(phase!=='ready'&&phase!=='running')||level>=levels.length||skips>=MAX_SKIPS)throw new ApiError(422,'跳关无效');skips++;level++;phase='ready';balls=0;lostRound=false;blocks.reset(levels[level-1].obstacles??[],levels[level-1]);valid=blocks.alive.slice();allocation();destroyedThisLevel=0;drops.length=0;dropSequence=0;score.beginLevel();obstacles.load(levels[level-1].obstacles??[]);levelStartTick=e.tick;break;
-      case 'next':if(phase!=='cleared')throw new ApiError(422,'无效切关');level++;phase='ready';blocks.reset(levels[level-1].obstacles??[],levels[level-1]);valid=blocks.alive.slice();allocation();destroyedThisLevel=0;drops.length=0;dropSequence=0;score.beginLevel();obstacles.load(levels[level-1].obstacles??[]);levelStartTick=e.tick;break;
+      case 'clear':if(phase!=='running'||(patterns?remaining!==0||!!boss?.alive:destroyedThisLevel!==blocks.total))throw new ApiError(422,'未完成本关');score.complete(lives);phase=level===levels.length?'victory':'cleared';break;
+      case 'skip':if(!isThreeLifeCampaign(rulesVersion)||(phase!=='ready'&&phase!=='running')||level>=levels.length||skips>=MAX_SKIPS)throw new ApiError(422,'跳关无效');skips++;level++;phase='ready';balls=0;lostRound=false;blocks.reset(levels[level-1].obstacles??[],levels[level-1]);valid=blocks.hp.slice();remaining=blocks.total;boss=patterns&&levels[level-1].pattern?.boss?new Boss(levels[level-1].pattern!.boss!):undefined;blastTick=-1;allocation();destroyedThisLevel=0;drops.length=0;dropSequence=0;score.beginLevel();obstacles.load(levels[level-1].obstacles??[]);levelStartTick=e.tick;break;
+      case 'next':if(phase!=='cleared')throw new ApiError(422,'无效切关');level++;phase='ready';blocks.reset(levels[level-1].obstacles??[],levels[level-1]);valid=blocks.hp.slice();remaining=blocks.total;boss=patterns&&levels[level-1].pattern?.boss?new Boss(levels[level-1].pattern!.boss!):undefined;blastTick=-1;allocation();destroyedThisLevel=0;drops.length=0;dropSequence=0;score.beginLevel();obstacles.load(levels[level-1].obstacles??[]);levelStartTick=e.tick;break;
       case 'finish':if(phase!=='gameOver'&&phase!=='victory')throw new ApiError(422,'挑战尚未结束');finished=true;break;
       case 'bonus':{
         if(!expectBonus||e.tick!==launchTick||e.kind!==reviveBonus(reviveBonuses))throw new ApiError(422,'复活特效奖励无效');expectBonus=false;

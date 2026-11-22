@@ -25,7 +25,8 @@ const base={tick:integer,level:z.number().int().min(1).max(100)};
 export const challengeEvent=z.discriminatedUnion('type',[
  z.object({...base,type:z.literal('launch'),tripleRuleVersion:z.literal(2).optional(),brickPowerVersion:z.literal(2).optional(),trajectoryVersion:z.literal(1).optional()}).strict(),
  z.object({...base,type:z.enum(['ballLost','lost','clear','next','finish'])}).strict(),
- z.object({...base,type:z.literal('hit'),index:integer}).strict(),
+ z.object({...base,type:z.literal('hit'),index:integer,crush:z.literal(true).optional()}).strict(),
+ z.object({...base,type:z.literal('boss')}).strict(),
  z.object({...base,type:z.literal('power'),kind:z.enum(['halve','triple','wide','life','bomb','plus3','pierce','fire','lightning']),dropId:z.number().int().positive().max(MAX_CHALLENGE_EVENTS).optional()}).strict(),
  z.object({...base,type:z.literal('bomb'),target:z.string().max(50).nullable()}).strict(),
  z.object({...base,type:z.literal('crushed')}).strict(),

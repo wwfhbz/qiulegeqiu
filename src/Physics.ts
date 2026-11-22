@@ -7,6 +7,8 @@ import { seededRandom,weightedPower,tripleTarget,TRIPLE_RULE_VERSION,type Triple
 import type { SoundKind } from './Audio';
 import { C } from './GameConfig';
 import { Blocks } from './Blocks';
+import { Boss } from './campaign/Boss';
+import { Cell } from './campaign/Patterns';
 import { ARENA_WALL, inExitSector,wallForLevel } from './ArenaGeometry';
 import { FRAME, isBallInDeathZone } from './WorldGeometry';
 import { Effects } from './Effects';
@@ -80,14 +82,14 @@ export function paddleCollision(b: Ball, x: number, width: number = C.paddle.wid
   const speed = Math.hypot(b.vx, b.vy);
   b.vx = Math.sin(angle) * speed; b.vy = -Math.cos(angle) * speed; return true;
 }
-export function blockCollision(b: Ball, blocks: Blocks,onContact?:(b:Ball,nx:number,ny:number)=>void) {
+export function blockCollision(b: Ball, blocks: Blocks,onContact?:(b:Ball,nx:number,ny:number,index:number)=>void,only?:(index:number)=>boolean) {
   const s = blocks.step, size = blocks.size;
   const minC = Math.max(0, Math.floor((b.x - b.radius - blocks.left) / s));
   const maxC = Math.min(blocks.cols - 1, Math.floor((b.x + b.radius - blocks.left) / s));
   const minR = Math.max(0, Math.floor((b.y - b.radius - blocks.top) / s));
   const maxR = Math.min(blocks.rows - 1, Math.floor((b.y + b.radius - blocks.top) / s));
   for (let row = minR; row <= maxR; row++) for (let col = minC; col <= maxC; col++) {
-    const i = row * blocks.cols + col; if (!blocks.alive[i]) continue;
+    const i = row * blocks.cols + col; if (!blocks.alive[i] || (only && !only(i))) continue;
     const x = blocks.left + col * s, y = blocks.top + row * s;
     const qx = Math.max(x, Math.min(x + size, b.x)), qy = Math.max(y, Math.min(y + size, b.y));
     let nx = b.x - qx, ny = b.y - qy, d = Math.hypot(nx, ny);
@@ -100,19 +102,21 @@ export function blockCollision(b: Ball, blocks: Blocks,onContact?:(b:Ball,nx:num
       d = -distance;
     } else { nx /= d; ny /= d; }
     b.x += nx * (b.radius - d + .01); b.y += ny * (b.radius - d + .01);
-    reflect(b, nx, ny);onContact?.(b,nx,ny); blocks.hit(i); return true;
+    reflect(b, nx, ny);onContact?.(b,nx,ny,i); blocks.hit(i); return true;
   }
   return false;
 }
 export class Physics {
   trajectoryVersion:0|1=1;
   private readonly wallContact=(ball:Ball,side:number,nx:number,ny:number)=>{if(this.trajectoryVersion===1)motionWall(ball,side,nx,ny);};
-  private readonly blockContact=(ball:Ball,nx:number,ny:number)=>{if(this.trajectoryVersion===1)motionContact(ball,true,nx,ny);};
+  // Steel never breaks, so bouncing on it is not progress (the anti-stuck escape can still fire).
+  private readonly blockContact=(ball:Ball,nx:number,ny:number,index?:number)=>{if(this.trajectoryVersion===1)motionContact(ball,index===undefined||!this.blocks.isSteel(index),nx,ny);};
+  private readonly steelOnly=(index:number)=>this.blocks.isSteel(index);
   private readonly obstacleContact=(ball:Ball,nx:number,ny:number)=>{if(this.trajectoryVersion===1)motionContact(ball,false,nx,ny);};
   blocks:Blocks = new Blocks(); balls: Ball[] = [];
   /** Endless mode swaps in a descending field; everything else reads it through the Blocks interface. */
   get endless(){return this.blocks instanceof EndlessField?this.blocks:undefined;}
-  useField(field:Blocks){this.blocks=field;field.onHit=this.destroyed;}
+  useField(field:Blocks){this.blocks=field;field.onHit=this.destroyed;field.onDamage=this.damaged;}
   // Endless-only timed powers and drop schedule (own seeded stream, mirrored by the server verifier).
   pierceRemaining=0;fireRemaining=0;
   /** Visual only: points shown with a pickup popup (the Game sets this from its rules). */
@@ -136,6 +140,16 @@ export class Physics {
   onBallLost?: () => void;
   onPowerCollected?: (kind: PowerKind, dropId?:number) => void;
   onBlockDestroyed?: (index: number) => void;
+  /** Campaign 1.11: a hit that only cracked a hard brick. */
+  onBlockDamaged?: (index: number) => void;
+  /** Boss core hit (one per contact); `revived` lists bricks the final boss grew back on reaching a new stage. */
+  onBossHit?: (revived: readonly number[]) => void;
+  /** Campaign boss of the current level (levels 8 and 12 in 1.11). */
+  boss?: Boss;
+  /** Bombs waiting to explode; processed in order so chains never recurse deeply. */
+  private blastQueue: number[] = []; private blasting = false;
+  /** Cells reached by a bomb: Euclidean radius in grid steps. */
+  static readonly BLAST_RADIUS = 2.3;
   onStep?: (dt: number) => void;
   get launchSpeed() { return Math.max(Math.min(C.ball.maxSpeed,C.ball.minSpeed*this.speedScale), Math.min(C.ball.maxSpeed, C.ball.speed * this.speedScale)); }
   readonly effects = new Effects();
@@ -151,7 +165,7 @@ export class Physics {
     const x = b.left + index % b.cols * b.step + b.size / 2;
     const y = b.top + Math.floor(index / b.cols) * b.step + b.size / 2;
     this.effects.burst(x, y, Math.floor(index / b.cols));
-    if (b.remaining === 0) this.effects.emit('clear', x, y);
+    if (b.remaining === 0 && !this.boss?.alive) this.effects.emit('clear', x, y);
     this.onBlockDestroyed?.(index);
     this.onSound?.(this.effects.combo > 1 ? 'combo' : 'break', this.effects.combo);
     const field=this.endless;
@@ -165,7 +179,44 @@ export class Physics {
     const legacyKind=b.removed%interval===0?weightedPower(powerProfile(this.level),this.random):undefined;
     const kind=this.brickPowerVersion===2&&this.level.brickPowers?brickPowerKind(b.powerKinds[index]):legacyKind;
     if(kind)this.powers.spawn(x,y,kind);
+    // The blast follows this brick's own drop roll, so the drop stream matches the server's event order.
+    if (b.kinds[index] === Cell.Bomb) this.queueBlast(index);
   };
+  private damaged = (index: number) => {
+    const b = this.blocks;
+    this.effects.emit('crack', b.left + index % b.cols * b.step + b.size / 2, b.top + Math.floor(index / b.cols) * b.step + b.size / 2, b.hp[index]);
+    this.onBlockDamaged?.(index); this.onSound?.('break');
+  };
+  /** Bomb brick: every brick within the blast radius takes one hit (bombs it breaks explode in turn). */
+  private queueBlast(index: number) {
+    this.blastQueue.push(index); if (this.blasting) return;
+    this.blasting = true;
+    try {
+      for (let q = 0; q < this.blastQueue.length; q++) {
+        const g = this.blocks, at = this.blastQueue[q], row = Math.floor(at / g.cols), col = at % g.cols, reach = Math.floor(Physics.BLAST_RADIUS);
+        this.effects.emit('blast', g.left + col * g.step + g.size / 2, g.top + row * g.step + g.size / 2, Physics.BLAST_RADIUS * g.step);
+        for (let dr = -reach; dr <= reach; dr++) for (let dc = -reach; dc <= reach; dc++) {
+          if ((!dr && !dc) || dr * dr + dc * dc > Physics.BLAST_RADIUS * Physics.BLAST_RADIUS) continue;
+          const r = row + dr, c = col + dc; if (r >= 0 && c >= 0 && r < g.rows && c < g.cols) g.hit(r * g.cols + c);
+        }
+      }
+    } finally { this.blastQueue.length = 0; this.blasting = false; }
+    this.onSound?.('bomb');
+  }
+  /** One hit on the boss core: score, stage changes (faster rings, regrowing bricks) and the kill. */
+  private bossHit() {
+    const boss = this.boss; if (!boss?.alive) return;
+    const stage = boss.damage();
+    let revived: readonly number[] = [];
+    if (stage !== undefined) {
+      this.effects.emit('bossStage', boss.x, boss.y, stage);
+      if (this.blocks.refillCells.length) revived = this.blocks.refill(this.blocks.refillCells);
+    }
+    this.effects.emit(boss.alive ? 'boss' : 'bossDown', boss.x, boss.y, boss.hp);
+    this.onBossHit?.(revived);
+    this.onSound?.(boss.alive ? 'combo' : 'bomb', this.effects.combo);
+    if (!boss.alive && this.blocks.remaining === 0) this.effects.emit('clear', boss.x, boss.y);
+  }
   private pickup = (kind: PowerKind, dropId:number) => this.collect(kind,dropId);
   collect(kind: PowerKind, dropId?:number) {
     // No pickup is valid after the final effective ball dies, even before Game settles the round.
@@ -223,7 +274,7 @@ export class Physics {
    */
   lightning(){
     const g=this.blocks,ball=this.balls.find(b=>b.alive),fx=ball?.x??C.arena.x,fy=ball?.y??C.arena.y,picked:{index:number;row:number;dx:number}[]=[];
-    for(let i=0;i<g.cols*g.rows;i++)if(g.alive[i]){const row=Math.floor(i/g.cols),x=g.left+i%g.cols*g.step+g.size/2;picked.push({index:i,row,dx:Math.abs(x-fx)});}
+    for(let i=0;i<g.cols*g.rows;i++)if(g.alive[i]&&!g.isSteel(i)){const row=Math.floor(i/g.cols),x=g.left+i%g.cols*g.step+g.size/2;picked.push({index:i,row,dx:Math.abs(x-fx)});}
     picked.sort((a,b)=>b.row-a.row||a.dx-b.dx||a.index-b.index);const targets=picked.slice(0,this.endless?endlessSettings(this.endless.variant).lightningBricks:ENDLESS.lightningBricks).map(p=>p.index);
     for(const index of targets){this.effects.emit('zap',g.left+index%g.cols*g.step+g.size/2,g.top+Math.floor(index/g.cols)*g.step+g.size/2,0,undefined,fx,fy);g.hit(index);}
   }
@@ -239,7 +290,7 @@ export class Physics {
     const g=this.blocks,s=g.step;
     for(let r=Math.max(0,Math.floor((b.y-b.radius-g.top)/s));r<=Math.min(g.rows-1,Math.floor((b.y+b.radius-g.top)/s));r++)
       for(let c=Math.max(0,Math.floor((b.x-b.radius-g.left)/s));c<=Math.min(g.cols-1,Math.floor((b.x+b.radius-g.left)/s));c++){
-        const i=r*g.cols+c;if(!g.alive[i])continue;const x=g.left+c*s,y=g.top+r*s;
+        const i=r*g.cols+c;if(!g.alive[i]||g.isSteel(i))continue;const x=g.left+c*s,y=g.top+r*s;
         if(Math.hypot(b.x-Math.max(x,Math.min(x+g.size,b.x)),b.y-Math.max(y,Math.min(y+g.size,b.y)))<b.radius){this.effects.emit('slash',x+g.size/2,y+g.size/2,0,undefined,b.vx,b.vy);g.hit(i);if(this.fireRemaining>0)this.burn(i);}
       }
   }
@@ -286,15 +337,16 @@ export class Physics {
       }
     return false;
   }
-  constructor() { this.blocks.onHit = this.destroyed; this.reset(); }
+  constructor() { this.blocks.onHit = this.destroyed; this.blocks.onDamage = this.damaged; this.reset(); }
   reset() {
     const field=this.endless;
     if(field){
       this.obstacles.load([]);field.start(this.seed,field.variant);this.powers.setCapacity(C.power.maxDrops);
       // Separate stream from the field's row patterns; the verifier derives both from the run seed.
       this.endlessDrops=seededRandom((this.seed^DROP_SALT)>>>0);this.endlessBonuses=seededRandom((this.seed^BONUS_SALT)>>>0);this.nextDropAt=dropEvery(0,field.variant);this.speedScale=endlessSpeed(0);
-      this.resetRound();return;
+      this.boss=undefined;this.resetRound();return;
     }
+    this.boss=this.level.pattern?.boss?new Boss(this.level.pattern.boss):undefined;
     this.obstacles.load(this.level.obstacles??[]);this.blocks.reset(this.level.obstacles??[],this.level);this.allocatePowers();
     this.powers.setCapacity(this.brickPowerVersion===2&&this.level.brickPowers?brickPowerCounts(this.blocks.total,this.level.brickPowers).drops:C.power.maxDrops);this.resetRound();
   }
@@ -338,6 +390,8 @@ export class Physics {
     this.fireRemaining=Math.max(0,this.fireRemaining-dt);if(this.fireRemaining<1e-9)this.fireRemaining=0;
     this.wideRemaining = Math.max(0, this.wideRemaining - dt);
     if (this.wideRemaining < 1e-9) this.wideRemaining = 0;
+    // Fire breaks hard bricks outright; the boss rings turn by a fixed step every tick.
+    this.blocks.crush = this.fireRemaining > 0; this.boss?.update(dt);
     this.clampPaddle();
     this.effects.update(dt);
     this.paddleX += Math.max(-C.paddle.speed * dt, Math.min(C.paddle.speed * dt, this.targetX - this.paddleX));
@@ -354,9 +408,10 @@ export class Physics {
         boundary(b,this.wall,this.wallContact); frameCollision(b,this.wallContact);
         if (paddleCollision(b, this.paddleX, this.paddleWidth)) {if(this.trajectoryVersion===1)motionContact(b,true,0,-1); this.effects.emit('paddle', b.x, C.paddle.y); this.onSound?.('paddle'); }
         // Resolve a bounded number of simultaneous contacts before the next movement.
-        if(this.pierceRemaining>0){const before=this.blocks.removed;this.pierce(b);if(this.trajectoryVersion===1&&this.blocks.removed>before)motionProgress(b);}
+        if(this.pierceRemaining>0){const before=this.blocks.removed;this.pierce(b);if(this.trajectoryVersion===1&&this.blocks.removed>before)motionProgress(b);for(let contact=0;contact<3;contact++){if(!blockCollision(b,this.blocks,this.blockContact,this.steelOnly))break;}}
         else for (let contact = 0; contact < 3; contact++) {const before=this.blocks.destroyed.length;if (!blockCollision(b, this.blocks,this.blockContact)) break;if(this.fireRemaining>0&&this.blocks.destroyed.length>before)this.burn(this.blocks.destroyed[before]);}
         for(let contact=0;contact<3;contact++){if(!this.obstacles.collide(b,obstacleStart+(i+1)*h,this.obstacleContact))break;}
+        if(this.boss){const touched=this.boss.collide(b);if(touched){if(this.trajectoryVersion===1)motionContact(b,touched==='core');if(touched==='core')this.bossHit();}}
         boundary(b,this.wall,this.wallContact); frameCollision(b,this.wallContact);
         // The only gameplay removal condition, evaluated after all contact corrections.
         if (isBallInDeathZone(b)) { b.alive = false; this.effects.emit('lost', b.x, FRAME.deathY); this.onBallLost?.(); }

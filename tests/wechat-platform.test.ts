@@ -8,6 +8,7 @@ import {MiniGameApp} from '../wechat-game/src/App';
 import {MiniGameApp as CompatibilityApp} from '../minigame/src/App';
 import {wxFixture} from './helpers/WxFixture';
 import type {FrameRuntime} from '../src/platform/Contracts';
+import {breakAll} from './helpers/BreakAll';
 afterEach(()=>vi.unstubAllGlobals());
 function browserHost(){
  const frames=new Map<number,FrameRequestCallback>(),listeners=new Map<string,(e:any)=>void>(),visibility=new Map<string,()=>void>();let sequence=0,disconnected=false;
@@ -45,7 +46,7 @@ it('真实两套宿主的12关、触屏/鼠标输入、物理/五道具/积分�
   f.events.up(touch(400));
   expect(wx.lives).toBe(web.lives);expect(wx.score.total).toBe(web.score.total);expect(wx.physics.blocks.alive).toEqual(web.physics.blocks.alive);expect(wx.physics.balls.length).toBe(web.physics.balls.length);expect(wx.physics.wideRemaining).toBeCloseTo(web.physics.wideRemaining,9);
   for(let i=0;i<web.physics.balls.length;i++){expect(wx.physics.balls[i].x).toBeCloseTo(web.physics.balls[i].x,6);expect(wx.physics.balls[i].y).toBeCloseTo(web.physics.balls[i].y,6);}
-  for(const g of [web,wx]){g.start();for(let i=0;i<g.physics.blocks.alive.length;i++)g.physics.blocks.hit(i);g.update(0);if(level>=3&&level<12)g.nextLevel();}
+  for(const g of [web,wx]){g.start();breakAll(g);g.update(0);if(level>=3&&level<12)g.nextLevel();}
  }
  expect(wx.state).toBe('victory');expect(web.state).toBe('victory');expect(wx.journal.events).toEqual(web.journal.events);expect(wx.score.total).toBe(web.score.total);web.dispose();app.dispose();
 });

@@ -10,10 +10,11 @@ export class ChallengeJournal {
   /** True once 90% of the record limit is used: the HUD warns that the run will soon stop being submittable. */
   get nearLimit(){return this.events.length>=MAX_CHALLENGE_EVENTS*.9;}
   reset() { this.events.length=0;this.seed=newSeed();this.tick=0;this.generation++;this.unranked=false;this.truncated=false;this.bricksDestroyed=0; }
-  record(event:WithoutTick<ChallengeEvent>) {
+  /** `brick`: false for a hit that only cracked a hard brick (it still scores, but no brick was destroyed). */
+  record(event:WithoutTick<ChallengeEvent>,brick=true) {
     if(this.events.length>=MAX_CHALLENGE_EVENTS){this.truncated=true;return;}
     this.events.push({...event,tick:this.tick} as ChallengeEvent);
-    if(event.type==='hit')this.bricksDestroyed++;
+    if(event.type==='hit'&&brick)this.bricksDestroyed++;
   }
   summary(score:number,reachedLevel:number,completedAllLevels:boolean):ChallengeSummary {return {score,reachedLevel,bricksDestroyed:this.bricksDestroyed,durationMs:Math.round(this.tick*C.step*1000),completedAllLevels};}
 }

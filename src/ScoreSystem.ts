@@ -28,6 +28,16 @@ export class ScoreSystem {
     const points = Math.round(ARCADE.blockPoints * this.multiplier);
     this.total += points; return points;
   }
+  /** A hit that cracked a hard brick: scores and extends the combo like a break (bricks score once per hit). */
+  chip(points: number = ARCADE.blockPoints) {
+    if (this.completed) return 0;
+    this.combo++; this.remaining = ARCADE.comboWindow;
+    const scored = Math.round(points * this.multiplier); this.total += scored; return scored;
+  }
+  /** Bricks the final boss grew back can be scored again when broken. */
+  unscore(indices: readonly number[]) { if (this.scored instanceof Set) for (const i of indices) this.scored.delete(i); else for (const i of indices) if (i >= 0 && i < this.scored.length) this.scored[i] = 0; }
+  /** Flat reward for beating a boss; not multiplied by combo. */
+  addBonus(points: number) { if (!this.completed) this.total += points; }
   addBombCompensation() { if(!this.completed)this.total+=ARCADE.emptyBombPoints; }
   /** Flat reward for catching a power-up; not multiplied by combo. */
   addPowerPoints() { if(!this.completed)this.total+=ARCADE.powerPoints; }
