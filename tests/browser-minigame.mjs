@@ -44,6 +44,9 @@ try{
   await page.waitForTimeout(120);await page.screenshot({path:`${out}/${name}-menu.png`});await page.evaluate(()=>{module.exports.app.panel.close();});
   await page.evaluate(()=>{const app=module.exports.app,v=app.view,t={identifier:8,clientX:26,clientY:v.top+16};__touch.down({touches:[t],changedTouches:[t]});__touch.up({touches:[],changedTouches:[t]});});
   await page.waitForTimeout(120);await page.screenshot({path:`${out}/${name}-settings.png`});await page.evaluate(()=>{module.exports.app.panel.close();});
+  // Level map with some stars, opened from the mode picker.
+  await page.evaluate(()=>{const app=module.exports.app;app.progress.record(1,3);app.progress.record(2,2);app.progress.record(3,1);app.levelMap();});
+  await page.waitForTimeout(120);await page.screenshot({path:`${out}/${name}-map.png`});await page.evaluate(()=>{module.exports.app.panel.close();});
   await page.evaluate(()=>{const app=module.exports.app;app.game.reset();app.picking=true;});await page.waitForTimeout(100);
   const result=await page.evaluate(async()=>{
    const app=module.exports.app,g=app.game;const click=(x,y)=>{const t={identifier:1,clientX:x,clientY:y};__touch.down({touches:[t],changedTouches:[t]});__touch.up({touches:[],changedTouches:[t]});};

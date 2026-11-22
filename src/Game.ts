@@ -12,6 +12,7 @@ import { EndlessField } from './endless/EndlessField';
 import { ENDLESS, ENDLESS_LEVEL, endlessStage, endlessVersion, REVIVE_BONUS_SALT, reviveBonus } from './endless/EndlessRules';
 import { seededRandom } from './PowerRules';
 import { BOSS_HIT_POINTS, BOSS_KILL_BONUS } from './campaign/Boss';
+import { levelStars } from './campaign/Progress';
 import { RULES_VERSION, MAX_REVIVES, MAX_BOOSTS, BOOST_BALLS, MAX_SKIPS } from '../shared/Challenge';
 export type GameMode = 'campaign' | 'endless';
 
@@ -50,8 +51,25 @@ export class Game {
   get revivesLeft() { return MAX_REVIVES - this.revivesUsed; }
   /** Boosts are only offered after a lost life, never at the start of a level. */
   get canBoost() { return this.state === 'ready' && this.readyReason === 'lifeLost' && !this.boostArmed && this.boostsUsed < MAX_BOOSTS && this.journal.events.length > 0; }
+  /**
+   * Level map practice (campaign 1.11 table only): play one level on its own, unranked and never uploaded.
+   * Clearing it ends in levelComplete (never victory); `nextLevel` continues with the next level as practice.
+   */
+  practiceLevel = 0;
+  get practice() { return this.practiceLevel > 0; }
+  /** Lives lost on the current level (stars: 0 → ★★★, 1 → ★★, more → ★). */
+  livesLostInLevel = 0;
+  /** Stars for the level just cleared (0 when none were earned, e.g. a frozen season or endless). */
+  lastStars = 0;
+  /** Host hook: save stars for a cleared level of the current campaign table. */
+  onLevelCleared?: (level: number, stars: number) => void;
+  startPractice(level: number) {
+    if (this.mode !== 'campaign') this.setMode('campaign');
+    this.reset(); this.levels.jump(level); this.score.beginLevel(); this.configureLevel(); this.physics.reset();
+    this.journal.unranked = true; this.practiceLevel = this.levels.current.number; this.readyReason = 'levelStart'; this.onChange(this);
+  }
   private runOut() {
-    if (this.revivesUsed < MAX_REVIVES && this.canOfferRevive()) { this.awaitingRevive = true; return; }
+    if (!this.practice && this.revivesUsed < MAX_REVIVES && this.canOfferRevive()) { this.awaitingRevive = true; return; }
     this.journal.record({type:'finish',level:this.levels.current.number});
   }
   /** Watched a rewarded video: +1 life and play on (endless also clears the bottom rows on the next launch). */
@@ -142,14 +160,14 @@ export class Game {
     this.journal.reset();this.physics.setSeed(this.journal.seed);
     this.pendingRelief = false; this.awaitingRevive = false; this.revivesUsed = 0; this.boostsUsed = 0; this.boostArmed = false;
     this.reviveBonusPending = false;
-    this.skipsUsed = 0;
+    this.skipsUsed = 0; this.practiceLevel = 0; this.lastStars = 0;
     this.levels.reset(); this.remainingLives = this.mode==='endless'?ENDLESS.lives:this.campaignLives; this.score.reset(); this.result = undefined;
     this.configureLevel();
     this.physics.reset(); this.state = 'ready'; this.readyReason = 'initial'; this.onChange(this);
   }
   skipsUsed = 0;
   /** Campaign only: a rewarded video may skip the current level (not the last one, at most MAX_SKIPS per run). */
-  get canSkip() { return this.mode === 'campaign' && this.levels.isThreeLife && !this.legacyLives && !this.levels.isFinal && this.skipsUsed < MAX_SKIPS && (this.state === 'ready' || this.state === 'running' || this.state === 'paused'); }
+  get canSkip() { return this.mode === 'campaign' && !this.practice && this.levels.isThreeLife && !this.legacyLives && !this.levels.isFinal && this.skipsUsed < MAX_SKIPS && (this.state === 'ready' || this.state === 'running' || this.state === 'paused'); }
   /** Skip to the next level: no clear or life bonus, lives and score carry over, the new level starts ready. */
   skipLevel() {
     if (!this.canSkip) return false;
@@ -162,6 +180,8 @@ export class Game {
     const previousLevel=this.levels.current.number;
     if (this.state !== 'levelComplete' || !this.levels.next()) return;
     this.roundActive = false;
+    // Practice: each level starts with full lives, like playing it from the map.
+    if (this.practice) { this.practiceLevel = this.levels.current.number; this.remainingLives = this.campaignLives; }
     this.journal.record({type:'next',level:previousLevel});
     this.score.beginLevel(); this.result = undefined;
     this.configureLevel();
@@ -185,14 +205,18 @@ export class Game {
         this.roundActive = false;
         this.result = this.score.complete(this.lives);
         this.journal.record({type:'clear',level:this.levels.current.number});
-        if(this.levels.isFinal)this.journal.record({type:'finish',level:this.levels.current.number});
-        this.state = this.levels.isFinal ? 'victory' : 'levelComplete';
+        // Stars only on the current table (the level map); a practice run never ends in victory.
+        this.lastStars = this.levels.isStandard && !this.legacyLives ? levelStars(this.livesLostInLevel) : 0;
+        if (this.lastStars) this.onLevelCleared?.(this.levels.current.number, this.lastStars);
+        const final = this.levels.isFinal && !this.practice;
+        if(final)this.journal.record({type:'finish',level:this.levels.current.number});
+        this.state = final ? 'victory' : 'levelComplete';
         this.physics.paused = true; this.physics.accumulator = 0; this.audio.play('win');
-        if(this.levels.current.autoAdvance&&!this.levels.isFinal)this.nextLevel();
+        if(this.levels.current.autoAdvance&&!this.levels.isFinal&&!this.practice)this.nextLevel();
       } else if (this.roundActive && !this.physics.balls.some(b => b.alive)) {
         this.roundActive = false;
         this.journal.record({type:'lost',level:this.levels.current.number});
-        this.remainingLives = Math.max(0, this.remainingLives - 1);
+        this.remainingLives = Math.max(0, this.remainingLives - 1); this.livesLostInLevel++;
         this.audio.play('lost');
         this.score.resetCombo(); this.physics.resetRound(this.lives > 0);
         // 1.5+: the next launch starts a fresh 10s pressure countdown instead of inheriting this one.
@@ -225,6 +249,7 @@ export class Game {
     this.onChange(this);
   }
   private configureLevel() {
+    this.livesLostInLevel = 0;
     this.physics.level=this.levels.current;
     this.physics.speedScale = this.levels.current.speedScale;
     this.physics.powerUpDropMultiplier = this.levels.powerUpDropMultiplier;
