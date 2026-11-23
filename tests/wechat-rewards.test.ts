@@ -41,7 +41,7 @@ it('丢一条命后才出现"看视频：下一球+3"，开局不出现；看完
   a.game.start();expect(a.game.physics.balls.length).toBe(4);expect(a.game.journal.events.at(-1)!.type).toBe('boost');
  }finally{a.dispose();}
 });
-it('设置（⚙）：音乐/音效/震动为开关行并记住；皮肤键单独打开皮肤页，看视频永久解锁拖尾',async()=>{
+it('设置（⚙）：音乐/音效/震动为开关行并记住；皮肤页：星星开放、碎片兑换、看视频得碎片/试用24小时',async()=>{
  const f=wxFixture();withAds(f);const a=app(f),p=a as unknown as Private;
  try{p.settings();const label=(t:string)=>a.panel.actions.find(x=>x.label.startsWith(t))!;
   expect(a.panel.actions.filter(x=>x.toggle!==undefined).map(x=>x.label)).toEqual(['音乐','音效','震动']);
@@ -49,14 +49,15 @@ it('设置（⚙）：音乐/音效/震动为开关行并记住；皮肤键单�
   label('音效').run();expect(a.game.audio.sfxOn).toBe(false);label('震动').run();expect(f.storage.get('qiulegeqiu:wechat-vibrate:v1')).toBe(false);
   // Settings does not repeat the pause menu.
   for(const l of ['继续游戏','重新开始','回到主界面','皮肤','排行榜'])expect(a.panel.actions.some(x=>x.label===l)).toBe(false);p.skins();
-  // Trails need 12 stars before the video is offered; paddles unlock by stars alone (no video).
-  expect(a.panel.actions.some(x=>x.label==='★12 解锁流星拖尾')).toBe(true);expect(a.panel.actions.some(x=>x.label.startsWith('▶'))).toBe(false);expect(a.panel.actions.some(x=>x.label==='★12 解锁霓虹光剑')).toBe(true);
+  // 2.17: stars open a skin, 10 shards buy it; videos give 3 shards (5 a day) or lend a skin for 24 hours.
+  expect(a.panel.actions.some(x=>x.label==='★3 开放流星拖尾')).toBe(true);expect(a.panel.actions.some(x=>x.label==='★6 开放霓虹光剑')).toBe(true);
   for(let n=1;n<=4;n++)a.progress.record(n,3);p.skins();
-  label('▶ 看视频解锁流星拖尾').run();await vi.waitFor(()=>expect(p.busy).toBe(false));expect(p.renderer.cometTail).toBe(true);expect(f.storage.get('qiulegeqiu:wechat-trail:v1')).toBe('comet');expect(f.storage.get('qiulegeqiu:wechat-trails:v1')).toEqual(['comet']);
-  expect(a.panel.actions.some(x=>x.label==='流星拖尾：使用中')).toBe(true);label('▶ 看视频解锁爱心拖尾').run();await vi.waitFor(()=>expect(p.busy).toBe(false));expect((p.renderer as unknown as {trail:string}).trail).toBe('heart');expect(a.panel.actions.some(x=>x.label==='流星拖尾：使用')).toBe(true);label('流星拖尾').run();expect((p.renderer as unknown as {trail:string}).trail).toBe('comet');
-  expect(a.panel.actions.some(x=>x.label.includes('看视频解锁霓虹')||x.label.includes('看视频解锁黄金'))).toBe(false);expect(a.panel.actions.some(x=>x.label==='★24 解锁烈焰燃烧')).toBe(true);
-  label('霓虹光剑').run();expect(p.renderer.paddleSkin).toBe('neon');label('默认挡板').run();expect(p.renderer.paddleSkin).toBe('default');label('霓虹光剑').run();expect(p.renderer.paddleSkin).toBe('neon');
-  const again=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false,ads:ADS});try{expect((again as unknown as Private).renderer.paddleSkin).toBe('neon');expect(again.game.audio.musicOn).toBe(false);expect((again as unknown as Private).renderer.cometTail).toBe(true);}finally{again.dispose();}
+  label('▶ 试用流星拖尾24小时').run();await vi.waitFor(()=>expect(p.busy).toBe(false));expect(p.renderer.cometTail).toBe(true);expect(a.panel.actions.some(x=>x.label==='流星拖尾：使用中 · 剩24小时')).toBe(true);
+  for(let i=0;i<5;i++){label('▶ 看视频得 3 碎片').run();await vi.waitFor(()=>expect(p.busy).toBe(false));}
+  expect(a.shards.balance).toBe(15);expect(a.panel.actions.some(x=>x.label==='今日视频碎片已领完，明天再来')).toBe(true);
+  label('兑换爱心拖尾（10碎片）').run();expect(a.shards.balance).toBe(5);expect((p.renderer as unknown as {trail:string}).trail).toBe('heart');expect(f.storage.get('qiulegeqiu:wechat-trails:v1')).toEqual(['heart']);
+  label('▶ 试用霓虹光剑24小时').run();await vi.waitFor(()=>expect(p.busy).toBe(false));expect(p.renderer.paddleSkin).toBe('neon');
+  const again=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false,ads:ADS});try{expect((again as unknown as Private).renderer.paddleSkin).toBe('neon');expect(again.game.audio.musicOn).toBe(false);expect((again as unknown as {renderer:{trail:string}}).renderer.trail).toBe('heart');}finally{again.dispose();}
  }finally{a.dispose();}
 });
 it('第二局结束后只出现一次"添加到我的小程序"引导，点任意处关闭',()=>{
