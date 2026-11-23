@@ -1,3 +1,4 @@
+import {ENDLESS_RULES_VERSION,ENDLESS_RANKING_SCOPE} from '../shared/Challenge';
 import {VIEW} from '../src/Viewport';
 import type {Wx} from '../wechat-game/src/Platform';
 import {wxFixture as fixture} from './helpers/WxFixture';
@@ -19,7 +20,7 @@ it.each([[320,568],[375,812],[430,932],[768,1024]])('分辨率%s×%s安全区和
  const f=fixture(w,h);const app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});expect(()=>app.frame(1)).not.toThrow();
 });
 it('水平触屏控制、多指隔离、取消手势，挡板平滑而不瞬移',()=>{
- const f=fixture(),app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});(app as unknown as {chooseMode(m:string):void}).chooseMode('campaign');const v=layout(375,812,44,778,80);app.frame(100);
+ const f=fixture(),app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});(app as unknown as {chooseMode(m:string):void}).chooseMode('endless');const v=layout(375,812,44,778,80);app.frame(100);
  const y=v.arena.y+v.arena.height-20,old=app.game.physics.paddleX;
  f.events.down(f.touch(1,190,y));f.events.move(f.touch(1,350,y));const target=app.game.physics.targetX;
  f.events.down(f.touch(2,10,y));f.events.move(f.touch(2,10,y));expect(app.game.physics.targetX).toBe(target);
@@ -71,7 +72,7 @@ it('新版品牌与Canvas HUD读取同一个真实生命源，逐轮立即显示
 it('微信个人会话失效不能隐藏公开全球榜，只有一个榜单且可刷新',async()=>{
  const f=fixture();f.wx.login=o=>o.success({code:'login-code'});f.wx.request=o=>{
   if(o.url.endsWith('/wechat/login'))return o.success({statusCode:200,data:{token:'c'.repeat(43),csrfToken:'proof',expiresAt:Date.now()+60000}});
-  if(o.url.includes('/leaderboard?'))return o.success({statusCode:200,data:{board:'global',rankingRulesVersion:RULES_VERSION,rankingScope:'all-campaign-versions',items:[{rank:1,display_name:'中国·公开榜玩家',score:10,reached_level:1}],nextOffset:null}});
+  if(o.url.includes('/leaderboard?'))return o.success({statusCode:200,data:{board:'endless',rankingRulesVersion:ENDLESS_RULES_VERSION,rankingScope:ENDLESS_RANKING_SCOPE,items:[{rank:1,display_name:'中国·公开榜玩家',score:10,reached_level:1}],nextOffset:null}});
   o.success({statusCode:401,data:{message:'登录状态失效'}});
  };const app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});await app.api.login();await (app as unknown as {board():Promise<void>}).board();
  expect(app.panel.title).toContain('全球历史排行榜');expect(app.panel.lines.join('')).toContain('中国·公开榜玩家');expect(app.panel.lines.join('')).toContain('重新登录');expect(app.panel.actions.map(a=>a.label)).toContain('刷新');expect(app.panel.actions.some(a=>/赛季|旧版/.test(a.label))).toBe(false);expect(app.api.authenticated).toBe(false);

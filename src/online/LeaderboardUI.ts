@@ -18,7 +18,8 @@ import { RegionPicker } from './RegionPicker';
 export class LeaderboardUI {
   private qualityMotion=new RankingMotion();
   private motionPreference=window.matchMedia('(prefers-reduced-motion: reduce)');
-  private board:'global'|'endless'='global';
+  /** 2.16: the campaign board is retired (campaign is a saved journey); only the endless board is shown. */
+  private board:'global'|'endless'='endless';
   private boardRevision=0;private offset=0;private api=new ApiClient();private sync:ChallengeSync;private dialog:HTMLDialogElement;private me?:Me;private picker:RegionPicker;private lastEnd=-1;private checking=0;private busy=false;
   constructor(private root:HTMLElement,private game:Game){
     this.sync=new ChallengeSync(this.api,game);
@@ -34,7 +35,7 @@ export class LeaderboardUI {
         <p id="nickname-quota" role="status"></p><button type="button" id="change-nickname" hidden>修改昵称</button><button type="submit" id="submit-score">提交成绩</button></form>
         <div class="ranking-actions"><button type="button" id="view-board">查看排行榜</button><button type="button" id="skip-score">跳过提交</button></div>
       </section>
-      <section id="board-content"><div class="board-tabs" role="tablist" aria-label="榜单"><button type="button" role="tab" data-board="global" aria-selected="true">闯关榜</button><button type="button" role="tab" data-board="endless" aria-selected="false">无尽榜</button></div><p class="ranking-caption"><span id="board-caption">★ 全球 TOP100</span><span>历史最高有效成绩</span></p><div class="reference-head">${REFERENCE.labels.map(label=>`<span>${label}</span>`).join('')}</div><div id="ranking-rows" role="list" aria-label="全球排名"></div><div class="ranking-actions ranking-pagination"><button type="button" id="previous-page">上一页</button><button type="button" id="refresh-board">↻ 刷新</button><button type="button" id="next-page">下一页</button></div><button type="button" id="return-score" hidden>本次挑战成绩</button><details class="ranking-account"><summary>账号与历史记录</summary><button type="button" id="wechat-link">生成微信账号绑定码</button><p id="historical-best"></p></details></section>
+      <section id="board-content"><div class="board-tabs" role="tablist" aria-label="榜单" hidden><button type="button" role="tab" data-board="global" aria-selected="true">闯关榜</button><button type="button" role="tab" data-board="endless" aria-selected="false">无尽榜</button></div><p class="ranking-caption"><span id="board-caption">★ 全球 TOP100</span><span>历史最高有效成绩</span></p><div class="reference-head">${REFERENCE.labels.map(label=>`<span>${label}</span>`).join('')}</div><div id="ranking-rows" role="list" aria-label="全球排名"></div><div class="ranking-actions ranking-pagination"><button type="button" id="previous-page">上一页</button><button type="button" id="refresh-board">↻ 刷新</button><button type="button" id="next-page">下一页</button></div><button type="button" id="return-score" hidden>本次挑战成绩</button><details class="ranking-account"><summary>账号与历史记录</summary><button type="button" id="wechat-link">生成微信账号绑定码</button><p id="historical-best"></p></details></section>
       <p id="online-message" role="status"></p><details class="appeal"><summary>昵称或账号申诉</summary><label>申诉说明<textarea id="appeal-text" maxlength="500" placeholder="请说明问题，不要填写密码或联系方式"></textarea></label><button id="appeal-send" type="button">提交申诉</button></details></div><aside class="my-ranking"><span class="ball-avatar" role="img" aria-label="统一球球默认头像">${BALL_SVG}</span><div class="my-ranking-content"><p id="my-best">我的排名：正在读取</p><span id="my-name"></span><div id="my-stats"></div></div></aside>`;
     for(const key of ['champion','honor','card','borderGold','borderBlue','gold'] as const)this.dialog.style.setProperty('--rank-'+key,RANKING_THEME[key]);
     this.dialog.dataset.quality='low';
@@ -46,6 +47,7 @@ export class LeaderboardUI {
     for(const tab of Array.from(this.dialog.querySelectorAll<HTMLButtonElement>('[data-board]')))tab.onclick=()=>{this.selectBoard(tab.dataset.board as 'global'|'endless');this.message('');void this.loadBoard(0);};
     trophy.onclick=()=>{if(game.state==='running')game.pause();this.open(false);};
     this.dialog.querySelector<HTMLButtonElement>('[data-online-close]')!.onclick=()=>this.dialog.close();
+    this.selectBoard('endless');
     this.el('score-form').onsubmit=e=>{e.preventDefault();void this.submit();};
     // Closing returns to the mode picker shown after every finished run.
     this.button('skip-score').onclick=()=>this.dialog.close();
@@ -99,7 +101,7 @@ export class LeaderboardUI {
     if(this.sync.connected)this.open(true);}}
   /** Reopen this run's score card (from the result page). */
   showResult(){if(this.game.state==='gameOver'||this.game.state==='victory')this.open(true);}
-  private open(ended:boolean){this.dialog.querySelector('h2')!.textContent=ended?'本次挑战成绩':'全球历史排行榜';this.dialog.setAttribute('aria-label',ended?'本次挑战成绩':'全球历史排行榜');this.dialog.classList.toggle('submission-view',ended);this.button('return-score').hidden=ended||(this.game.state!=='gameOver'&&this.game.state!=='victory');this.el('challenge-entry').hidden=!ended;this.el('board-content').hidden=ended;this.message('');if(ended){const s=this.game.journal.summary(this.game.score.total,this.game.reachedLevel,this.game.state==='victory');this.el('challenge-score').textContent=s.score.toLocaleString('zh-CN');const endless=this.game.mode==='endless';this.el('sv-mode').textContent=endless?'无尽模式':'闯关模式';this.el('sv-mode').dataset.mode=this.game.mode;this.el('sv-title').textContent=this.game.state==='victory'?'全部关卡突破！':endless?'挑战结束':'生命耗尽';this.el('challenge-level-label').textContent=endless?'到达阶段':'关卡';this.el('challenge-level').textContent=endless?`第${s.reachedLevel}阶段`:`到达第${s.reachedLevel}关`;this.el('challenge-bricks').textContent=s.bricksDestroyed.toLocaleString('zh-CN');this.el('challenge-time').textContent=`${(s.durationMs/1000).toFixed(1)} 秒`;}
+  private open(ended:boolean){this.dialog.querySelector('h2')!.textContent=ended?'本次挑战成绩':'无尽模式排行榜';this.dialog.setAttribute('aria-label',ended?'本次挑战成绩':'无尽模式排行榜');this.dialog.classList.toggle('submission-view',ended);this.button('return-score').hidden=ended||(this.game.state!=='gameOver'&&this.game.state!=='victory');this.el('challenge-entry').hidden=!ended;this.el('board-content').hidden=ended;this.message('');if(ended){const s=this.game.journal.summary(this.game.score.total,this.game.reachedLevel,this.game.state==='victory');this.el('challenge-score').textContent=s.score.toLocaleString('zh-CN');const endless=this.game.mode==='endless';this.el('sv-mode').textContent=endless?'无尽模式':'闯关模式';this.el('sv-mode').dataset.mode=this.game.mode;this.el('sv-title').textContent=this.game.state==='victory'?'全部关卡突破！':endless?'挑战结束':'生命耗尽';this.el('challenge-level-label').textContent=endless?'到达阶段':'关卡';this.el('challenge-level').textContent=endless?`第${s.reachedLevel}阶段`:`到达第${s.reachedLevel}关`;this.el('challenge-bricks').textContent=s.bricksDestroyed.toLocaleString('zh-CN');this.el('challenge-time').textContent=`${(s.durationMs/1000).toFixed(1)} 秒`;}
     if(!this.dialog.open)this.dialog.showModal();this.syncMotion();void this.api.me(true).then(me=>this.applyMe(me)).catch(error=>{this.personalUnavailable();this.message(error.message);});if(!ended)void this.loadBoard(0);
   }
   private async changeNickname(){
@@ -117,7 +119,7 @@ export class LeaderboardUI {
       if(!me.player){await this.api.request('/players',{nickname:this.input('nickname').value,regionCode:this.picker.code});this.applyMe(await this.api.me(true));}
       const result=await this.sync.submit();let refreshed:Me|undefined;
       try{refreshed=await this.api.me(true);this.applyMe(refreshed);}catch{/* The score is already saved; a refresh failure must not claim submission failed. */}
-      this.dialog.classList.remove('submission-view');this.el('challenge-entry').hidden=true;this.button('return-score').hidden=false;this.el('board-content').hidden=false;this.selectBoard(this.game.mode==='endless'?'endless':'global');const loaded=await this.loadBoard(0,false);
+      this.dialog.classList.remove('submission-view');this.el('challenge-entry').hidden=true;this.button('return-score').hidden=false;this.el('board-content').hidden=false;this.selectBoard('endless');const loaded=await this.loadBoard(0,false);
       const saved=result.verificationStatus==='verified'?'成绩已登记':'成绩已登记，异常记录待复核后参与排名';
       this.message(saved+(refreshed?.rankingAvailable===false?'；统一排行榜后端需要更新，记录未丢失。':!loaded||!refreshed?'；榜单或个人记录暂无法刷新，请稍后重试。':'，排行榜显示个人最高有效成绩。'));
     }catch(error){const detail=(error as Error).message;this.message(detail+'；挑战记录仍保留在本页面。'+(!this.sync.canRetry?'本轮无法继续登记，请先解决接口或身份问题，再重新挑战。':'修复接口或网络问题后可重试提交，也可跳过重新挑战。'));}

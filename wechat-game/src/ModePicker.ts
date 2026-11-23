@@ -57,7 +57,7 @@ export interface ResultView {mode:'campaign'|'endless';title:string;score:number
 // Deterministic stars (fractions of the screen), so the page never flickers between frames.
 const STARS=[[.12,.18,1.5],[.78,.12,1],[.64,.34,1.5],[.28,.46,1],[.88,.52,1],[.08,.72,1.5],[.46,.84,1],[.92,.88,1],[.36,.06,1],[.56,.62,1],[.18,.94,1],[.72,.76,1.5]];
 const CARDS=[
- {title:'闯关模式',desc:'12 关逐关突破，冲击闯关榜',chips:['3 条命','12 关','闯关榜'],icon:'flag' as const,from:'#4FD8FF',mid:'#3A8CFF',to:'#4B5BFF',edge:'#2443B8',go:'#2D6BFF'},
+ {title:'闯关模式',desc:'12 关逐关突破，死了从本关接着打',chips:['每关 3 条命','12 关','36 星'],icon:'flag' as const,from:'#4FD8FF',mid:'#3A8CFF',to:'#4B5BFF',edge:'#2443B8',go:'#2D6BFF'},
  {title:'无尽模式',desc:'砖墙不断下沉，坚持越久分越高',chips:['3 条命','无限阶段','无尽榜'],icon:'infinity' as const,from:'#FF8CC6',mid:'#C25CFF',to:'#7A4BFF',edge:'#5A2AB8',go:'#A040FF'},
 ];
 
@@ -150,7 +150,7 @@ export function drawModePicker(c:CanvasRenderingContext2D,width:number,height:nu
  // Level map: gold-edged wide button with the star total.
  {const m=v.map;const g=c.createLinearGradient(0,m.y,0,m.y+m.height);g?.addColorStop(0,'rgba(255,210,77,.18)');g?.addColorStop(1,'rgba(255,210,77,.05)');c.fillStyle=g||'rgba(255,210,77,.1)';c.strokeStyle='rgba(255,210,77,.6)';c.lineWidth=1.2;c.beginPath();c.roundRect(m.x,m.y,m.width,m.height,16);c.fill();c.stroke();
   c.font=`900 19px ${OCEAN.fonts.body}`;c.textAlign='center';c.textBaseline='middle';c.fillStyle='#FFD24D';c.fillText('★',m.x+26,m.y+m.height/2+1);
-  c.font=`800 15px ${OCEAN.fonts.body}`;c.textAlign='left';c.fillStyle='#FFE9A8';c.fillText('关卡地图 · 单关练习',m.x+44,m.y+m.height/2+1,m.width-130);
+  c.font=`800 15px ${OCEAN.fonts.body}`;c.textAlign='left';c.fillStyle='#FFE9A8';c.fillText('关卡地图 · 选关刷星',m.x+44,m.y+m.height/2+1,m.width-130);
   c.font=`800 13px ${OCEAN.fonts.body}`;const sw=c.measureText(stars).width+20;c.fillStyle='rgba(0,0,0,.25)';c.beginPath();c.roundRect(m.x+m.width-sw-12,m.y+m.height/2-11,sw,22,11);c.fill();c.fillStyle='#FFD24D';c.textAlign='center';c.fillText(stars,m.x+m.width-12-sw/2,m.y+m.height/2+1);}
  void muted;pillTools(c,v.tools,[{label:'设置',icon:'gear',color:'#FFD24D'},{label:'皮肤',icon:'spark',color:'#FF8CC6'},{label:'排行榜',icon:'trophy',color:'#FFD24D'}]);
  canvasText(c,`每局结束后可重新选择模式 · V${MINIGAME_VERSION}`,width/2,v.footY,width-40,11,OCEAN.colors.muted,'center');
@@ -199,7 +199,7 @@ export function drawLevelMap(c:CanvasRenderingContext2D,width:number,height:numb
  const total=`★ ${view.total}/${view.max}`;c.font=`800 13px ${OCEAN.fonts.body}`;const tw=c.measureText(total).width+18;c.fillStyle='rgba(255,210,77,.16)';c.beginPath();c.roundRect(width/2+18,y+19,tw,22,11);c.fill();c.fillStyle='#FFD24D';c.fillText(total,width/2+18+tw/2,y+30);
  const close={x:x+w-44,y:y+12,width:34,height:34};c.fillStyle='#9E1F33';c.beginPath();c.arc(close.x+17,close.y+19,16,0,Math.PI*2);c.fill();c.fillStyle='#E8384F';c.beginPath();c.arc(close.x+17,close.y+17,16,0,Math.PI*2);c.fill();
  c.strokeStyle='#FFFFFF';c.lineWidth=3;c.lineCap='round';c.beginPath();c.moveTo(close.x+11,close.y+11);c.lineTo(close.x+23,close.y+23);c.moveTo(close.x+23,close.y+11);c.lineTo(close.x+11,close.y+23);c.stroke();c.lineCap='butt';
- canvasText(c,'单关练习不计排行榜 · 不丢命★★★ · 丢1命★★ · 通关★',width/2,y+head+4,w-24,11,'#8FA6C8','center');
+ canvasText(c,'进度自动保存 · 不丢命★★★ · 丢1命★★ · 通关★',width/2,y+head+4,w-24,11,'#8FA6C8','center');
  const nodes:Rect[]=[],centres:[number,number][]=[];
  for(let i=0;i<view.names.length;i++){const row=Math.floor(i/3),k=i%3,col=row%2?2-k:k;const r={x:x+pad+col*cellW+4,y:y+head+sub+pad+row*cellH,width:cellW-8,height:cellH-8};nodes.push(r);centres.push([r.x+r.width/2,r.y+24]);}
  // Path: dotted gold line through the node centres in level order.

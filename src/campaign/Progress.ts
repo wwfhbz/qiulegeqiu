@@ -1,6 +1,7 @@
 /**
  * Campaign stars and the level map (local only, never part of scoring or the leaderboard).
  * ★ for clearing a level, ★★ with at most one life lost in it, ★★★ without losing a life.
+ * Since 2.16 this is also the campaign save: a level is open once the one before it was cleared or skipped.
  */
 export const LEVEL_COUNT = 12, MAX_STARS = LEVEL_COUNT * 3;
 export function levelStars(livesLost: number) { return livesLost <= 0 ? 3 : livesLost === 1 ? 2 : 1; }
@@ -9,18 +10,23 @@ export interface ProgressStore { read(): string | null; write(value: string): vo
 /** Best stars per level; a level is open once the one before it has been cleared (level 1 always). */
 export class CampaignProgress {
   readonly stars = new Array<number>(LEVEL_COUNT).fill(0);
+  /** Furthest level entered (a rewarded skip opens the next level without stars). */
+  reached = 1;
   constructor(private readonly store?: ProgressStore) {
-    try { const data = JSON.parse(store?.read() ?? 'null'); if (Array.isArray(data?.stars)) data.stars.slice(0, LEVEL_COUNT).forEach((s: unknown, i: number) => { if (Number.isInteger(s)) this.stars[i] = Math.max(0, Math.min(3, s as number)); }); } catch { /* Corrupt or missing: start fresh. */ }
+    try { const data = JSON.parse(store?.read() ?? 'null'); if (Array.isArray(data?.stars)) data.stars.slice(0, LEVEL_COUNT).forEach((s: unknown, i: number) => { if (Number.isInteger(s)) this.stars[i] = Math.max(0, Math.min(3, s as number)); }); if (Number.isInteger(data?.reached)) this.reached = Math.max(1, Math.min(LEVEL_COUNT, data.reached)); } catch { /* Corrupt or missing: start fresh. */ }
   }
   get total() { return this.stars.reduce((a, b) => a + b, 0); }
-  unlocked(level: number) { return level === 1 || (level >= 2 && level <= LEVEL_COUNT && this.stars[level - 2] > 0); }
+  unlocked(level: number) { return level >= 1 && level <= LEVEL_COUNT && (level <= this.reached || this.stars[level - 2] > 0); }
+  /** Entering a level (from the map, the next button or a skip) keeps it open for good. */
+  reach(level: number) { if (level > this.reached && level <= LEVEL_COUNT) { this.reached = level; this.save(); } }
+  private save() { try { this.store?.write(JSON.stringify({ stars: this.stars, reached: this.reached })); } catch { /* Preference only. */ } }
   /** Highest open level. */
   get frontier() { let n = 1; while (n < LEVEL_COUNT && this.unlocked(n + 1)) n++; return n; }
   /** Keep the best result; returns true when this improved the record. */
   record(level: number, stars: number) {
     if (level < 1 || level > LEVEL_COUNT || stars <= this.stars[level - 1]) return false;
     this.stars[level - 1] = Math.min(3, stars);
-    try { this.store?.write(JSON.stringify({ stars: this.stars })); } catch { /* Preference only. */ }
+    this.save();
     return true;
   }
 }

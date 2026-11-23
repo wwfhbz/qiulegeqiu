@@ -54,19 +54,19 @@ try{
   const result=await page.evaluate(async()=>{
    const app=module.exports.app,g=app.game;const click=(x,y)=>{const t={identifier:1,clientX:x,clientY:y};__touch.down({touches:[t],changedTouches:[t]});__touch.up({touches:[],changedTouches:[t]});};
    // Use the same central hit target and wx touch callbacks as a real host.
-   // The mode picker is up on launch: tap its first button (闯关模式) like a player would.
-   await new Promise(r=>setTimeout(r,60));const pick=app.panel.hits[0];if(!pick)throw Error('Mode picker not shown');
-   click(pick.rect.x+pick.rect.width/2,pick.rect.y+pick.rect.height/2);if(app.game.mode!=='campaign'||app.picking)throw Error('Mode picker did not start campaign');
+   // The mode picker is up: tap 无尽模式 like a player would (since 2.16 only endless is ranked and uploaded).
+   await new Promise(r=>setTimeout(r,60));const pick=app.panel.hits[1];if(!pick)throw Error('Mode picker not shown');
+   click(pick.rect.x+pick.rect.width/2,pick.rect.y+pick.rect.height/2);if(app.game.mode!=='endless'||app.picking)throw Error('Mode picker did not start endless');
    const v=app.view;click(innerWidth/2,v.arena.y+492*v.scale);
    const deadline=Date.now()+5000;while(g.state!=='running'&&Date.now()<deadline)await new Promise(r=>setTimeout(r,20));
    if(g.state!=='running')throw Error('Central touch did not start');
    const paddle=g.physics.paddleX,t={identifier:2,clientX:innerWidth*.5,clientY:v.arena.y+v.arena.height-10};__touch.down({touches:[t],changedTouches:[t]});t.clientX=innerWidth-30;__touch.move({touches:[t],changedTouches:[t]});__touch.up({touches:[],changedTouches:[t]});
    await new Promise(r=>setTimeout(r,80));const moved=g.physics.paddleX>paddle;
    __life.hide();const tick=g.journal.tick;await new Promise(r=>setTimeout(r,70));if(g.journal.tick!==tick||g.state!=='paused')throw Error('Background physics did not pause');__life.show();if(g.state!=='paused')throw Error('Foreground auto-launched');
-   g.start();const hitDeadline=Date.now()+4000;while(g.physics.blocks.removed===0&&Date.now()<hitDeadline)await new Promise(r=>setTimeout(r,20));const playedBricks=g.physics.blocks.removed;if(!playedBricks)throw Error('No actual brick collision in wx host');if(g.state==='ready')g.start();g.physics.triple();const balls=g.physics.balls.length;
+   g.start();const hitDeadline=Date.now()+4000;while(g.journal.bricksDestroyed===0&&Date.now()<hitDeadline)await new Promise(r=>setTimeout(r,20));const playedBricks=g.journal.bricksDestroyed;if(!playedBricks)throw Error('No actual brick collision in wx host');if(g.state==='ready')g.start();g.physics.triple();const balls=g.physics.balls.length;
    // Do not fabricate production scores. This is an isolated harness; test real loss events.
    g.reset();g.start();for(let round=0;round<g.maxLives;round++){if(g.state==='ready')g.start();Object.assign(g.physics.balls[0],{x:400,y:940,vx:380,vy:0,outsideArena:true});for(let n=0;n<20;n++)g.update(.1);Object.assign(g.physics.balls[0],{x:400,y:1080,vx:0,vy:760,outsideArena:true});g.update(1/120);}
-   app.sync.lastPump=Date.now();app.sync.observe();await app.sync.run.id;await app.api.request('/__test/advance',{});await new Promise(r=>requestAnimationFrame(()=>{app.frame(performance.now());r();}));await window.__captureEnd();await app.submit();const me=await app.api.me(),board=await app.api.request('/leaderboard?limit=5&board=global');
+   app.sync.lastPump=Date.now();app.sync.observe();await app.sync.run.id;await app.api.request('/__test/advance',{});await new Promise(r=>requestAnimationFrame(()=>{app.frame(performance.now());r();}));await window.__captureEnd();await app.submit();const me=await app.api.request('/me/best?board=endless'),board=await app.api.request('/leaderboard?limit=5&board=endless');
    app.online=false;app.frame(performance.now());return {moved,balls,playedBricks,state:g.state,lives:g.lives,best:me.best,boardCount:board.items.length,width:app.canvas.width,share:__share()};
   });
   assert.equal(result.moved,true);assert(result.playedBricks>0);assert.equal(result.balls,3);assert.equal(result.lives,0);assert(result.best);assert(result.boardCount>=1);assert.equal(errors.length,0,errors.join('\n'));

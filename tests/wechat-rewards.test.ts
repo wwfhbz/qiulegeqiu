@@ -30,7 +30,7 @@ it('生命耗尽：弹出复活卡，看完视频+1命继续本局；最多2次�
 it('中途关闭视频不发奖励；选择放弃则正常结算',async()=>{
  const f=wxFixture();withAds(f,()=>false);const a=app(f),p=a as unknown as Private;
  try{while(a.game.state!=='gameOver')lose(a);a.frame(64);a.panel.actions[0].run();await vi.waitFor(()=>expect(p.busy).toBe(false));expect(a.game.state).toBe('gameOver');expect(a.game.awaitingRevive).toBe(true);
-  a.panel.actions[1].run();expect(a.game.journal.events.at(-1)!.type).toBe('finish');a.frame(80);a.frame(96);expect(a.panel.title).toContain('挑战结束');
+  a.panel.actions[1].run();expect(a.game.journal.events.at(-1)!.type).toBe('finish');a.frame(80);a.frame(96);expect(a.panel.title).toContain('生命耗尽');expect(a.panel.actions.map(x=>x.label)).toEqual(['再来一次','关卡地图']);
  }finally{a.dispose();}
 });
 it('丢一条命后才出现"看视频：下一球+3"，开局不出现；看完后下一次发射多3个球',async()=>{
