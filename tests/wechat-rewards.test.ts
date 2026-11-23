@@ -52,12 +52,15 @@ it('设置（⚙）：音乐/音效/震动为开关行并记住；皮肤页：�
   // 2.17: stars open a skin, 10 shards buy it; videos give 3 shards (5 a day) or lend a skin for 24 hours.
   expect(a.panel.actions.some(x=>x.label==='★3 开放流星拖尾')).toBe(true);expect(a.panel.actions.some(x=>x.label==='★6 开放霓虹光剑')).toBe(true);
   for(let n=1;n<=4;n++)a.progress.record(n,3);p.skins();
-  label('▶ 试用流星拖尾24小时').run();await vi.waitFor(()=>expect(p.busy).toBe(false));expect(p.renderer.cometTail).toBe(true);expect(a.panel.actions.some(x=>x.label==='流星拖尾：使用中 · 剩24小时')).toBe(true);
+  label('▶ 试用流星拖尾2小时（剩3次）').run();await vi.waitFor(()=>expect(p.busy).toBe(false));expect(p.renderer.cometTail).toBe(true);expect(a.panel.actions.some(x=>x.label==='流星拖尾：使用中 · 剩2小时')).toBe(true);expect((a as unknown as {trialsLeft:number}).trialsLeft).toBe(2);
   for(let i=0;i<5;i++){label('▶ 看视频得 3 碎片').run();await vi.waitFor(()=>expect(p.busy).toBe(false));}
   expect(a.shards.balance).toBe(15);expect(a.panel.actions.some(x=>x.label==='今日视频碎片已领完，明天再来')).toBe(true);
   label('兑换爱心拖尾（10碎片）').run();expect(a.shards.balance).toBe(5);expect((p.renderer as unknown as {trail:string}).trail).toBe('heart');expect(f.storage.get('qiulegeqiu:wechat-trails:v1')).toEqual(['heart']);
-  label('▶ 试用霓虹光剑24小时').run();await vi.waitFor(()=>expect(p.busy).toBe(false));expect(p.renderer.paddleSkin).toBe('neon');
-  const again=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false,ads:ADS});try{expect((again as unknown as Private).renderer.paddleSkin).toBe('neon');expect(again.game.audio.musicOn).toBe(false);expect((again as unknown as {renderer:{trail:string}}).renderer.trail).toBe('heart');}finally{again.dispose();}
+  label('▶ 试用霓虹光剑2小时（剩2次）').run();await vi.waitFor(()=>expect(p.busy).toBe(false));expect(p.renderer.paddleSkin).toBe('neon');
+  // All skins share 3 trials: after the third one no trial button is left, only the shard count.
+  expect((a as unknown as {trialsLeft:number}).trialsLeft).toBe(1);label('▶ 试用烈焰燃烧2小时（剩1次）').run();await vi.waitFor(()=>expect(p.busy).toBe(false));expect(p.renderer.paddleSkin).toBe('flame');
+  expect((a as unknown as {trialsLeft:number}).trialsLeft).toBe(0);expect(a.panel.actions.some(x=>x.label.startsWith('▶ 试用'))).toBe(false);expect(a.panel.actions.some(x=>x.label==='霓虹光剑：使用 · 剩2小时')).toBe(true);
+  const again=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false,ads:ADS});try{expect((again as unknown as Private).renderer.paddleSkin).toBe('flame');expect(again.game.audio.musicOn).toBe(false);expect((again as unknown as {renderer:{trail:string}}).renderer.trail).toBe('heart');}finally{again.dispose();}
  }finally{a.dispose();}
 });
 it('第二局结束后只出现一次"添加到我的小程序"引导，点任意处关闭',()=>{
