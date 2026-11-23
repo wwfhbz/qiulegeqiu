@@ -1,0 +1,87 @@
+name: Tencent Cloud production deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type DEPLOY to request a production deployment'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qiulegeqiu-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy approved main commit
+    if: ${{ github.ref == 'refs/heads/main' && inputs.confirm == 'DEPLOY' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    environment:
+      name: production
+      url: https://ball.gmgnclaw.com
+    steps:
+      - name: Require explicitly configured approval gate
+        env:
+          APPROVAL_READY: ${{ vars.DEPLOY_APPROVAL_READY }}
+        run: |
+          if [ "$APPROVAL_READY" != "true" ]; then
+            echo "::error::Production Environment reviewers must be configured, then set DEPLOY_APPROVAL_READY=true."
+            exit 1
+          fi
+
+      - name: Configure pinned SSH host and dedicated key
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.TENCENT_DEPLOY_SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.TENCENT_SSH_KNOWN_HOSTS }}
+          SSH_HOST: ${{ secrets.TENCENT_SSH_HOST }}
+          SSH_USER: ${{ secrets.TENCENT_SSH_USER }}
+        run: |
+          set -euo pipefail
+          for v in SSH_PRIVATE_KEY SSH_KNOWN_HOSTS SSH_HOST SSH_USER; do
+            if [ -z "${!v}" ]; then echo "::error::Missing $v"; exit 1; fi
+          done
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/qiulegeqiu_deploy
+          chmod 600 ~/.ssh/qiulegeqiu_deploy
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          printf 'Host qiulegeqiu-production\n  HostName %s\n  User %s\n  IdentityFile ~/.ssh/qiulegeqiu_deploy\n  IdentitiesOnly yes\n  StrictHostKeyChecking yes\n  BatchMode yes\n  ConnectTimeout 15\n' "$SSH_HOST" "$SSH_USER" > ~/.ssh/config
+          chmod 600 ~/.ssh/config
+
+      - name: Deploy only the approved commit via existing guarded script
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          ssh qiulegeqiu-production "bash -s -- '$EXPECTED_SHA'" <<'REMOTE'
+          set -Eeuo pipefail
+          expected="$1"
+          case "$expected" in *[!0-9a-f]*|'') echo "Invalid commit SHA"; exit 1;; esac
+          test "${#expected}" -eq 40
+          test "$(id -un)" = ubuntu
+          cd /home/ubuntu/qiulegeqiu
+          test -z "$(git status --porcelain)"
+          test "$(git branch --show-current)" = main
+          git fetch origin main
+          actual="$(git rev-parse origin/main)"
+          if [ "$actual" != "$expected" ]; then
+            echo "Refusing deployment: main moved after approval ($expected != $actual)"
+            exit 1
+          fi
+          export QIULEGEQIU_EXPECTED_COMMIT="$expected"
+          bash deploy/update.sh
+          deployed="$(git rev-parse HEAD)"
+          test "$deployed" = "$expected" || { echo "Unexpected deployed source commit"; exit 1; }
+          REMOTE
+
+      - name: Summarize
+        if: success()
+        run: |
+          echo "### Deployment succeeded" >> "$GITHUB_STEP_SUMMARY"
+          echo "Approved commit: \`$GITHUB_SHA\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "Site: https://ball.gmgnclaw.com" >> "$GITHUB_STEP_SUMMARY"
