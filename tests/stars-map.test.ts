@@ -18,15 +18,15 @@ it('星级：不丢命三星、丢1命两星、其余一星；进度保存最好
  expect(STAR_SKIN_UNLOCKS).toEqual({'paddle:neon':12,'paddle:flame':24,'paddle:gold':36});
  expect(starBalance(12,9)).toBe(3);expect(starBalance(5,9)).toBe(0);expect(trialHoursLeft(1000+3600000*23.5,1000)).toBe(24);expect(trialHoursLeft(500,1000)).toBe(0);expect(trialHoursLeft(undefined,1000)).toBe(0);
 });
-it('完整挑战每过一关记星；单关练习从任意关开始、不上传、不复活不跳关，通关停在本关可接下一关',()=>{
+it('完整挑战每过一关记星；闯关存档：从任意已解锁关开始、不上传，可看视频复活/跳关，通关停在本关可接下一关',()=>{
  const g=new Game(),cleared:[number,number][]=[];g.onLevelCleared=(l,s)=>cleared.push([l,s]);
  g.start();breakAll(g);g.update(0);expect(cleared).toEqual([[1,3]]);
- g.startPractice(5);expect(g.levels.current.number).toBe(5);expect(g.practice).toBe(true);expect(g.journal.unranked).toBe(true);expect(g.lives).toBe(3);expect(g.canSkip).toBe(false);
+ g.startPractice(5);expect(g.levels.current.number).toBe(5);expect(g.practice).toBe(true);expect(g.journal.unranked).toBe(true);expect(g.lives).toBe(3);expect(g.canSkip).toBe(true);
  const offer=vi.fn(()=>true);g.canOfferRevive=offer;
  g.start();loseLife(g);expect(g.lives).toBe(2);g.start();breakAll(g);g.update(0);
  expect(g.state).toBe('levelComplete');expect(g.lastStars).toBe(2);expect(cleared.at(-1)).toEqual([5,2]);expect(g.journal.events.some(e=>e.type==='finish')).toBe(false);
  g.nextLevel();expect(g.levels.current.number).toBe(6);expect(g.practice).toBe(true);expect(g.lives).toBe(3);
- g.start();for(let i=0;i<3;i++){loseLife(g);if(g.state==='ready')g.start();}expect(g.state).toBe('gameOver');expect(offer).not.toHaveBeenCalled();
+ g.start();for(let i=0;i<3;i++){loseLife(g);if(g.state==='ready')g.start();}expect(g.state).toBe('gameOver');expect(offer).toHaveBeenCalled();expect(g.awaitingRevive).toBe(true);g.endRun();
  const requests:string[]=[],sync=new ChallengeSync({request:async(path:string)=>{requests.push(path);return {} as never;}},g);sync.observe();expect(requests).toHaveLength(0);
  // Practising the final level never ends in victory; a normal run again clears the practice flag.
  g.startPractice(12);g.start();breakAll(g);g.update(0);expect(g.state).toBe('levelComplete');g.reset();expect(g.practice).toBe(false);expect(g.levels.current.number).toBe(1);
@@ -59,4 +59,17 @@ it('微信：V2.15 已靠星星解锁的拖尾（6/18/30星）升级后永久保
  // Later star gains never unlock trails by themselves again.
  f.storage.set('qiulegeqiu:wechat-stars:v1',JSON.stringify({stars:Array(12).fill(3)}));const again=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});
  try{expect(f.storage.get('qiulegeqiu:wechat-trails:v1')).toEqual(['comet','heart']);}finally{again.dispose();}
+});
+it('2.16 闯关存档：选闯关直接从最远解锁关开始；跳关也会解锁下一关；重新开始只重打本关；排行榜只剩无尽榜',async()=>{
+ const store=new Map<string,string>(),io={read:()=>store.get('k')??null,write:(v:string)=>{store.set('k',v);}},p=new CampaignProgress(io);
+ p.reach(4);expect(p.unlocked(4)).toBe(true);expect(p.unlocked(5)).toBe(false);expect(new CampaignProgress(io).frontier).toBe(4);
+ const f=wxFixture(390,844,3),app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});
+ type P={chooseMode(m:string):void;rankingBoard:string;panel:{actions:{label:string;run():void}[]};confirmRestart():void;board():Promise<void>};const x=app as unknown as P;
+ try{for(let n=1;n<=3;n++)app.progress.record(n,2);
+  x.chooseMode('campaign');expect(app.game.practice).toBe(true);expect(app.game.levels.current.number).toBe(4);expect(app.game.journal.unranked).toBe(true);
+  // A rewarded skip opens the next level in the save even without stars.
+  expect(app.game.skipLevel()).toBe(true);expect(app.game.levels.current.number).toBe(5);expect(app.progress.unlocked(5)).toBe(true);expect(app.progress.frontier).toBe(5);expect(app.game.lives).toBe(3);
+  app.game.start();x.confirmRestart();x.panel.actions.find(a=>a.label==='重新开始')!.run();expect(app.game.levels.current.number).toBe(5);expect(app.game.practice).toBe(true);expect(app.game.journal.events).toHaveLength(0);
+  expect(x.rankingBoard).toBe('endless');await x.board();expect(x.panel.actions.some(a=>a.label==='闯关榜'||a.label==='无尽榜')).toBe(false);
+ }finally{app.dispose();}
 });

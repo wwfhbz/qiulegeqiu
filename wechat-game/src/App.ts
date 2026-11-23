@@ -66,7 +66,7 @@ export class MiniGameApp {
   this.game=new Game(undefined,()=>{},undefined,this.platform.createAudio());
   // Level map stars (this phone only; never part of scoring).
   this.progress=new CampaignProgress({read:()=>{const v=this.platform.read(STARS_KEY);return typeof v==='string'?v:null;},write:v=>this.platform.write(STARS_KEY,v)});
-  this.game.onLevelCleared=(level,stars)=>{this.progress.record(level,stars);this.panel.mapStars=`${this.progress.total}/${MAX_STARS}`;};this.panel.mapStars=`${this.progress.total}/${MAX_STARS}`;
+  this.game.onLevelCleared=(level,stars)=>{this.progress.record(level,stars);this.panel.mapStars=`${this.progress.total}/${MAX_STARS}`;};this.game.onLevelEntered=level=>this.progress.reach(level);this.panel.mapStars=`${this.progress.total}/${MAX_STARS}`;
   // V2.15 unlocked trails by stars alone: keep those for good, once (new unlocks follow the 12-star + video rule).
   if(this.platform.read(TRAIL_GRANDFATHER_KEY)!==true){const own=this.platform.read(SETTING.trails),list:string[]=Array.isArray(own)?own.filter((v):v is string=>typeof v==='string'&&isTrailSkin(v)):[];for(const [id,need] of Object.entries(LEGACY_TRAIL_STAR_UNLOCKS))if(this.progress.total>=need&&!list.includes(id))list.push(id);this.platform.write(SETTING.trails,list);this.platform.write(TRAIL_GRANDFATHER_KEY,true);}
   // 2.9: the top-bar speaker is gone; an old master mute becomes "effects off + music off" in the menu switches.
@@ -79,7 +79,7 @@ export class MiniGameApp {
   this.game.canOfferRevive=()=>this.ads.rewardedAvailable&&(!this.online||this.sync.rewardsSupported);
   // A shared score card opens straight into the same mode.
   try{const mode=wx.getLaunchOptionsSync?.().query?.mode;if(mode==='endless'||mode==='campaign'){this.game.setMode(mode);this.platform.write(MODE_KEY,mode);}}catch{/* Optional API. */}
-  if(this.platform.read(MODE_KEY)==='endless'){this.game.setMode('endless');this.rankingBoard='endless';}
+  if(this.platform.read(MODE_KEY)==='endless')this.game.setMode('endless');
   const renderHost=this.platform.rendererHost(cache,()=>({width:this.view.arena.width,height:this.view.arena.height}),()=>this.dpr);renderHost.lowPerformance=()=>this.lowDevice||this.view.width<360;this.renderer=new Renderer(this.arena,renderHost);this.renderer.trail=this.selectedTrail();this.renderer.paddleSkin=this.selectedPaddle();
   this.sync=new ChallengeSync(this.api,this.game,()=>Date.now(),clientId);this.resize();
   wx.onTouchStart(e=>this.down(e));wx.onTouchMove(e=>this.move(e));wx.onTouchEnd(e=>this.up(e));wx.onTouchCancel(()=>{this.touch=undefined;});
@@ -95,7 +95,7 @@ export class MiniGameApp {
   // Before the first choice the picker stays up; if another panel closes over it, show it again.
   if(this.picking&&!this.panel.open)this.modePicker();
   else if(this.game.awaitingRevive&&this.panel.title!==REVIVE_TITLE&&!this.busy)this.revivePanel();
-  else if(this.game.practice&&!this.panel.open&&!this.busy&&(this.game.state==='levelComplete'||this.game.state==='gameOver'))this.practicePanel();
+  else if(this.game.practice&&!this.panel.open&&!this.busy&&(this.game.state==='levelComplete'||this.game.state==='gameOver')){if(this.game.state==='gameOver'&&!this.game.awaitingRevive&&this.lastEnd!==this.game.journal.generation){this.lastEnd=this.game.journal.generation;this.countRun();}if(!this.guide)this.practicePanel();}
   else if(!this.game.practice&&!this.panel.open&&!this.busy&&(this.game.state==='gameOver'||this.game.state==='victory')&&this.lastEnd===this.game.journal.generation)this.resultPage();
   this.game.update(dt);this.haptics();this.checkTrialExpiry(now);if(this.online)this.sync.observe();if(!this.panel.ranking&&!this.panel.friend&&!this.titleOpen)this.renderer.draw(this.game.physics,this.game.state==='ready',now);this.draw(now);
   if(!this.game.practice&&(this.game.state==='gameOver'||this.game.state==='victory')&&!this.game.awaitingRevive&&this.lastEnd!==this.game.journal.generation){this.lastEnd=this.game.journal.generation;this.result();}
@@ -159,10 +159,12 @@ export class MiniGameApp {
   this.panel.screen={height:v.height,top:v.titleY,resultTop:v.top+8,muted:this.game.audio.muted};
   this.panel.draw(c,v.width,(this.panel.ranking||this.panel.friend)?v.top:v.hudY,v.bottom,now,g.state!=='paused',this.lowDevice||v.width<360,this.rankingArt,this.dpr);
   if(this.panel.title==='我的资料'){if(this.profile.image){try{c.drawImage(this.profile.image,v.width-56,v.hudY+8,32,32);}catch{defaultAvatar(c,v.width-40,v.hudY+24,16);}}else defaultAvatar(c,v.width-40,v.hudY+24,16);}
+  // The guide also shows after a lost campaign level (no full-screen result page there).
+  if(this.guide)this.drawGuide(c,now);
  }
  private down(e:TouchEvent){
   if(this.touch)return;const t=e.changedTouches[0],point=t&&touchPoint(t);if(!point)return;this.game.audio.unlock();const {x,y}=point;
-  this.touch={id:t.identifier,x,y,mode:!this.panel.ranking&&!this.panel.friend&&!this.titleOpen?this.view.modeTabs.find(tab=>inside(tab,x,y))?.mode:undefined,moved:false,lastY:y,drag:!this.panel.open&&(inside(this.view.arena,x,y)||inside(this.view.pad,x,y))&&!this.actions.some(a=>inside(a.rect,x,y))};
+  this.touch={id:t.identifier,x,y,mode:!this.panel.ranking&&!this.panel.friend&&!this.titleOpen?this.view.modeTabs.find(tab=>inside(tab,x,y))?.mode:undefined,moved:false,lastY:y,drag:!this.guide&&!this.panel.open&&(inside(this.view.arena,x,y)||inside(this.view.pad,x,y))&&!this.actions.some(a=>inside(a.rect,x,y))};
   if(this.touch.drag){this.target(x);if(!this.busy&&!this.boardLoading)startFromPlayfield(this.game,()=>void this.activate());}
  }
  private move(e:TouchEvent){
@@ -191,7 +193,7 @@ export class MiniGameApp {
  private get menuOpen(){return this.panel.open&&(this.panel.title==='游戏暂停'||this.panel.title==='菜单');}
  private inRun(){const g=this.game;return g.journal.events.length>0&&g.state!=='gameOver'&&g.state!=='victory';}
  private confirmRestart(){const g=this.game;if(this.busy)return;
-  const restart=()=>{this.panel.close();g.reset();this.previous=0;};
+  const restart=()=>{this.panel.close();if(g.practice){g.startPractice(g.levels.current.number);this.renderer.resize();}else g.reset();this.previous=0;};
   if(!this.inRun()){restart();return;}
   g.pause();const generation=g.journal.generation;
   this.confirmSheet('重新开始','确定放弃本局，重新开始吗？当前分数不会保留。','重新开始','restart',()=>{if(g.journal.generation===generation)restart();else this.panel.close();});
@@ -344,11 +346,12 @@ export class MiniGameApp {
  chooseMode(mode:GameMode,confirmed=false){
   const g=this.game;if(this.busy||this.boardLoading)return;
   if(!confirmed&&g.journal.events.length>0&&g.state!=='gameOver'&&g.state!=='victory'){this.toast('本局结束后可切换模式');return;}
-  this.online=false;this.lastEnd=-1;this.picking=false;if(mode===g.mode)g.reset();else g.setMode(mode);
+  // Campaign is a saved journey: continue from the furthest open level (unranked; only endless has a board).
+  this.online=false;this.lastEnd=-1;this.picking=false;if(mode==='campaign')g.startPractice(this.progress.frontier);else if(mode===g.mode)g.reset();else g.setMode(mode);
   // Switching fields can reuse generation/revision numbers: invalidate the visual brick cache.
   this.renderer.resize();
-  this.rankingBoard=mode==='endless'?'endless':'global';this.platform.write(MODE_KEY,mode);this.panel.close();
-  this.toast(mode==='endless'?'无尽模式：砖墙会不断下沉，3条命':'闯关模式：12关挑战');
+  this.platform.write(MODE_KEY,mode);this.panel.close();
+  this.toast(mode==='endless'?'无尽模式：砖墙会不断下沉，3条命':`闯关模式：第${g.levels.current.number}关，进度自动保存`);
  }
  /** The permanent tabs share the existing chooseMode reset path. No score submission is triggered. */
  private async requestMode(mode:GameMode){
@@ -365,10 +368,10 @@ export class MiniGameApp {
  /** The mode picker panel; it has no close button, so a mode must be chosen to play. */
  /** Full-screen pages (mode picker and result page) cover the game, HUD and top bar. */
  private get titleOpen(){return this.panel.title==='选择游戏模式'||!!this.panel.resultView||!!this.panel.mapView;}
- private modePicker(){this.picking=true;const last=this.game.mode;this.panel.show('选择游戏模式',['闯关模式：12 关逐关突破 · 3 条命 · 闯关榜','无尽模式：砖墙不断下沉 · 3 条命 · 无尽榜','每局结束后可重新选择模式'],[
+ private modePicker(){this.picking=true;const last=this.game.mode;this.panel.show('选择游戏模式',['闯关模式：12 关逐关突破 · 死了从本关接着打 · 攒星解锁皮肤','无尽模式：砖墙不断下沉 · 3 条命 · 无尽榜','每局结束后可重新选择模式'],[
   {label:(last==='campaign'?'▶ ':'')+'闯关模式',run:()=>this.chooseMode('campaign')},{label:(last==='endless'?'▶ ':'')+'无尽模式',run:()=>this.chooseMode('endless')},
   {label:'关卡地图',run:()=>this.levelMap()},{label:'设置',run:()=>this.settings()},{label:'皮肤',run:()=>this.skins()},{label:'排行榜',run:()=>void this.board()}]);}
- /** Level map: open levels start a single-level practice run (unranked, never uploaded). */
+ /** Level map: any open level can be replayed (campaign is unranked since 2.16; progress and stars are saved). */
  private levelMap(){const p=this.progress;this.panel.mapStars=`${p.total}/${MAX_STARS}`;
   this.panel.showMap([{label:'关闭',run:()=>this.modePicker()},...LEVELS.map(l=>({label:`第${l.number}关`,run:()=>{if(!p.unlocked(l.number))return;this.picking=false;this.online=false;this.lastEnd=-1;this.panel.close();this.game.startPractice(l.number);this.renderer.resize();}}))],
    {names:LEVELS.map(l=>l.name),stars:p.stars,open:LEVELS.map(l=>p.unlocked(l.number)),boss:LEVELS.map(l=>!!l.pattern?.boss),total:p.total,max:MAX_STARS});}
@@ -376,12 +379,14 @@ export class MiniGameApp {
  private practicePanel(){const g=this.game,n=g.levels.current.number,cleared=g.state==='levelComplete',actions:Action[]=[];
   if(cleared&&!g.levels.isFinal)actions.push({label:'下一关',icon:'play',primary:true,run:()=>{this.panel.close();g.nextLevel();this.renderer.resize();}});
   actions.push({label:'再来一次',icon:'restart',primary:!cleared||g.levels.isFinal,run:()=>{this.panel.close();g.startPractice(n);this.renderer.resize();}},{label:'关卡地图',icon:'flag',run:()=>{g.reset();this.levelMap();}});
-  this.panel.show(cleared?`第${n}关 · ${g.levels.current.name}  ${'★'.repeat(g.lastStars)}`:`第${n}关 · 练习失败`,[cleared?(g.lastStars===3?'完美！3 星，没有丢命':g.lastStars===2?'2 星：丢了 1 条命，不丢命可得 3 星':'1 星：少丢命可以拿更多星'):'生命耗尽，再试一次吧',`单关练习不计排行榜 · 总星数 ${this.progress.total}/${MAX_STARS}`],actions);}
+  this.panel.show(cleared?`第${n}关 · ${g.levels.current.name}  ${'★'.repeat(g.lastStars)}`:`第${n}关 · 生命耗尽`,[cleared?(g.lastStars===3?'完美！3 星，没有丢命':g.lastStars===2?'2 星：丢了 1 条命，不丢命可得 3 星':'1 星：少丢命可以拿更多星'):'从本关重新开始，进度不会丢',`${cleared&&g.levels.isFinal?'十二关全部突破！':'进度已自动保存'} · 总星数 ${this.progress.total}/${MAX_STARS}`],actions);}
  private async history(){return this.task(async()=>{
   this.me=await this.api.me();const lines=scoreHistoryLines(this.me.historicalBests,this.me.historicalBest);
   this.panel.show('个人历史记录',lines.length?[...lines,'历史有效成绩已参与所属模式永久统一排行榜。']:['暂无旧版有效记录'],[{label:'返回设置',run:()=>this.settings()}]);
  });}
- private result(){const runs=(Number(this.platform.read(SETTING.runs))||0)+1;this.platform.write(SETTING.runs,runs);if(runs>=2&&this.platform.read(SETTING.guide)!==true){this.platform.write(SETTING.guide,true);this.guide=true;}this.scoreShareImage=undefined;const g=this.game,generation=g.journal.generation;void scoreShare(this.wx,{mode:g.mode,score:g.score.total}).then(r=>{if(g.journal.generation===generation&&(g.state==='gameOver'||g.state==='victory'))this.scoreShareImage=r.imageUrl;}).catch(()=>{});this.resultPage();}
+ /** Every finished run (endless game over, or a campaign level lost) counts toward the guide and interstitial pacing. */
+ private countRun(){const runs=(Number(this.platform.read(SETTING.runs))||0)+1;this.platform.write(SETTING.runs,runs);if(runs>=2&&this.platform.read(SETTING.guide)!==true){this.platform.write(SETTING.guide,true);this.guide=true;}}
+ private result(){this.countRun();this.scoreShareImage=undefined;const g=this.game,generation=g.journal.generation;void scoreShare(this.wx,{mode:g.mode,score:g.score.total}).then(r=>{if(g.journal.generation===generation&&(g.state==='gameOver'||g.state==='victory'))this.scoreShareImage=r.imageUrl;}).catch(()=>{});this.resultPage();}
  /** Full-screen result page; it stays up (also after the leaderboard or a dialog closes) until a mode is chosen. */
  private resultPage(){const g=this.game,endless=g.mode==='endless',field=g.physics.endless,s=g.journal.summary(g.score.total,g.reachedLevel,g.state==='victory');
   const view={mode:g.mode,title:g.state==='victory'?'全部关卡突破！':endless?'挑战结束':'生命耗尽',score:g.score.total,
@@ -414,7 +419,8 @@ export class MiniGameApp {
   const result=await this.sync.submit();if(result.verificationStatus==='verified')void this.cloud.retry();let refreshed=true;try{this.me=await this.api.me();}catch{this.me=undefined;refreshed=false;}this.toast((result.verificationStatus==='verified'?'成绩已登记':'成绩待复核')+(refreshed?'':'，个人记录暂无法刷新'));await this.board();
  });}
  /** Which board the ranking panel shows; follows the mode just played unless the player toggles it. */
- private rankingBoard:'global'|'endless'='global';
+ /** 2.16: the campaign board is retired; the leaderboard is the endless board only. */
+ private rankingBoard:'global'|'endless'='endless';
  private async board(offset=0,board:'global'|'endless'=this.rankingBoard){this.rankingBoard=board;const endless=board==='endless';
   this.game.pause();const pageSize=20,revision=++this.boardRevision;this.boardLoading=true;
   const show=(state:'loading'|'ready'|'error',items:RankingScore[]=[],nextOffset:number|null=null,best?:RankingScore|null,note='',personalAvailable=true,error?:string)=>{
@@ -425,7 +431,6 @@ export class MiniGameApp {
     {label:'上一页',disabled:offset===0||state==='loading',run:()=>void this.board(Math.max(0,offset-pageSize))},
     {label:'刷新',run:()=>void this.board(offset)},
     {label:'下一页',disabled:nextOffset===null||state==='loading',run:()=>{if(nextOffset!==null)void this.board(nextOffset);}},
-    {label:endless?'闯关榜':'无尽榜',disabled:state==='loading',run:()=>void this.board(0,endless?'global':'endless')},
     {label:'关闭',run:()=>{this.boardRevision++;this.boardLoading=false;this.panel.close();}}
    ],row=>{const card=rankingCard(row,endless);this.wx.showModal({title:card.name,content:`${card.rankLabel}\n最高总分 ${card.score}\n${endless?'最高阶段':'最高关卡'} ${card.level}\n消除砖块 ${card.bricks}\n最佳时间 ${card.time}`,showCancel:false});});
   };
@@ -453,8 +458,8 @@ export class MiniGameApp {
  private async appeal(){return this.task(async()=>{if(!this.api.authenticated)throw Error('请先在开始挑战时选择联网登录');const r=await this.modal('账号与隐私申诉','请说明更正、注销或删除请求，不要填写密码。','提交','取消',true);if(r.confirm){await this.api.request('/appeals',{message:r.content||''});this.toast('申诉已提交');}});}
  private async shareScore(){if(this.sharing||(this.game.state!=='gameOver'&&this.game.state!=='victory'))return;this.sharing=true;try{const data=await scoreShare(this.wx,{mode:this.game.mode,score:this.game.score.total});this.wx.shareAppMessage(data);}catch{this.toast('分享暂不可用，可继续游戏');}finally{this.sharing=false;}}
  private friends(){
-  this.game.pause();this.boardRevision++;this.boardLoading=false;const mode=this.rankingBoard==='endless'?'endless':'campaign';
-  const friend=new FriendBoard(this.wx,mode,{global:()=>void this.board(),change:()=>{this.rankingBoard=mode==='campaign'?'endless':'global';this.friends();},close:()=>this.panel.close(),invite:()=>this.wx.shareAppMessage(this.shareData()),retry:()=>{void this.cloud.retry();},status:()=>this.cloud.status,permissions:()=>{if(this.wx.openSetting)this.wx.openSetting({success:()=>{if(this.panel.friend===friend){friend.resume();void this.cloud.retry();}},fail:()=>this.toast('未更改授权，可继续全球榜或单机')});else this.toast('请在微信右上角设置中管理朋友信息授权');}});
+  this.game.pause();this.boardRevision++;this.boardLoading=false;
+  const friend=new FriendBoard(this.wx,'endless',{global:()=>void this.board(),change:()=>this.friends(),close:()=>this.panel.close(),invite:()=>this.wx.shareAppMessage(this.shareData()),retry:()=>{void this.cloud.retry();},status:()=>this.cloud.status,permissions:()=>{if(this.wx.openSetting)this.wx.openSetting({success:()=>{if(this.panel.friend===friend){friend.resume();void this.cloud.retry();}},fail:()=>this.toast('未更改授权，可继续全球榜或单机')});else this.toast('请在微信右上角设置中管理朋友信息授权');}});
   this.panel.showFriends(friend);void this.cloud.retry();
   if(this.wx.authorize)this.wx.authorize({scope:'scope.WxFriendInteraction',success:()=>{if(this.panel.friend===friend)friend.resume();},fail:()=>this.toast('未获得朋友信息授权，可在好友榜的授权设置中管理')});
  }

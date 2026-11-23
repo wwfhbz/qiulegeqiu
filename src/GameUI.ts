@@ -65,10 +65,10 @@ export function mountGame(root: HTMLElement) {
         </div>
         <div class="ts-again">再来一局 · 选择模式</div>
         <div class="ts-cards">
-          <button type="button" class="ts-card ts-campaign" data-pick="campaign"><span class="ts-icon">${iconSvg('flag')}</span><span class="ts-text"><strong>闯关模式</strong><span class="ts-desc">12 关逐关突破，冲击闯关榜</span><span class="ts-chips"><em>3 条命</em><em>12 关</em><em>闯关榜</em></span></span><span class="ts-go">${iconSvg('play')}</span><span class="ts-last">上次玩过</span></button>
+          <button type="button" class="ts-card ts-campaign" data-pick="campaign"><span class="ts-icon">${iconSvg('flag')}</span><span class="ts-text"><strong>闯关模式</strong><span class="ts-desc">12 关逐关突破，死了从本关接着打</span><span class="ts-chips"><em>每关 3 条命</em><em>12 关</em><em>36 星</em></span></span><span class="ts-go">${iconSvg('play')}</span><span class="ts-last">上次玩过</span></button>
           <button type="button" class="ts-card ts-endless" data-pick="endless"><span class="ts-icon">${iconSvg('infinity')}</span><span class="ts-text"><strong>无尽模式</strong><span class="ts-desc">砖墙不断下沉，坚持越久分越高</span><span class="ts-chips"><em>3 条命</em><em>无限阶段</em><em>无尽榜</em></span></span><span class="ts-go">${iconSvg('play')}</span><span class="ts-last">上次玩过</span></button>
         </div>
-        <button type="button" id="ts-map" class="ts-map"><span class="ts-map-star">★</span><span>关卡地图 · 单关练习</span><b id="ts-map-stars">0/36</b></button>
+        <button type="button" id="ts-map" class="ts-map"><span class="ts-map-star">★</span><span>关卡地图 · 选关刷星</span><b id="ts-map-stars">0/36</b></button>
         <div class="ts-tools"><button type="button" id="ts-settings" class="ts-tool">${iconSvg('gear')}<span>设置</span></button><button type="button" id="ts-skin" class="ts-tool">${iconSvg('spark')}<span>皮肤</span></button><button type="button" id="ts-board" class="ts-tool">${iconSvg('trophy')}<span>排行榜</span></button></div>
         <p class="ts-foot">每局结束后可重新选择模式 · V${MINIGAME_VERSION}</p>
       </div>
@@ -93,7 +93,7 @@ export function mountGame(root: HTMLElement) {
         </div>
         <div id="level-map" class="level-map" role="dialog" aria-label="关卡地图" hidden>
           <div class="lm-card"><div class="lm-head"><strong>关卡地图</strong><span id="lm-total" class="lm-total">★ 0/36</span><button type="button" id="lm-close" class="st-x" aria-label="关闭">✕</button></div>
-            <p class="lm-sub">单关练习不计排行榜 · 不丢命 ★★★ · 丢 1 条命 ★★ · 通关 ★</p>
+            <p class="lm-sub">进度自动保存 · 不丢命 ★★★ · 丢 1 条命 ★★ · 通关 ★</p>
             <div id="lm-nodes" class="lm-nodes"></div>
           </div>
         </div>
@@ -183,10 +183,10 @@ export function mountGame(root: HTMLElement) {
     const completed = g.state === 'levelComplete' || g.state === 'victory';
     el('settlement').hidden = !completed && g.state !== 'gameOver';
     if (completed || g.state === 'gameOver') {
-      text('result-title', GAME_NAME+' · '+(g.state === 'gameOver' ? '游戏结束' : g.state === 'victory' ? '全部关卡突破！' : `第${level.number}关突破成功`));
-      text('result-tip', g.practice ? (g.state === 'gameOver' ? '单关练习：生命耗尽，再来一次吧。' : '单关练习：不计排行榜，可以接着打下一关或再来一次。') : g.state === 'gameOver' ? (field ? `坚持到第${g.reachedLevel}阶段，砖墙共下沉${field.descents}行。` : '生命已耗尽。在下方选择模式，开始新一局。') : g.state === 'victory' ? '最终核心已击碎，你完成了这次挑战。可在下方选择模式再来一局。' : `保留 ${g.lives} 条生命和累计分数，迎接下一关。`);
-      text('result-label', g.state === 'levelComplete' ? '本关得分' : '最终分数');
-      el('result-stars').hidden = !(completed && g.lastStars);text('result-stars', g.lastStars ? starText(g.lastStars) + (g.practice ? '　单关练习' : '') : '');
+      text('result-title', g.practice && g.state === 'gameOver' ? `第${level.number}关 · 生命耗尽` : GAME_NAME+' · '+(g.state === 'gameOver' ? '游戏结束' : g.state === 'victory' ? '全部关卡突破！' : `第${level.number}关突破成功`));
+      text('result-tip', g.practice ? (g.state === 'gameOver' ? '生命耗尽，从本关重新开始吧，进度不会丢。' : (g.levels.isFinal ? '十二关全部突破！可以回地图刷满三星。' : '进度已保存，可以接着打下一关或再来一次刷星。')) : g.state === 'gameOver' ? (field ? `坚持到第${g.reachedLevel}阶段，砖墙共下沉${field.descents}行。` : '生命已耗尽。在下方选择模式，开始新一局。') : g.state === 'victory' ? '最终核心已击碎，你完成了这次挑战。可在下方选择模式再来一局。' : `保留 ${g.lives} 条生命和累计分数，迎接下一关。`);
+      text('result-label', g.state === 'levelComplete' || g.practice ? '本关得分' : '最终分数');
+      el('result-stars').hidden = !(completed && g.lastStars);text('result-stars', g.lastStars ? starText(g.lastStars) : '');
       text('result-score', String(g.state === 'levelComplete' ? g.result!.levelTotal : g.score.total));
       text('score-details', completed ? `本关得分 ${g.result!.blockScore} + 通关 ${g.result!.clearBonus} + 生命 ${g.result!.lifeBonus}　累计 ${g.score.total}` : (field ? `无尽模式 · 第${g.reachedLevel}阶段 · 消除 ${g.journal.bricksDestroyed} 块` : `本次到达第${level.number}关 · 累计 ${g.score.total} 分`));
     }
@@ -221,7 +221,7 @@ export function mountGame(root: HTMLElement) {
   // Restart sits next to pause: confirm before throwing away a run in progress.
   button('reset').onclick = () => {
     if (inProgress()) { const wasRunning = game.state === 'running'; game.pause(); if (!window.confirm('确定放弃本局，重新开始吗？当前分数不会保留。')) { if (wasRunning) game.start(); return; } }
-    closeMenu(false); game.reset();
+    closeMenu(false); if (game.practice) game.startPractice(game.levels.current.number); else game.reset();
   };
   // Settings (gear, top-left): background music and sound effects, each remembered across reloads.
   const MUTE_KEY='qiulegeqiu:muted',MUSIC_KEY='qiulegeqiu:music';
@@ -255,7 +255,9 @@ export function mountGame(root: HTMLElement) {
   const MODE_KEY='qiulegeqiu:mode';
   for(const b of Array.from(root.querySelectorAll<HTMLButtonElement>('[data-pick]')))b.onclick=()=>{
     const mode=b.dataset.pick as GameMode;picking=false;
-    if(mode===game.mode)game.reset();else game.setMode(mode);
+    // Campaign is a saved journey: it continues from the furthest open level (unranked; only endless has a board).
+    if(mode==='campaign')game.startPractice(progress.frontier);
+    else if(mode===game.mode)game.reset();else game.setMode(mode);
     try{localStorage.setItem(MODE_KEY,mode);}catch{/* Preference only. */}
     update(game);
   };
@@ -303,6 +305,7 @@ export function mountGame(root: HTMLElement) {
   // Level map: best stars per level (this browser only); open levels can be practised on their own (unranked).
   const progress = new CampaignProgress({read:()=>{try{return localStorage.getItem('qiulegeqiu:stars');}catch{return null;}},write:v=>{try{localStorage.setItem('qiulegeqiu:stars',v);}catch{/* Preference only. */}}});
   game.onLevelCleared = (level, stars) => { progress.record(level, stars); showStars(); };
+  game.onLevelEntered = level => progress.reach(level);
   const showStars = () => { text('ts-map-stars', `${progress.total}/${MAX_STARS}`); text('lm-total', `★ ${progress.total}/${MAX_STARS}`); };
   const renderMap = () => {
     el('lm-nodes').innerHTML = LEVELS.map((l, i) => {

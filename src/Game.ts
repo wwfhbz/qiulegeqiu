@@ -63,13 +63,15 @@ export class Game {
   lastStars = 0;
   /** Host hook: save stars for a cleared level of the current campaign table. */
   onLevelCleared?: (level: number, stars: number) => void;
+  /** Host hook: a campaign level was entered (map, next level or skip) — the save opens it for good. */
+  onLevelEntered?: (level: number) => void;
   startPractice(level: number) {
     if (this.mode !== 'campaign') this.setMode('campaign');
     this.reset(); this.levels.jump(level); this.score.beginLevel(); this.configureLevel(); this.physics.reset();
-    this.journal.unranked = true; this.practiceLevel = this.levels.current.number; this.readyReason = 'levelStart'; this.onChange(this);
+    this.journal.unranked = true; this.practiceLevel = this.levels.current.number; this.readyReason = 'levelStart'; this.onLevelEntered?.(this.practiceLevel); this.onChange(this);
   }
   private runOut() {
-    if (!this.practice && this.revivesUsed < MAX_REVIVES && this.canOfferRevive()) { this.awaitingRevive = true; return; }
+    if (this.revivesUsed < MAX_REVIVES && this.canOfferRevive()) { this.awaitingRevive = true; return; }
     this.journal.record({type:'finish',level:this.levels.current.number});
   }
   /** Watched a rewarded video: +1 life and play on (endless also clears the bottom rows on the next launch). */
@@ -167,13 +169,15 @@ export class Game {
   }
   skipsUsed = 0;
   /** Campaign only: a rewarded video may skip the current level (not the last one, at most MAX_SKIPS per run). */
-  get canSkip() { return this.mode === 'campaign' && !this.practice && this.levels.isThreeLife && !this.legacyLives && !this.levels.isFinal && this.skipsUsed < MAX_SKIPS && (this.state === 'ready' || this.state === 'running' || this.state === 'paused'); }
+  get canSkip() { return this.mode === 'campaign' && this.levels.isThreeLife && !this.legacyLives && !this.levels.isFinal && this.skipsUsed < MAX_SKIPS && (this.state === 'ready' || this.state === 'running' || this.state === 'paused'); }
   /** Skip to the next level: no clear or life bonus, lives and score carry over, the new level starts ready. */
   skipLevel() {
     if (!this.canSkip) return false;
     const level = this.levels.current.number; this.skipsUsed++; this.roundActive = false;
     this.journal.record({type:'skip',level});
     this.levels.next(); this.score.beginLevel(); this.result = undefined; this.configureLevel();
+    // Campaign progress: the skipped-to level starts fresh with full lives and is saved as open.
+    if (this.practice) { this.practiceLevel = this.levels.current.number; this.remainingLives = this.campaignLives; this.onLevelEntered?.(this.practiceLevel); }
     this.physics.reset(); this.state = 'ready'; this.readyReason = 'levelStart'; this.onChange(this); return true;
   }
   nextLevel() {
@@ -181,7 +185,7 @@ export class Game {
     if (this.state !== 'levelComplete' || !this.levels.next()) return;
     this.roundActive = false;
     // Practice: each level starts with full lives, like playing it from the map.
-    if (this.practice) { this.practiceLevel = this.levels.current.number; this.remainingLives = this.campaignLives; }
+    if (this.practice) { this.practiceLevel = this.levels.current.number; this.remainingLives = this.campaignLives; this.onLevelEntered?.(this.practiceLevel); }
     this.journal.record({type:'next',level:previousLevel});
     this.score.beginLevel(); this.result = undefined;
     this.configureLevel();
