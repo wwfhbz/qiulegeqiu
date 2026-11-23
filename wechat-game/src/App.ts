@@ -8,7 +8,7 @@ import {drawHud} from './GameChrome';
 import {HapticTracker} from '../../src/Haptics';
 import {VIEW,viewX,viewFraction} from '../../src/Viewport';
 const MODE_KEY='qiulegeqiu:wechat-mode:v1';
-const STARS_KEY='qiulegeqiu:wechat-stars:v1',SHARDS_KEY='qiulegeqiu:wechat-shards:v1',SHARDS_MIGRATED_KEY='qiulegeqiu:wechat-shards-migrated:v1',TRIALS_KEY='qiulegeqiu:wechat-trail-trials:v1',TRAIL_GRANDFATHER_KEY='qiulegeqiu:wechat-trail-stars-kept:v1';
+const STARS_KEY='qiulegeqiu:wechat-stars:v1',SHARDS_KEY='qiulegeqiu:wechat-shards:v1',SHARDS_MIGRATED_KEY='qiulegeqiu:wechat-shards-migrated:v1',TRIAL_COUNT_KEY='qiulegeqiu:wechat-trial-count:v1',TRIALS_KEY='qiulegeqiu:wechat-trail-trials:v1',TRAIL_GRANDFATHER_KEY='qiulegeqiu:wechat-trail-stars-kept:v1';
 const SETTING={music:'qiulegeqiu:wechat-music:v1',sfx:'qiulegeqiu:wechat-sfx:v1',vibrate:'qiulegeqiu:wechat-vibrate:v1',trail:'qiulegeqiu:wechat-trail:v1',trails:'qiulegeqiu:wechat-trails:v1',paddle:'qiulegeqiu:wechat-paddle:v1',paddles:'qiulegeqiu:wechat-paddles:v1',runs:'qiulegeqiu:wechat-runs:v1',guide:'qiulegeqiu:wechat-mp-guide:v1'};
 const REVIVE_TITLE='生命耗尽';
 import {OCEAN,brickColor} from '../../shared/VisualTheme';
@@ -38,7 +38,7 @@ import {MAX_REVIVES,MAX_SKIPS} from '../../shared/Challenge';
 import {TRAIL_SKINS,PADDLE_SKINS,isTrailSkin,isPaddleSkin,migratePaddle} from '../../shared/Skins';
 import type {TrailSkin,PaddleSkin} from '../../src/Renderer';
 import {privacy,agreement} from './Policies';
-import {CampaignProgress,MAX_STARS,LEGACY_PADDLE_STAR_UNLOCKS,LEGACY_TRAIL_STAR_UNLOCKS,SKIN_TRIAL_MS,trialHoursLeft} from '../../src/campaign/Progress';
+import {CampaignProgress,MAX_STARS,LEGACY_PADDLE_STAR_UNLOCKS,LEGACY_TRAIL_STAR_UNLOCKS,SKIN_TRIAL_MS,SKIN_TRIAL_LIMIT,trialHoursLeft} from '../../src/campaign/Progress';
 import {ShardWallet,SKIN_SHARD_PRICE,SKIN_STAR_GATES,SHARD_RULES,dayKey} from '../../src/campaign/Shards';
 import {LEVELS} from '../../src/Levels';
 import type {Wx,Canvas,Config,TouchEvent} from './Platform';
@@ -215,7 +215,7 @@ export class MiniGameApp {
   try{const result=await this.ads.showRewarded();this.previous=0;
    if(result!=='rewarded'){this.toast(result==='closed'?'完整看完视频才能领取奖励':'暂时没有可播放的视频，请稍后再试');return;}
    if(kind==='shards'){const got=this.shards.earnVideo(dayKey());this.toast(got?`+${got} 碎片`:'今日视频碎片已领完');this.skins();return;}
-   if(kind.startsWith('trial:')){const [,k,id]=kind.split(':') as [string,'trail'|'paddle',string];this.platform.write(TRIALS_KEY,{...this.trials(),[`${k}:${id}`]:Date.now()+SKIN_TRIAL_MS});if(k==='trail')this.useTrail(id as Exclude<TrailSkin,'none'>);else this.usePaddle(id as Exclude<PaddleSkin,'default'>);this.toast('可免费试用 24 小时');this.skins();return;}
+   if(kind.startsWith('trial:')){const [,k,id]=kind.split(':') as [string,'trail'|'paddle',string];if(this.trialsLeft<=0){this.toast('试用次数已用完，攒碎片兑换吧');this.skins();return;}this.platform.write(TRIAL_COUNT_KEY,SKIN_TRIAL_LIMIT-this.trialsLeft+1);this.platform.write(TRIALS_KEY,{...this.trials(),[`${k}:${id}`]:Date.now()+SKIN_TRIAL_MS});if(k==='trail')this.useTrail(id as Exclude<TrailSkin,'none'>);else this.usePaddle(id as Exclude<PaddleSkin,'default'>);this.toast(`可免费试用 2 小时（还剩 ${this.trialsLeft} 次试用）`);this.skins();return;}
    if(g.journal.generation!==generation)return;
    if(kind==='revive'){if(g.revive()){this.panel.close();this.toast('复活成功，继续加油！');}}
    else if(kind==='skip'){if(g.skipLevel()){this.panel.close();this.toast(`已跳过，进入第${g.levels.current.number}关`);}}
@@ -269,9 +269,11 @@ export class MiniGameApp {
   const gate=SKIN_STAR_GATES[`${kind}:${id}`]??0;
   if(this.progress.total<gate)return {label:`★${gate} 开放${name}`,half:true,tone:'outline',run:()=>this.toast(`再拿 ${gate-this.progress.total} 颗星，就能兑换${name}`)};
   if(this.shards.balance>=SKIN_SHARD_PRICE)return {label:`兑换${name}（${SKIN_SHARD_PRICE}碎片）`,half:true,tone:'outline',run:()=>{if(!this.shards.spend(SKIN_SHARD_PRICE))return;this.own(kind,id);this.toast(`${name}已永久解锁`);this.skins();}};
-  if(this.ads.rewardedAvailable)return {label:`▶ 试用${name}24小时`,half:true,tone:'outline',run:()=>void this.watchReward(`trial:${kind}:${id}`)};
+  if(this.ads.rewardedAvailable&&this.trialsLeft>0)return {label:`▶ 试用${name}2小时（剩${this.trialsLeft}次）`,half:true,tone:'outline',run:()=>void this.watchReward(`trial:${kind}:${id}`)};
   return {label:`${name}：差${SKIN_SHARD_PRICE-this.shards.balance}碎片`,half:true,tone:'outline',run:()=>this.toast(`再攒 ${SKIN_SHARD_PRICE-this.shards.balance} 片碎片就能兑换${name}`)};
  }
+ /** Video trials left: 3 in total for all skins together. */
+ get trialsLeft(){return Math.max(0,SKIN_TRIAL_LIMIT-(Number(this.platform.read(TRIAL_COUNT_KEY))||0));}
  /** Keep a skin for good and wear it. */
  private own(kind:'trail'|'paddle',id:string){if(kind==='trail'){this.platform.write(SETTING.trails,[...new Set([...this.ownedTrails(),id])]);this.useTrail(id as Exclude<TrailSkin,'none'>);}else{this.platform.write(SETTING.paddles,[...new Set([...this.ownedPaddles(),id])]);this.usePaddle(id as Exclude<PaddleSkin,'default'>);}}
  /** 24-hour video trials: key `trail:id` / `paddle:id` → expiry (2.15 stored bare trail ids). */
