@@ -3,7 +3,7 @@ import {allocateBrickPowers,brickPowerCounts,brickPowerKind,BRICK_POWER_VERSION,
 import {LEGACY_LEVELS} from './LegacyLevels';
 import {powerProfile, type LevelConfig } from './Levels';
 import { Obstacles } from './Obstacles';
-import { seededRandom,weightedPower,tripleTarget,TRIPLE_RULE_VERSION,type TripleRuleVersion } from './PowerRules';
+import { seededRandom,weightedPower,tripleTarget,TRIPLE_RULE_VERSION,ASSIST,type TripleRuleVersion } from './PowerRules';
 import type { SoundKind } from './Audio';
 import { C } from './GameConfig';
 import { Blocks } from './Blocks';
@@ -132,11 +132,38 @@ export class Physics {
   private seed=1;
   brickPowerVersion:BrickPowerVersion=BRICK_POWER_VERSION;
   private allocatePowers(){this.blocks.powerKinds.set(allocateBrickPowers(this.blocks.alive,this.brickPowerVersion===2?this.level.brickPowers:undefined,this.seed,this.level.number));}
-  setSeed(seed:number){this.seed=seed;this.random=seededRandom(seed);if(this.blocks.removed===0)this.allocatePowers();}
+  setSeed(seed:number){this.seed=seed;this.random=seededRandom(seed);this.assistRandom=seededRandom((seed^0x5eed1)>>>0);if(this.blocks.removed===0)this.allocatePowers();}
   onBomb?: (target:string|null) => void;
   speedScale = 1;
   powerUpDropMultiplier = 1;
-  get powerDropEvery() { return Math.max(1, Math.round(C.power.dropEvery / this.powerUpDropMultiplier)); }
+  /** Campaign practice only (never replayed by the server): smooth the drop flow instead of the raw brick stream. */
+  assist = false;
+  private assistQueue:{kind:PowerKind}[]=[];private assistRelease=0;private sinceDrop=0;private lowBalls=0;private assistRandom=seededRandom(7);private lastBreak:{x:number;y:number}={x:C.arena.x,y:C.arena.y-C.arena.radius/2};
+  private spawnPower(x:number,y:number,kind:PowerKind){
+    if(!this.assist){this.powers.spawn(x,y,kind);return;}
+    // A ÷2 only threatens a strong position: with few balls left it becomes a harmless wide paddle.
+    if(kind==='halve'&&this.balls.filter(b=>b.alive).length<=ASSIST.halveMinBalls)kind='wide';
+    if(this.powers.items.filter(p=>p.alive).length>=ASSIST.onScreen){if(this.assistQueue.length<ASSIST.queue)this.assistQueue.push({kind});return;}
+    this.powers.spawn(x,y,kind);this.sinceDrop=0;
+  }
+  /** Release queued drops one by one and, after a long dry spell, drop a rescue power. */
+  private assistTick(dt:number){
+    if(!this.assist||!this.balls.some(b=>b.alive))return;
+    this.sinceDrop+=dt;this.assistRelease-=dt;
+    const falling=this.powers.items.filter(p=>p.alive).length,{x,y}=this.lastBreak;
+    // Stuck on a handful of balls for a while: a ×3 falls so the level never turns into a long grind.
+    this.lowBalls=this.balls.filter(b=>b.alive).length<=ASSIST.lowBalls?this.lowBalls+dt:0;
+    if(this.lowBalls>=ASSIST.lowBallsAfter&&!this.powers.items.some(p=>p.alive&&p.kind==='triple')){this.powers.spawn(x,Math.min(y,C.paddle.y-260),'triple');this.lowBalls=0;this.sinceDrop=0;return;}
+    if(this.assistQueue.length&&falling<ASSIST.onScreen&&this.assistRelease<=0){this.powers.spawn(x,y,this.assistQueue.shift()!.kind);this.assistRelease=ASSIST.releaseGap;this.sinceDrop=0;return;}
+    // Endgame: the last few bricks hide behind steel, so lightning (which strikes anywhere) arrives sooner.
+    const left=this.blocks.remaining,endgame=left>0&&left<=Math.max(ASSIST.endgameBricks,this.blocks.total*ASSIST.endgameShare);
+    if(this.sinceDrop>=(endgame?ASSIST.endgameAfter:ASSIST.rescueAfter)&&!falling&&(left>0||this.boss?.alive)){
+      const balls=this.balls.filter(b=>b.alive).length,pool=ASSIST.rescue;
+      const kind=endgame?'lightning':balls<=ASSIST.rescueTripleBelow?'triple':pool[Math.floor(this.assistRandom()*pool.length)];
+      this.powers.spawn(x,Math.min(y,C.paddle.y-260),kind);this.sinceDrop=0;
+    }
+  }
+  get powerDropEvery() { const tuned=this.assist?ASSIST.dropEvery[this.level.number]:undefined; return tuned ?? Math.max(1, Math.round(C.power.dropEvery / this.powerUpDropMultiplier)); }
   onBallLost?: () => void;
   onPowerCollected?: (kind: PowerKind, dropId?:number) => void;
   onBlockDestroyed?: (index: number) => void;
@@ -178,7 +205,8 @@ export class Physics {
     // Preserve the original random stream for unchanged later levels.
     const legacyKind=b.removed%interval===0?weightedPower(powerProfile(this.level),this.random):undefined;
     const kind=this.brickPowerVersion===2&&this.level.brickPowers?brickPowerKind(b.powerKinds[index]):legacyKind;
-    if(kind)this.powers.spawn(x,y,kind);
+    this.lastBreak={x,y};
+    if(kind)this.spawnPower(x,y,kind);
     // The blast follows this brick's own drop roll, so the drop stream matches the server's event order.
     if (b.kinds[index] === Cell.Bomb) this.queueBlast(index);
   };
@@ -275,7 +303,9 @@ export class Physics {
   lightning(){
     const g=this.blocks,ball=this.balls.find(b=>b.alive),fx=ball?.x??C.arena.x,fy=ball?.y??C.arena.y,picked:{index:number;row:number;dx:number}[]=[];
     for(let i=0;i<g.cols*g.rows;i++)if(g.alive[i]&&!g.isSteel(i)){const row=Math.floor(i/g.cols),x=g.left+i%g.cols*g.step+g.size/2;picked.push({index:i,row,dx:Math.abs(x-fx)});}
-    picked.sort((a,b)=>b.row-a.row||a.dx-b.dx||a.index-b.index);const targets=picked.slice(0,this.endless?endlessSettings(this.endless.variant).lightningBricks:ENDLESS.lightningBricks).map(p=>p.index);
+    // Practice: strike the heart of the pattern first, where spirals and mazes hide bricks from the balls.
+    if(this.assist&&!this.endless){const cx=g.cols/2,cy=g.rows/2,d=(i:number)=>(i%g.cols+.5-cx)**2+(Math.floor(i/g.cols)+.5-cy)**2;picked.sort((a,b)=>d(a.index)-d(b.index)||a.index-b.index);}
+    else picked.sort((a,b)=>b.row-a.row||a.dx-b.dx||a.index-b.index);const targets=picked.slice(0,this.endless?endlessSettings(this.endless.variant).lightningBricks:ENDLESS.lightningBricks).map(p=>p.index);
     for(const index of targets){this.effects.emit('zap',g.left+index%g.cols*g.step+g.size/2,g.top+Math.floor(index/g.cols)*g.step+g.size/2,0,undefined,fx,fy);g.hit(index);}
   }
   /** Fire uses the versioned fixed offsets; collateral hits never recursively burn neighbours. */
@@ -356,7 +386,7 @@ export class Physics {
     for (const b of this.balls) b.alive = false;
     this.recycleDead();
     this.paddleX = this.targetX = C.arena.x;
-    this.wideRemaining = 0; this.pierceRemaining = 0; this.fireRemaining = 0; this.effects.reset(); this.powers.reset();
+    this.wideRemaining = 0; this.pierceRemaining = 0; this.fireRemaining = 0; this.effects.reset(); this.powers.reset();this.assistQueue.length=0;this.assistRelease=0;this.sinceDrop=0;this.lowBalls=0;this.lastBreak={x:C.arena.x,y:C.arena.y-C.arena.radius/2};
     if (spawn) this.balls.push(this.newBall());
     this.accumulator = 0; this.ticks = 0; this.paused = false;
   }
@@ -421,5 +451,6 @@ export class Physics {
     this.obstacles.time=obstacleStart+dt;this.obstacles.sync();
     this.recycleDead();
     if (this.balls.length) this.powers.update(dt, this.paddleX, this.paddleWidth, this.pickup);
+    this.assistTick(dt);
   }
 }
