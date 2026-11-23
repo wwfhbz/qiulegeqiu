@@ -47,8 +47,17 @@ sudo -n test -L /opt/qiulegeqiu-api/current
 sudo -n systemctl is-active --quiet qiulegeqiu-api.service
 
 echo "========== 2/9 拉取GitHub最新版 =========="
+local SCRIPT_BEFORE
+SCRIPT_BEFORE=$(sha256sum deploy/update.sh | awk '{print $1}')
 git fetch origin main
 git merge --ff-only origin/main
+
+# 本脚本自身在GitHub上更新过：改用新版重新执行（只重启一次），保证线上永远按最新流程发布。
+if [ "${QIULEGEQIU_UPDATE_REEXEC:-}" != 1 ] && [ "$(sha256sum deploy/update.sh | awk '{print $1}')" != "$SCRIPT_BEFORE" ]; then
+  echo "更新脚本已有新版，改用新版继续"
+  trap - ERR
+  exec env QIULEGEQIU_UPDATE_REEXEC=1 bash "$REPO/deploy/update.sh"
+fi
 
 local COMMIT
 COMMIT=$(git rev-parse HEAD)
@@ -103,18 +112,21 @@ NEW=$(cat "$STAGE/RULES_VERSION")
 echo "线上规则：$OLD"
 echo "新包规则：$NEW"
 
+local DECISION
+DECISION=$("$NODE" --input-type=module - "$STAGE/deploy/leaderboard-contract.mjs" "$OLD" "$NEW" 2>&1 <<'JS'
+import {pathToFileURL} from 'node:url';
+const {isBridgeableTransition}=await import(pathToFileURL(process.argv[2]));
+console.log(isBridgeableTransition(process.argv[3],process.argv[4])?'bridge':'blocked');
+JS
+) || DECISION="检查脚本出错：$DECISION"
+
 if [ "$OLD" = "$NEW" ]; then
   echo "规则版本一致，直接发布"
 
-# 已审核的规则切换以发布包内 deploy/leaderboard-contract.mjs 的 REVIEWED_TRANSITIONS 为准，
-# 与 publish.sh 自身的检查同源，不在脚本里写死版本号。
-elif "$NODE" --input-type=module - "$STAGE/deploy/leaderboard-contract.mjs" "$OLD" "$NEW" <<'JS'
-import {pathToFileURL} from 'node:url';
-const {REVIEWED_TRANSITIONS}=await import(pathToFileURL(process.argv[2]));
-const from=process.argv[3].trim(),to=process.argv[4].trim();
-process.exit(Array.isArray(REVIEWED_TRANSITIONS)&&REVIEWED_TRANSITIONS.some(([a,b])=>a===from&&b===to)?0:1);
-JS
-then
+# 闯关新赛季（版本号前进）一律走两阶段兼容升级：判断规则以发布包内 deploy/leaderboard-contract.mjs 的
+# isBridgeableTransition 为准，与 publish.sh 同源，不在脚本里写死版本号。新老版本共用一个永久排行榜，
+# 第一阶段会在线上确认新后端仍能验证旧赛季成绩，否则停止切换。
+elif [ "$DECISION" = bridge ]; then
   echo "执行已审核的两阶段兼容升级：$OLD → $NEW"
   # 第一阶段：只安装同时接受新旧规则的后端，网页文件不变。
   sudo -n bash "$STAGE/deploy/publish.sh" \
@@ -125,17 +137,17 @@ then
   curl -fsS --retry 5 --retry-delay 1 \
     --max-time 20 "$URL/api/health" -o "$STAGE/bridge-health.json"
 
-  "$NODE" --input-type=module - "$STAGE" "$NEW" <<'JS'
+  "$NODE" --input-type=module - "$STAGE" "$NEW" "$OLD" <<'JS'
 import {readFileSync} from 'node:fs';
 import {pathToFileURL} from 'node:url';
-const [dir,rules]=process.argv.slice(2);
+const [dir,rules,previous]=process.argv.slice(2);
 const {verifyCompatibilityBridgeHealth}=await import(pathToFileURL(dir+'/deploy/leaderboard-contract.mjs'));
-verifyCompatibilityBridgeHealth(JSON.parse(readFileSync(dir+'/bridge-health.json','utf8')),rules);
+verifyCompatibilityBridgeHealth(JSON.parse(readFileSync(dir+'/bridge-health.json','utf8')),rules,previous);
 console.log('✅ 兼容后端已同时支持上一赛季与新规则');
 JS
 
 else
-  echo "❌ 检测到未经审核的规则版本变化"
+  echo "❌ 规则版本变化不能自动升级（降级、无尽规则或过旧赛季）：$DECISION"
   echo "为保护历史成绩和排行榜，停止发布"
   exit 1
 fi

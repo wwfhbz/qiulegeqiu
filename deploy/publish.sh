@@ -99,8 +99,8 @@ mv -Tf "$base/current.new-$$" "$base/current"
 switched=1
 systemctl restart qiulegeqiu-api
 curl --fail --max-time 3 --retry 5 --retry-connrefused --retry-delay 1 http://127.0.0.1:8091/api/health > "$release/health.json"
-"$runtime/node" --input-type=module - "$release/health.json" "$release/RULES_VERSION" "$release/deploy/leaderboard-contract.mjs" "$api_only" <<'JS'
-import {readFileSync} from 'node:fs';import {pathToFileURL} from 'node:url';const {verifyLeaderboardHealth,verifyCompatibilityBridgeHealth}=await import(pathToFileURL(process.argv[4]));(process.argv[5]==='1'?verifyCompatibilityBridgeHealth:verifyLeaderboardHealth)(JSON.parse(readFileSync(process.argv[2],'utf8')),readFileSync(process.argv[3],'utf8').trim());
+"$runtime/node" --input-type=module - "$release/health.json" "$release/RULES_VERSION" "$release/deploy/leaderboard-contract.mjs" "$api_only" "${previous:+$previous/RULES_VERSION}" <<'JS'
+import {readFileSync,existsSync} from 'node:fs';import {pathToFileURL} from 'node:url';const {verifyLeaderboardHealth,verifyCompatibilityBridgeHealth}=await import(pathToFileURL(process.argv[4]));const previous=process.argv[6]&&existsSync(process.argv[6])?readFileSync(process.argv[6],'utf8').trim():undefined;(process.argv[5]==='1'?verifyCompatibilityBridgeHealth:verifyLeaderboardHealth)(JSON.parse(readFileSync(process.argv[2],'utf8')),readFileSync(process.argv[3],'utf8').trim(),previous);
 JS
 main_pid=$(systemctl show qiulegeqiu-api -p MainPID --value)
 listeners=$(ss -H -lntp '( sport = :8091 )')
