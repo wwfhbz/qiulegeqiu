@@ -50,7 +50,19 @@ echo "========== 2/9 拉取GitHub最新版 =========="
 local SCRIPT_BEFORE
 SCRIPT_BEFORE=$(sha256sum deploy/update.sh | awk '{print $1}')
 git fetch origin main
+if [ -n "${QIULEGEQIU_EXPECTED_COMMIT:-}" ]; then
+  test "$(git rev-parse origin/main)" = "$QIULEGEQIU_EXPECTED_COMMIT" || {
+    echo "❌ main 在人工审批后发生变化，拒绝部署未经批准的提交" >&2
+    exit 1
+  }
+fi
 git merge --ff-only origin/main
+if [ -n "${QIULEGEQIU_EXPECTED_COMMIT:-}" ]; then
+  test "$(git rev-parse HEAD)" = "$QIULEGEQIU_EXPECTED_COMMIT" || {
+    echo "❌ 更新结果不是审批提交，拒绝部署" >&2
+    exit 1
+  }
+fi
 
 # 本脚本自身在GitHub上更新过：改用新版重新执行（只重启一次），保证线上永远按最新流程发布。
 if [ "${QIULEGEQIU_UPDATE_REEXEC:-}" != 1 ] && [ "$(sha256sum deploy/update.sh | awk '{print $1}')" != "$SCRIPT_BEFORE" ]; then
