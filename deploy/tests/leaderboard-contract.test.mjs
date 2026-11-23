@@ -65,3 +65,16 @@ test('同一个规则号不能冒充永久双模式查询；全版本范围不�
  assert.doesNotThrow(()=>verifyLeaderboardHealth(health,rules));assert.throws(()=>verifyLeaderboardHealth({...health,leaderboard:{board:'global',rankingRulesVersion:rules}},rules));
  assert.doesNotThrow(()=>verifyLeaderboardPage({board:'global',rankingScope:'all-campaign-versions',rankingRulesVersion:'legacy',items:[],nextOffset:null},'future-rules'));
 });
+
+test('闯关新赛季自动走兼容桥接：版本前进即可（新老版本共用永久排行榜），降级、无尽规则与0.8/1.2过旧赛季不行',async()=>{
+ const {isBridgeableTransition,verifyCompatibilityBridgeHealth}=await import('../leaderboard-contract.mjs');
+ assert.equal(isBridgeableTransition('1.10.0-arcade-3l-12lv-fullskills-v8','1.11.0-arcade-3l-12lv-patterns-v9'),true);
+ assert.equal(isBridgeableTransition('1.11.0-arcade-3l-12lv-patterns-v9\n','1.12.0-arcade-3l-12lv-future-v10'),true);
+ assert.equal(isBridgeableTransition('1.11.0-arcade-3l-12lv-patterns-v9','1.10.0-arcade-3l-12lv-fullskills-v8'),false);
+ assert.equal(isBridgeableTransition('1.2.0-arcade-5l-12lv-v1','1.11.0-arcade-3l-12lv-patterns-v9'),false);
+ assert.equal(isBridgeableTransition('endless-1.7.0-3l-sink-v8','1.11.0-arcade-3l-12lv-patterns-v9'),false);
+ assert.equal(isBridgeableTransition('1.11.0-arcade-3l-12lv-patterns-v9','1.11.0-arcade-3l-12lv-patterns-v9'),false);
+ const next='1.12.0-arcade-3l-12lv-future-v10',old='1.11.0-arcade-3l-12lv-patterns-v9',health={ok:true,database:'ready',rulesVersion:next,supportedRulesVersions:[old,next],challengeProtocolVersion:2,challengeFeatures:['triple-threshold20-v1','tutorial-brick-powers-v1','deterministic-trajectory-v1'],leaderboard:{board:'global',rankingRulesVersion:next,rankingScope:'all-campaign-versions'}};
+ assert.doesNotThrow(()=>verifyCompatibilityBridgeHealth(health,next,old));
+ assert.throws(()=>verifyCompatibilityBridgeHealth({...health,supportedRulesVersions:[next]},next,old),/上一赛季/);
+});

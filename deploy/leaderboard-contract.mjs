@@ -50,17 +50,34 @@ export const REVIEWED_TRANSITIONS=[
  ['1.5.0-arcade-5l-12lv-short-v3','1.11.0-arcade-3l-12lv-patterns-v9'],
  ['1.3.0-arcade-5l-12lv-drops-v2','1.11.0-arcade-3l-12lv-patterns-v9'],
 ];
+/** Seasons too old to bridge: 0.8 (ten levels) and 1.2 (pre-quota twelve levels) never move straight to a newer season. */
+const BRIDGE_BLOCKED=['0.8.0-arcade-5l-10lv-v1','1.2.0-arcade-5l-12lv-v1'];
+const seasonNumber=rules=>{const m=/^(\d+)\.(\d+)\.(\d+)-arcade-/.exec(rules);return m?[+m[1],+m[2],+m[3]]:undefined;};
+/**
+ * A campaign rules upgrade that may go through the --api-only bridge: every reviewed pair above, and from now on any
+ * forward move between twelve-level campaign seasons. The bridge then proves on the live API that the new server
+ * still verifies the season being replaced (all seasons share one permanent leaderboard), or the switch stops.
+ */
+export function isBridgeableTransition(previousRules,nextRules){
+ const from=String(previousRules??'').trim(),to=String(nextRules??'').trim();
+ if(REVIEWED_TRANSITIONS.some(([a,b])=>a===from&&b===to))return true;
+ const a=seasonNumber(from),b=seasonNumber(to);
+ if(!a||!b||BRIDGE_BLOCKED.includes(from))return false;
+ for(let i=0;i<3;i++)if(a[i]!==b[i])return b[i]>a[i];
+ return false;
+}
 export function verifyRollbackCompatibility(nextRules,previousRules,{apiOnly=false}={}){
  if(typeof nextRules!=='string'||!nextRules.trim()||typeof previousRules!=='string'||!previousRules.trim())throw Error('缺少规则回退来源，停止发布，不回滚数据库');
  if(previousRules.trim()===nextRules.trim())return;
  // Only this reviewed transition may install a backwards-compatible API bridge first.
  // Frontend/assets remain unchanged; the following full publish rolls back to this dual validator.
- if(apiOnly===true&&REVIEWED_TRANSITIONS.some(([from,to])=>previousRules.trim()===from&&nextRules.trim()===to))return;
+ if(apiOnly===true&&isBridgeableTransition(previousRules,nextRules))return;
  throw Error('回退目标不支持相同规则；先使用--api-only准备经审核的兼容后端基线，再发布新版网页；禁止重置或回滚数据库');
 }
 
-export function verifyCompatibilityBridgeHealth(data,rules){
+/** The bridge API must answer health for the new rules and still verify the season it replaces (`previousRules`). */
+export function verifyCompatibilityBridgeHealth(data,rules,previousRules){
  verifyLeaderboardHealth(data,rules);
- const transition=REVIEWED_TRANSITIONS.find(([,to])=>to===rules);
- if(!transition||!data.supportedRulesVersions.includes(transition[0]))throw Error('兼容后端未声明支持上一赛季规则，停止切换');
+ const from=typeof previousRules==='string'&&previousRules.trim()?previousRules.trim():REVIEWED_TRANSITIONS.find(([,to])=>to===rules)?.[0];
+ if(!from||!data.supportedRulesVersions.includes(from))throw Error('兼容后端未声明支持上一赛季规则，停止切换');
 }
