@@ -39,17 +39,35 @@ export function tripleTarget(count:number,version:TripleRuleVersion=TRIPLE_RULE_
 
 /** Campaign practice drop director (client only; ranked replays never set it). */
 export const ASSIST={
- /** At most this many drops fall at once; the rest wait in a queue instead of vanishing. */
- onScreen:6,queue:40,releaseGap:.5,
- /** With this many balls or fewer a ÷2 drop becomes a wide paddle. */
- halveMinBalls:8,
- /** Seconds without any drop before a rescue power falls; ×3 when balls are low, otherwise a skill. */
- rescueAfter:10,rescueTripleBelow:5,
- /** This many balls or fewer for this many seconds in a row → a ×3 falls. */
- lowBalls:3,lowBallsAfter:8,
- /** Endgame: at most this many bricks (or this share) left → a lightning every few seconds. */
- endgameBricks:30,endgameShare:.06,endgameAfter:4,
- /** Steel-heavy levels break fewer bricks per minute, so they drop more often (one per N bricks). */
- dropEvery:{7:16,10:22} as Readonly<Record<number,number>>,
+ /** At most this many drops fall at once; the rest wait in a (tier-sized) queue instead of vanishing. */
+ onScreen:6,releaseGap:.5,
+ /** A rescue drop is ×3 at this many balls or fewer, otherwise one of `rescue`. */
+ rescueTripleBelow:5,
+ /** Endgame starts at this many bricks left (or the tier's share, whichever is larger). */
+ endgameBricks:30,
+ /** One drop per N bricks: steel-heavy 7 and 10 a little more often, bosses 8 and 12 less often (they are the peaks). */
+ dropEvery:{7:20,10:28,8:28,12:34} as Readonly<Record<number,number>>,
  rescue:['pierce','lightning','fire','wide','triple'] as readonly PowerKind[],
 } as const;
+/** How much the director helps; it fades as the campaign gets harder and is off on boss levels. */
+export interface AssistTier{readonly name:string;readonly queue:number;
+ /** ÷2 becomes a wide paddle at this many balls or fewer (0: never). */
+ readonly halveMinBalls:number;
+ /** Seconds without any drop before a rescue power falls (Infinity: never). */
+ readonly rescueAfter:number;
+ /** At most `lowBalls` balls for `lowBallsAfter` seconds in a row → a ×3 falls (0: never). */
+ readonly lowBalls:number;readonly lowBallsAfter:number;
+ /** Share of bricks left that counts as the endgame, and seconds between endgame lightning (0: never). */
+ readonly endgameShare:number;readonly endgameAfter:number;}
+const INFINITE=Number.POSITIVE_INFINITY;
+export const ASSIST_TIERS={
+ rookie:{name:'新手',queue:40,halveMinBalls:8,rescueAfter:10,lowBalls:3,lowBallsAfter:8,endgameShare:.06,endgameAfter:4},
+ rising:{name:'进阶',queue:20,halveMinBalls:4,rescueAfter:18,lowBalls:2,lowBallsAfter:12,endgameShare:.04,endgameAfter:6},
+ hard:{name:'挑战',queue:10,halveMinBalls:0,rescueAfter:25,lowBalls:2,lowBallsAfter:15,endgameShare:.06,endgameAfter:6},
+ boss:{name:'Boss',queue:10,halveMinBalls:0,rescueAfter:INFINITE,lowBalls:0,lowBallsAfter:INFINITE,endgameShare:0,endgameAfter:0},
+} as const satisfies Record<string,AssistTier>;
+/** Levels 1–3 rookie, 4–6 rising, 7 and 9–11 hard, 8 and 12 boss. */
+export function assistTier(level:number):AssistTier{
+ if(level===8||level===12)return ASSIST_TIERS.boss;
+ return level<=3?ASSIST_TIERS.rookie:level<=6?ASSIST_TIERS.rising:ASSIST_TIERS.hard;
+}

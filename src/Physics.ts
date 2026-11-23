@@ -3,7 +3,7 @@ import {allocateBrickPowers,brickPowerCounts,brickPowerKind,BRICK_POWER_VERSION,
 import {LEGACY_LEVELS} from './LegacyLevels';
 import {powerProfile, type LevelConfig } from './Levels';
 import { Obstacles } from './Obstacles';
-import { seededRandom,weightedPower,tripleTarget,TRIPLE_RULE_VERSION,ASSIST,type TripleRuleVersion } from './PowerRules';
+import { seededRandom,weightedPower,tripleTarget,TRIPLE_RULE_VERSION,ASSIST,assistTier,type TripleRuleVersion } from './PowerRules';
 import type { SoundKind } from './Audio';
 import { C } from './GameConfig';
 import { Blocks } from './Blocks';
@@ -139,11 +139,12 @@ export class Physics {
   /** Campaign practice only (never replayed by the server): smooth the drop flow instead of the raw brick stream. */
   assist = false;
   private assistQueue:{kind:PowerKind}[]=[];private assistRelease=0;private sinceDrop=0;private lowBalls=0;private assistRandom=seededRandom(7);private lastBreak:{x:number;y:number}={x:C.arena.x,y:C.arena.y-C.arena.radius/2};
+  private get tier(){return assistTier(this.level.number);}
   private spawnPower(x:number,y:number,kind:PowerKind){
     if(!this.assist){this.powers.spawn(x,y,kind);return;}
     // A ÷2 only threatens a strong position: with few balls left it becomes a harmless wide paddle.
-    if(kind==='halve'&&this.balls.filter(b=>b.alive).length<=ASSIST.halveMinBalls)kind='wide';
-    if(this.powers.items.filter(p=>p.alive).length>=ASSIST.onScreen){if(this.assistQueue.length<ASSIST.queue)this.assistQueue.push({kind});return;}
+    if(kind==='halve'&&this.balls.filter(b=>b.alive).length<=this.tier.halveMinBalls)kind='wide';
+    if(this.powers.items.filter(p=>p.alive).length>=ASSIST.onScreen){if(this.assistQueue.length<this.tier.queue)this.assistQueue.push({kind});return;}
     this.powers.spawn(x,y,kind);this.sinceDrop=0;
   }
   /** Release queued drops one by one and, after a long dry spell, drop a rescue power. */
@@ -152,12 +153,13 @@ export class Physics {
     this.sinceDrop+=dt;this.assistRelease-=dt;
     const falling=this.powers.items.filter(p=>p.alive).length,{x,y}=this.lastBreak;
     // Stuck on a handful of balls for a while: a ×3 falls so the level never turns into a long grind.
-    this.lowBalls=this.balls.filter(b=>b.alive).length<=ASSIST.lowBalls?this.lowBalls+dt:0;
-    if(this.lowBalls>=ASSIST.lowBallsAfter&&!this.powers.items.some(p=>p.alive&&p.kind==='triple')){this.powers.spawn(x,Math.min(y,C.paddle.y-260),'triple');this.lowBalls=0;this.sinceDrop=0;return;}
+    const tier=this.tier;
+    this.lowBalls=this.balls.filter(b=>b.alive).length<=tier.lowBalls?this.lowBalls+dt:0;
+    if(this.lowBalls>=tier.lowBallsAfter&&!this.powers.items.some(p=>p.alive&&p.kind==='triple')){this.powers.spawn(x,Math.min(y,C.paddle.y-260),'triple');this.lowBalls=0;this.sinceDrop=0;return;}
     if(this.assistQueue.length&&falling<ASSIST.onScreen&&this.assistRelease<=0){this.powers.spawn(x,y,this.assistQueue.shift()!.kind);this.assistRelease=ASSIST.releaseGap;this.sinceDrop=0;return;}
     // Endgame: the last few bricks hide behind steel, so lightning (which strikes anywhere) arrives sooner.
-    const left=this.blocks.remaining,endgame=left>0&&left<=Math.max(ASSIST.endgameBricks,this.blocks.total*ASSIST.endgameShare);
-    if(this.sinceDrop>=(endgame?ASSIST.endgameAfter:ASSIST.rescueAfter)&&!falling&&(left>0||this.boss?.alive)){
+    const left=this.blocks.remaining,endgame=tier.endgameAfter>0&&left>0&&left<=Math.max(ASSIST.endgameBricks,this.blocks.total*tier.endgameShare);
+    if(this.sinceDrop>=(endgame?tier.endgameAfter:tier.rescueAfter)&&!falling&&(left>0||this.boss?.alive)){
       const balls=this.balls.filter(b=>b.alive).length,pool=ASSIST.rescue;
       const kind=endgame?'lightning':balls<=ASSIST.rescueTripleBelow?'triple':pool[Math.floor(this.assistRandom()*pool.length)];
       this.powers.spawn(x,Math.min(y,C.paddle.y-260),kind);this.sinceDrop=0;
