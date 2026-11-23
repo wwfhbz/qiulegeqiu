@@ -8,6 +8,10 @@ import { iconSvg } from '../shared/Icons';
 import { Game, type GameMode } from './Game';
 import { ENDLESS } from './endless/EndlessRules';
 import { C } from './GameConfig';
+
+/** A run is in progress once it has events and has not ended; a cleared practice level counts as ended. */
+export const runInProgress = (g: Pick<Game,'journal'|'state'|'practice'>): boolean =>
+  g.journal.events.length > 0 && g.state !== 'gameOver' && g.state !== 'victory' && !(g.practice && g.state === 'levelComplete');
 import { VIEW, ARENA_IN_VIEW } from './Viewport';
 import { activateCentralAction, centralActionFor } from './CentralAction';
 import { START_HINT, startFromPlayfield } from './PlayfieldStart';
@@ -152,7 +156,7 @@ export function mountGame(root: HTMLElement) {
     const percent=field?Math.round(field.descentProgress*100):Math.round(blocks.removed/Math.max(1,blocks.total)*100);text('progress-value', field?`已下沉${field.descents}行`:percent+'%');el('progress-meter').setAttribute('aria-valuenow',String(percent));el('progress-meter').style.setProperty('--fill',percent+'%');
     wrap.dataset.state=g.state;
     // Header switch: usable before a run starts and after it ends; locked while a run is in progress.
-    const locked = g.journal.events.length > 0 && g.state !== 'gameOver' && g.state !== 'victory';
+    const locked = runInProgress(g);
     for(const b of modeButtons){b.setAttribute('aria-pressed',String(b.dataset.mode===g.mode));b.disabled=locked&&b.dataset.mode!==g.mode;b.title=locked?'本局结束后可切换模式':'';}
     // The mode picker owns the screen before the first run and after every finished run.
     const ended = (g.state === 'gameOver' || g.state === 'victory') && !g.practice;
@@ -217,7 +221,7 @@ export function mountGame(root: HTMLElement) {
     if (inProgress() && !window.confirm('确定放弃本局并回到主界面吗？当前分数不会保留。')) return;
     closeMenu(false); game.reset(); picking = true; update(game);
   };
-  const inProgress = () => game.journal.events.length > 0 && game.state !== 'gameOver' && game.state !== 'victory';
+  const inProgress = () => runInProgress(game);
   // Restart sits next to pause: confirm before throwing away a run in progress.
   button('reset').onclick = () => {
     if (inProgress()) { const wasRunning = game.state === 'running'; game.pause(); if (!window.confirm('确定放弃本局，重新开始吗？当前分数不会保留。')) { if (wasRunning) game.start(); return; } }
@@ -263,7 +267,7 @@ export function mountGame(root: HTMLElement) {
   };
   // The header switch picks a mode exactly like the picker (only allowed while no run is in progress).
   for(const b of Array.from(root.querySelectorAll<HTMLButtonElement>('[data-mode]')))b.onclick=()=>{
-    const mode=b.dataset.mode as GameMode,locked=game.journal.events.length>0&&game.state!=='gameOver'&&game.state!=='victory';
+    const mode=b.dataset.mode as GameMode,locked=runInProgress(game);
     if(locked)return;root.querySelector<HTMLButtonElement>(`[data-pick=${mode}]`)?.click();
   };
   // Pre-select the last mode played so it is highlighted in the picker.
