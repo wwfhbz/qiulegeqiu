@@ -45,3 +45,9 @@ it('拖尾皮肤：小球本体（爱心头/流星头/花朵）每帧都画出�
   expect(colors).toContain(trail==='comet'?'#BDEBFF':trail==='heart'?'#FF4F8E':'#FFD24D');
   const rr=r as unknown as {spawnRain(now:number):void;rain:{start:number}[]};rr.spawnRain(1000);expect(rr.rain.filter(q=>q.start>=1000).length).toBeGreaterThanOrEqual(5);r.dispose();}
 });
+it('换了砖块网格（无尽↔闯关）即使代号相同也重画砖块缓存，不会出现上一模式的"幽灵砖"和消除残影',()=>{
+ const {r,cc}=renderer(),g=new Game();g.setMode('endless');r.draw(g.physics,true,0);
+ const endlessGeneration=g.physics.blocks.generation;g.setMode('campaign');expect(g.physics.blocks.generation).toBe(endlessGeneration);
+ let fills=0;cc.fill=(()=>{fills++;}) as typeof cc.fill;let cleared=false;const clear=cc.clearRect.bind(cc);cc.clearRect=((x:number,y:number,w:number,h:number)=>{if(w>=C.width-1)cleared=true;clear(x,y,w,h);}) as typeof cc.clearRect;
+ r.draw(g.physics,true,16);expect(cleared).toBe(true);expect(fills).toBeGreaterThanOrEqual(g.physics.blocks.total);r.dispose();
+});

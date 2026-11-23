@@ -175,6 +175,8 @@ export class Renderer {
   }
   private lowDevice=false;private sampleCount=0;private sampleTime=0;private previousDraw=0;
   private generation = -1; private cleared = 0; private cracked = 0;
+  /** The grid object the brick cache was painted from. */
+  private cachedBlocks?: object;
   private bossFlash = -1e9;
   // Wall-clock juice owned by the renderer, never by Physics.
   private seenSeq=-1;
@@ -411,10 +413,11 @@ export class Renderer {
     const low=this.lowDevice||this.host.lowPerformance?.()===true;
     const budget=visualBudget(p.balls.length,low);
     const b = p.blocks;
-    if (this.cachedRevision !== b.revision) {
+    if (this.cachedRevision !== b.revision || this.cachedBlocks !== b) {
       const c = this.cache.getContext('2d')!;
       c.setTransform(this.ratio, 0, 0, this.ratio, 0, 0);
-      if (this.cachedRevision === -1 || this.generation !== b.generation) {
+      // A different grid object (endless ↔ campaign) can reuse the same generation number: always repaint on a swap.
+      if (this.cachedRevision === -1 || this.generation !== b.generation || this.cachedBlocks !== b) {
         c.clearRect(0, 0, C.width, C.height);
         // Endless colours travel with each brick's world row; campaign uses the level's fixed bands.
         const field=p.endless,rowColor=(row:number)=>field?endlessBrickColor(field.worldRow(row)):brickColor(row,b.step,p.level.number);
@@ -426,7 +429,7 @@ export class Renderer {
           if(kind>Cell.Normal)this.paintSpecial(c,x,y,b.size,kind,b.hp[i]);
           else if(sprites.length)c.drawImage(sprites[color] as CanvasImageSource,x,y,b.size,b.size);else this.paintBrick(c,x,y,b.size,palette[color],false);
         }
-        this.generation = b.generation; this.cleared = b.destroyed.length; this.cracked = b.damaged.length;
+        this.generation = b.generation; this.cleared = b.destroyed.length; this.cracked = b.damaged.length; this.cachedBlocks = b;
       } else {
         // Clear only changed cells, using integral device pixels to avoid fringes.
         for (; this.cleared < b.destroyed.length; this.cleared++) {
