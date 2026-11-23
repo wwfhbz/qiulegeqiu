@@ -195,7 +195,7 @@ export class MiniGameApp {
  }
  private get pauseKey():Rect{const v=this.view;return {x:v.width-146,y:v.titleY,width:40,height:36};}
  private get menuOpen(){return this.panel.open&&(this.panel.title==='游戏暂停'||this.panel.title==='菜单');}
- private inRun(){const g=this.game;return g.journal.events.length>0&&g.state!=='gameOver'&&g.state!=='victory';}
+ private inRun(){const g=this.game;return g.journal.events.length>0&&g.state!=='gameOver'&&g.state!=='victory'&&!(g.practice&&g.state==='levelComplete');}
  private confirmRestart(){const g=this.game;if(this.busy)return;
   const restart=()=>{this.panel.close();if(g.practice){g.startPractice(g.levels.current.number);this.renderer.resize();}else g.reset();this.previous=0;};
   if(!this.inRun()){restart();return;}
@@ -341,7 +341,7 @@ export class MiniGameApp {
  private async task(work:()=>Promise<void>){if(this.busy)return;this.busy=true;try{await work();}catch(error){this.wx.showModal({title:'操作未完成',content:(error as Error).message,showCancel:false});}finally{this.busy=false;}}
  /** Pause menu: resume, restart, home and the rewarded skip. Settings, skins and the leaderboard have their own top-bar keys. */
  private menu(fromUser=true){const g=this.game;g.pause();if(fromUser)this.maybeInterstitial();
-  const a=g.audio,inRun=g.journal.events.length>0&&g.state!=='gameOver'&&g.state!=='victory';
+  const a=g.audio,inRun=this.inRun();
   const where=g.mode==='endless'?`无尽模式 · 第${g.reachedLevel}阶段`:`闯关模式 · 第${g.levels.current.number}关`;
   const actions:Action[]=[{label:inRun?'继续游戏':'返回游戏',icon:'play',primary:true,run:()=>{this.panel.close();if(g.state==='paused')g.start();this.previous=0;}},
    {label:'重新开始',icon:'restart',half:true,run:()=>void this.confirmRestart()},{label:'回到主界面',icon:'menu',half:true,run:()=>void this.confirmHome()}];
@@ -360,7 +360,7 @@ export class MiniGameApp {
  /** Start a fresh run in the chosen mode (the only way to change modes). */
  chooseMode(mode:GameMode,confirmed=false){
   const g=this.game;if(this.busy||this.boardLoading)return;
-  if(!confirmed&&g.journal.events.length>0&&g.state!=='gameOver'&&g.state!=='victory'){this.toast('本局结束后可切换模式');return;}
+  if(!confirmed&&this.inRun()){this.toast('本局结束后可切换模式');return;}
   // Campaign is a saved journey: continue from the furthest open level (unranked; only endless has a board).
   this.online=false;this.lastEnd=-1;this.picking=false;if(mode==='campaign')g.startPractice(this.progress.frontier);else if(mode===g.mode)g.reset();else g.setMode(mode);
   // Switching fields can reuse generation/revision numbers: invalidate the visual brick cache.
@@ -372,10 +372,10 @@ export class MiniGameApp {
  private async requestMode(mode:GameMode){
   if(this.busy||this.boardLoading)return;const g=this.game;
   if(mode===g.mode){if(g.state==='gameOver'||g.state==='victory'){this.chooseMode(mode);return;}if(this.picking&&g.state==='ready'&&!g.journal.events.length){this.picking=false;this.panel.close();}return;}
-  const generation=g.journal.generation,inProgress=g.journal.events.length>0&&g.state!=='gameOver'&&g.state!=='victory';
+  const generation=g.journal.generation,inProgress=this.inRun();
   if(!inProgress){this.chooseMode(mode);return;}
   const running=g.state==='running';if(running)g.pause();this.busy=true;let switched=false;
-  try{const answer=await this.modal('切换游戏模式','切换将结束当前对局，未提交的本局成绩不会自动上传。是否切换？','确认切换','继续本局');
+  try{const answer=await this.modal('切换游戏模式',g.practice?'切换将结束当前对局，本关从头再来（已获得的星级会保留）。是否切换？':'切换将结束当前对局，未提交的本局成绩不会自动上传。是否切换？','确认切换','继续本局');
    if(answer.confirm&&g.journal.generation===generation){this.busy=false;this.chooseMode(mode,true);switched=true;}
   }catch(error){this.toast((error as Error).message);}
   finally{this.busy=false;if(!switched&&running&&this.active&&g.journal.generation===generation&&g.state==='paused')g.start();this.previous=0;}

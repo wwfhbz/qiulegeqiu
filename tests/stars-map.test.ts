@@ -71,3 +71,10 @@ it('2.16 闯关存档：选闯关直接从最远解锁关开始；跳关也会�
   expect(x.rankingBoard).toBe('endless');await x.board();expect(x.panel.actions.some(a=>a.label==='闯关榜'||a.label==='无尽榜')).toBe(false);
  }finally{app.dispose();}
 });
+it('闯关通关后（levelComplete）不算对局进行中：网页顶部模式按钮与微信切换/重开/回主页都无需确认',async()=>{
+ const {runInProgress}=await import('../src/GameUI');
+ const g=new Game();g.startPractice(1);expect(runInProgress(g)).toBe(false);
+ g.start();g.update(C.step);expect(runInProgress(g)).toBe(true);
+ breakAll(g);g.update(0);expect(g.state).toBe('levelComplete');expect(runInProgress(g)).toBe(false);
+ const full=new Game();full.start();full.update(C.step);breakAll(full);full.update(0);expect(full.practice).toBe(false);expect(runInProgress(full)).toBe(true);
+});
