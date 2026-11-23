@@ -68,7 +68,7 @@ export class Game {
   startPractice(level: number) {
     if (this.mode !== 'campaign') this.setMode('campaign');
     this.reset(); this.levels.jump(level); this.score.beginLevel(); this.configureLevel(); this.physics.reset();
-    this.journal.unranked = true; this.practiceLevel = this.levels.current.number; this.readyReason = 'levelStart'; this.onLevelEntered?.(this.practiceLevel); this.onChange(this);
+    this.journal.unranked = true; this.practiceLevel = this.levels.current.number; this.physics.assist = true; this.readyReason = 'levelStart'; this.onLevelEntered?.(this.practiceLevel); this.onChange(this);
   }
   private runOut() {
     if (this.revivesUsed < MAX_REVIVES && this.canOfferRevive()) { this.awaitingRevive = true; return; }
@@ -162,7 +162,7 @@ export class Game {
     this.journal.reset();this.physics.setSeed(this.journal.seed);
     this.pendingRelief = false; this.awaitingRevive = false; this.revivesUsed = 0; this.boostsUsed = 0; this.boostArmed = false;
     this.reviveBonusPending = false;
-    this.skipsUsed = 0; this.practiceLevel = 0; this.lastStars = 0;
+    this.skipsUsed = 0; this.practiceLevel = 0; this.physics.assist = false; this.lastStars = 0;
     this.levels.reset(); this.remainingLives = this.mode==='endless'?ENDLESS.lives:this.campaignLives; this.score.reset(); this.result = undefined;
     this.configureLevel();
     this.physics.reset(); this.state = 'ready'; this.readyReason = 'initial'; this.onChange(this);

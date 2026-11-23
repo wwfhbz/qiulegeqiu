@@ -36,3 +36,20 @@ export function tripleTarget(count:number,version:TripleRuleVersion=TRIPLE_RULE_
  if(!Number.isSafeInteger(count)||count<0||count>C.maxBalls)throw new RangeError('有效球数超出范围');
  return Math.min(C.maxBalls,version===1||count<=TRIPLE_THRESHOLD?count*3:count+3);
 }
+
+/** Campaign practice drop director (client only; ranked replays never set it). */
+export const ASSIST={
+ /** At most this many drops fall at once; the rest wait in a queue instead of vanishing. */
+ onScreen:6,queue:40,releaseGap:.5,
+ /** With this many balls or fewer a ÷2 drop becomes a wide paddle. */
+ halveMinBalls:8,
+ /** Seconds without any drop before a rescue power falls; ×3 when balls are low, otherwise a skill. */
+ rescueAfter:10,rescueTripleBelow:5,
+ /** This many balls or fewer for this many seconds in a row → a ×3 falls. */
+ lowBalls:3,lowBallsAfter:8,
+ /** Endgame: at most this many bricks (or this share) left → a lightning every few seconds. */
+ endgameBricks:30,endgameShare:.06,endgameAfter:4,
+ /** Steel-heavy levels break fewer bricks per minute, so they drop more often (one per N bricks). */
+ dropEvery:{7:16,10:22} as Readonly<Record<number,number>>,
+ rescue:['pierce','lightning','fire','wide','triple'] as readonly PowerKind[],
+} as const;
