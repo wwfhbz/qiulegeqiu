@@ -1,7 +1,7 @@
 import {expect,it,vi} from 'vitest';
 import {Game} from '../src/Game';
 import {C} from '../src/GameConfig';
-import {CampaignProgress,levelStars,starText,STAR_SKIN_UNLOCKS} from '../src/campaign/Progress';
+import {CampaignProgress,levelStars,starText,STAR_SKIN_UNLOCKS,starBalance,trialHoursLeft} from '../src/campaign/Progress';
 import {ChallengeSync} from '../src/online/ChallengeSync';
 import {MiniGameApp} from '../wechat-game/src/App';
 import {wxFixture} from './helpers/WxFixture';
@@ -15,7 +15,8 @@ it('星级：不丢命三星、丢1命两星、其余一星；进度保存最好
  expect(p.record(1,2)).toBe(true);expect(p.record(1,1)).toBe(false);expect(p.record(1,3)).toBe(true);expect(p.unlocked(2)).toBe(true);expect(p.frontier).toBe(2);
  const again=new CampaignProgress(io);expect(again.stars[0]).toBe(3);expect(again.total).toBe(3);
  expect(new CampaignProgress({read:()=>'{broken',write:()=>{}}).total).toBe(0);
- expect(Math.max(...Object.values(STAR_SKIN_UNLOCKS))).toBe(36);
+ expect(STAR_SKIN_UNLOCKS).toEqual({'paddle:neon':12,'paddle:flame':24,'paddle:gold':36});
+ expect(starBalance(12,9)).toBe(3);expect(starBalance(5,9)).toBe(0);expect(trialHoursLeft(1000+3600000*23.5,1000)).toBe(24);expect(trialHoursLeft(500,1000)).toBe(0);expect(trialHoursLeft(undefined,1000)).toBe(0);
 });
 it('完整挑战每过一关记星；单关练习从任意关开始、不上传、不复活不跳关，通关停在本关可接下一关',()=>{
  const g=new Game(),cleared:[number,number][]=[];g.onLevelCleared=(l,s)=>cleared.push([l,s]);
@@ -41,7 +42,21 @@ it('微信：选模式页有关卡地图；未解锁关卡点不动；练习通�
   app.game.start();breakAll(app.game);app.frame(48);app.frame(64);
   expect(p.panel.title).toContain('第1关');expect(p.panel.title).toContain('★★★');expect(p.panel.actions.map(a=>a.label)).toEqual(['下一关','再来一次','关卡地图']);
   expect(app.progress.stars[0]).toBe(3);expect(f.storage.get('qiulegeqiu:wechat-stars:v1')).toContain('3');
-  p.skins();expect(p.panel.actions.some(a=>a.label==='★6 解锁流星拖尾')).toBe(true);
-  for(let n=2;n<=3;n++)app.progress.record(n,3);p.skins();expect(p.panel.actions.some(a=>a.label.startsWith('流星拖尾'))).toBe(true);
+  // No rewarded video here: trails need 12 stars, then 3 stars buy 24 hours (stars spent, lifetime total kept).
+  p.skins();expect(p.panel.actions.some(a=>a.label==='★12 解锁流星拖尾')).toBe(true);
+  for(let n=2;n<=4;n++)app.progress.record(n,3);p.skins();expect(p.panel.actions.some(a=>a.label==='霓虹光剑：使用')).toBe(true);
+  const trial=()=>p.panel.actions.find(a=>a.label==='★3 试用流星24小时')!;trial().run();
+  expect((app as unknown as {starsAvailable:number}).starsAvailable).toBe(9);expect(app.progress.total).toBe(12);expect(p.panel.actions.some(a=>a.label.startsWith('流星拖尾：使用中 · 剩24小时'))).toBe(true);expect((app as unknown as {renderer:{trail:string}}).renderer.trail).toBe('comet');
+  for(let i=0;i<2;i++)p.panel.actions.find(a=>a.label.startsWith('★3 试用'))!.run();expect((app as unknown as {starsAvailable:number}).starsAvailable).toBe(3);expect(p.panel.actions.some(a=>a.label.startsWith('★3 试用'))).toBe(false);
+  // Expiry: 24h later the trail is gone from the list and the renderer falls back to no trail.
+  const now=Date.now;Date.now=()=>now()+25*3600*1000;try{app.frame(1e6);app.frame(1e6+6000);expect((app as unknown as {renderer:{trail:string}}).renderer.trail).toBe('none');}finally{Date.now=now;}
  }finally{app.dispose();}
+});
+it('微信：V2.15 已靠星星解锁的拖尾（6/18/30星）升级后永久保留，只迁移一次',()=>{
+ const f=wxFixture(390,844,3);f.storage.set('qiulegeqiu:wechat-stars:v1',JSON.stringify({stars:[3,3,3,3,3,3,2,0,0,0,0,0]}));
+ const app=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});
+ try{expect(app.progress.total).toBe(20);expect(f.storage.get('qiulegeqiu:wechat-trails:v1')).toEqual(['comet','heart']);expect(f.storage.get('qiulegeqiu:wechat-trail-stars-kept:v1')).toBe(true);}finally{app.dispose();}
+ // Later star gains never unlock trails by themselves again.
+ f.storage.set('qiulegeqiu:wechat-stars:v1',JSON.stringify({stars:Array(12).fill(3)}));const again=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false});
+ try{expect(f.storage.get('qiulegeqiu:wechat-trails:v1')).toEqual(['comet','heart']);}finally{again.dispose();}
 });
