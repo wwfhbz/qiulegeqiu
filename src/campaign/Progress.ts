@@ -34,7 +34,7 @@ export class CampaignProgress {
 export const LEGACY_PADDLE_STAR_UNLOCKS: Readonly<Record<string, number>> = { neon: 12, flame: 24, gold: 36 };
 /** V2.15 thresholds at which trails unlocked by stars alone (kept for players who earned them then). */
 export const LEGACY_TRAIL_STAR_UNLOCKS: Readonly<Record<string, number>> = { comet: 6, heart: 18, rainbow: 30 };
-/** A rewarded-video trial lasts 2 hours; each player gets 3 trials in total (all skins together). */
-export const SKIN_TRIAL_MS = 2 * 3600 * 1000, SKIN_TRIAL_LIMIT = 3;
+/** A rewarded-video trial lasts 2 hours; one trial per local day (all skins together; 2.17.1–2.19 allowed 3 in total). */
+export const SKIN_TRIAL_MS = 2 * 3600 * 1000, SKIN_TRIALS_PER_DAY = 1;
 /** Hours (rounded up) left on a trial, 0 when expired or never bought. */
 export function trialHoursLeft(expiresAt: number | undefined, now: number) { return expiresAt && expiresAt > now ? Math.ceil((expiresAt - now) / 3600000) : 0; }

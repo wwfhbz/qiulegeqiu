@@ -29,7 +29,7 @@ export function modePickerLayout(width:number,height:number,top:number,bottom:nu
  * Result page after a finished run (mirrors .title-screen.result on the web): a score card with a gold medal,
  * the submit button, then the two mode cards (compact) to play again, and the leaderboard / share shortcuts.
  */
-export function resultLayout(width:number,height:number,top:number,bottom:number){
+export function resultLayout(width:number,height:number,top:number,bottom:number,reward=false){
  const side=width<=360?12:18,w=Math.min(420,width-side*2),x=(width-w)/2,room=bottom-top;
  const tight=room<700,small=room<640;
  const base={pad:small?24:30,mode:22,title:small?24:28,label:small?0:16,score:small?38:tight?42:48,stats:small?44:52,submit:small?42:46,note:small?0:20,bottom:14};
@@ -40,19 +40,22 @@ export function resultLayout(width:number,height:number,top:number,bottom:number
  const parts=Object.fromEntries(Object.entries(base).map(([key,value])=>[key,Math.round(value*fit)])) as typeof base;
  const cardBox=box(parts);
  const cardH=Math.round((small?58:tight?64:70)*fit),gap=Math.round((small?10:12)*fit),toolH=Math.max(30,Math.round((small?34:38)*fit)),again=Math.round((small?28:32)*fit),medal=26;
- const content=medal+cardBox+again+cardH*2+gap+10+toolH+foot;
+ const rewardH=reward?Math.max(36,Math.round((small?40:44)*fit)):0,rewardGap=reward?Math.round(10*fit):0;
+ const content=medal+cardBox+rewardH+rewardGap+again+cardH*2+gap+10+toolH+foot;
  const free=Math.max(0,room-content),step=free/5;
  let y=top+step+medal;
  const card={x,y,width:w,height:cardBox};let cy=y+parts.pad;
  const modeY=cy+parts.mode/2;cy+=parts.mode+6;const titleY=cy+parts.title/2;cy+=parts.title+4;const labelY=parts.label?cy+parts.label/2:undefined;cy+=parts.label;
  const scoreY=cy+parts.score/2;cy+=parts.score+8;const stats=[0,1,2].map(i=>{const sw=(w-28-16)/3;return {x:x+14+i*(sw+8),y:cy,width:sw,height:parts.stats};});cy+=parts.stats+12;
  const submit={x:x+14,y:cy,width:w-28,height:parts.submit};cy+=parts.submit;const noteY=parts.note?cy+parts.note/2+2:undefined;
- y+=cardBox+step;const againY=y+again/2+2;y+=again;
+ y+=cardBox+step;const rewardRect=reward?{x:x+14,y:y-step+rewardGap,width:w-28,height:rewardH}:undefined;if(reward)y+=rewardH+rewardGap;const againY=y+again/2+2;y+=again;
  const rows=[0,1].map(i=>({x,y:y+i*(cardH+gap),width:w,height:cardH}));y+=cardH*2+gap+step+10;// clear the cards' 6px bottom edge
  const toolW=Math.min(130,(w-12)/2),tools=[0,1].map(i=>({x:width/2+(i?6:-6-toolW),y,width:toolW,height:toolH}));y+=toolH+step;
- return {card,medalY:card.y,modeY,titleY,labelY,scoreY,scoreSize:parts.score,stats,submit,noteY,againY,rows,tools,footY:small?undefined:Math.min(bottom-8,y+4),tight:true,compact:true};
+ return {card,medalY:card.y,modeY,titleY,labelY,scoreY,scoreSize:parts.score,stats,submit,noteY,reward:rewardRect,againY,rows,tools,footY:small?undefined:Math.min(bottom-8,y+4),tight:true,compact:true};
 }
-export interface ResultView {mode:'campaign'|'endless';title:string;score:number;stats:[string,string][];submitLabel:string;note:string;canSubmit:boolean}
+export interface ResultView {mode:'campaign'|'endless';title:string;score:number;stats:[string,string][];submitLabel:string;note:string;canSubmit:boolean;
+ /** Optional rewarded-video offer under the score card (double this run's shards, or the daily shard video). */
+ reward?:string}
 
 // Deterministic stars (fractions of the screen), so the page never flickers between frames.
 const STARS=[[.12,.18,1.5],[.78,.12,1],[.64,.34,1.5],[.28,.46,1],[.88,.52,1],[.08,.72,1.5],[.46,.84,1],[.92,.88,1],[.36,.06,1],[.56,.62,1],[.18,.94,1],[.72,.76,1.5]];
@@ -117,6 +120,8 @@ export function drawResultPage(c:CanvasRenderingContext2D,width:number,height:nu
   canvasText(c,label,r.x+r.width/2,r.y+r.height*.32,r.width-8,11,'#8FA6C8','center');c.font=`800 15px ${OCEAN.fonts.body}`;c.fillStyle='#FFFFFF';c.textAlign='center';c.textBaseline='middle';c.fillText(value,r.x+r.width/2,r.y+r.height*.68,r.width-8);});
  goldButton(c,v.submit,16,!view.canSubmit);c.globalAlpha=view.canSubmit?1:.7;c.font=`900 16px ${OCEAN.fonts.body}`;const sw=c.measureText(view.submitLabel).width,sx=cx-(sw+26)/2;drawIcon(c,'trophy',sx+10,v.submit.y+v.submit.height/2,20,'#5A2C00');c.fillStyle='#5A2C00';c.textAlign='left';c.textBaseline='middle';c.fillText(view.submitLabel,sx+26,v.submit.y+v.submit.height/2);c.globalAlpha=1;
  if(v.noteY!==undefined&&view.note)canvasText(c,view.note,cx,v.noteY,k.width-32,11,'#7E93B5','center');
+ // Rewarded offer under the card: a gold film button (double this run's shards, or the daily shard video).
+ if(v.reward&&view.reward){const r=v.reward;goldButton(c,r,r.height/2,false);c.font=`800 15px ${OCEAN.fonts.body}`;const tw=Math.min(c.measureText(view.reward).width,r.width-64),tx=cx-(tw+28)/2;drawIcon(c,'film',tx+10,r.y+r.height/2,20,'#5A2C00');c.fillStyle='#5A2C00';c.textAlign='left';c.textBaseline='middle';c.fillText(view.reward,tx+28,r.y+r.height/2,r.width-64);}
  c.font=`700 13px ${OCEAN.fonts.body}`;c.fillStyle='#A9C1DE';c.textAlign='center';c.textBaseline='middle';c.fillText('再来一局 · 选择模式',cx,v.againY,width-40);
  modeCards(c,v.rows,endless?1:0,true,true,'刚刚玩过');
  pillTools(c,v.tools,[{label:'排行榜',icon:'trophy',color:'#FFD24D'},{label:'分享成绩',icon:'share',color:'#EAF6FF'}]);

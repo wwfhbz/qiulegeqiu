@@ -30,7 +30,7 @@ export const challengeEvent=z.discriminatedUnion('type',[
  z.object({...base,type:z.literal('power'),kind:z.enum(['halve','triple','wide','life','bomb','plus3','pierce','fire','lightning']),dropId:z.number().int().positive().max(MAX_CHALLENGE_EVENTS).optional()}).strict(),
  z.object({...base,type:z.literal('bomb'),target:z.string().max(50).nullable()}).strict(),
  z.object({...base,type:z.literal('crushed')}).strict(),
- z.object({...base,type:z.enum(['revive','boost','skip'])}).strict(),
+ z.object({...base,type:z.enum(['revive','boost','skip','supply','rescue'])}).strict(),
  z.object({...base,type:z.literal('bonus'),kind:z.enum(['plus3','pierce','fire','lightning','triple'])}).strict()
 ]);
 type Session={id:string;player_id:string|null;csrf_token:string};

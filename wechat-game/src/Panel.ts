@@ -40,8 +40,9 @@ export class Panel {
   if(this.reviveView){const r=drawReviveCard(c,width,this.screen?.height??bottom,this.reviveView,now);if(this.actions[0])this.hits.push({rect:r.watch,run:this.actions[0].run});if(this.actions[1])this.hits.push({rect:r.skip,run:this.actions[1].run});return;}
   if(this.mapView){const sc=this.screen??{height:bottom,top,muted:false},r=drawLevelMap(c,width,sc.height,sc.top,bottom,this.mapView,now);
    if(this.actions[0])this.hits.push({rect:r.close,run:this.actions[0].run});r.nodes.forEach((rect,i)=>{const a=this.actions[i+1];if(a&&this.mapView!.open[i])this.hits.push({rect,run:a.run});});return;}
-  if(this.resultView){const sc=this.screen??{height:bottom,top,muted:false},v=resultLayout(width,sc.height,sc.resultTop??sc.top,bottom);drawResultPage(c,width,sc.height,v,this.resultView,now);
+  if(this.resultView){const sc=this.screen??{height:bottom,top,muted:false},v=resultLayout(width,sc.height,sc.resultTop??sc.top,bottom,!!this.resultView.reward);drawResultPage(c,width,sc.height,v,this.resultView,now);
    const by=(label:string)=>this.actions.find(a=>a.label.replace('▶ ','')===label);
+   const reward=this.resultView.reward&&by(this.resultView.reward);if(v.reward&&reward)this.hits.push({rect:v.reward,run:reward.run});
    ([[v.submit,'提交本次成绩'],[v.rows[0],'闯关模式'],[v.rows[1],'无尽模式'],[v.tools[0],'查看全球排行榜'],[v.tools[1],'分享成绩']] as const).forEach(([rect,label])=>{const a=by(label);if(a)this.hits.push({rect,run:a.run});});return;}
   if(this.title==='选择游戏模式'){const sc=this.screen??{height:bottom,top,muted:false},v=modePickerLayout(width,sc.height,sc.top,bottom);
    drawModePicker(c,width,sc.height,v,this.actions[1]?.label.startsWith('▶')?1:0,sc.muted,now,this.mapStars);

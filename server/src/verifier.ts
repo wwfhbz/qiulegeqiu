@@ -117,7 +117,7 @@ export function verifyTrace(events: ChallengeEvent[], wallMs: number,seed=1,rule
         else if(e.kind==='fire')fireUntil=e.tick+Math.ceil(ENDLESS.fireSeconds/C.step)+1;
         else if(e.kind==='lightning'){if(lightningTick!==e.tick){lightningTick=e.tick;lightnings=0;}lightnings++;}
         break;}
-      case 'crushed':throw new ApiError(422,'闯关模式不支持该事件');
+      case 'crushed':case 'supply':case 'rescue':throw new ApiError(422,'闯关模式不支持该事件');
     }
     peakBalls=Math.max(peakBalls,balls);tickBallMax=Math.max(tickBallMax,balls);
   }

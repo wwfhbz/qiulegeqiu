@@ -1,4 +1,4 @@
-export type ChallengeEvent = {type:'launch';tick:number;level:number;tripleRuleVersion?:2;brickPowerVersion?:2;trajectoryVersion?:1} | { type: 'ballLost' | 'lost' | 'clear' | 'next' | 'finish'; tick: number; level: number } | { type: 'hit'; tick: number; level: number; index: number; crush?: true } | { type: 'boss'; tick: number; level: number } | { type: 'power'; tick: number; level: number; kind: 'halve'|'triple'|'wide'|'life'|'bomb'|'plus3'|'pierce'|'fire'|'lightning'; dropId?:number } | { type:'bomb'; tick:number; level:number; target:string|null } | { type:'crushed'; tick:number; level:number } | { type:'bonus'; tick:number; level:number; kind:'plus3'|'pierce'|'fire'|'lightning'|'triple' } | { type:'revive'; tick:number; level:number } | { type:'boost'; tick:number; level:number } | { type:'skip'; tick:number; level:number };
+export type ChallengeEvent = {type:'launch';tick:number;level:number;tripleRuleVersion?:2;brickPowerVersion?:2;trajectoryVersion?:1} | { type: 'ballLost' | 'lost' | 'clear' | 'next' | 'finish'; tick: number; level: number } | { type: 'hit'; tick: number; level: number; index: number; crush?: true } | { type: 'boss'; tick: number; level: number } | { type: 'power'; tick: number; level: number; kind: 'halve'|'triple'|'wide'|'life'|'bomb'|'plus3'|'pierce'|'fire'|'lightning'; dropId?:number } | { type:'bomb'; tick:number; level:number; target:string|null } | { type:'crushed'; tick:number; level:number } | { type:'bonus'; tick:number; level:number; kind:'plus3'|'pierce'|'fire'|'lightning'|'triple' } | { type:'revive'; tick:number; level:number } | { type:'boost'; tick:number; level:number } | { type:'skip'; tick:number; level:number } | { type:'supply'; tick:number; level:number } | { type:'rescue'; tick:number; level:number };
 export interface ChallengeSummary { score: number; reachedLevel: number; bricksDestroyed: number; durationMs: number; completedAllLevels: boolean }
 export const LEGACY_RULES_VERSION = '0.8.0-arcade-5l-10lv-v1';
 export const PREVIOUS_RULES_VERSION = '1.2.0-arcade-5l-12lv-v1';
@@ -84,7 +84,13 @@ export const MAX_REVIVES=2,MAX_BOOSTS=3,BOOST_BALLS=3;
 /** Rewarded-video level skip (campaign 1.10+): up to 2 per run, never the final level, no clear bonus. */
 export const SKIP_FEATURE='ad-skip-v1';
 export const MAX_SKIPS=2;
-export const CHALLENGE_FEATURES=[TRIPLE_RULE_FEATURE,BRICK_POWER_FEATURE,TRAJECTORY_FEATURE,REWARD_FEATURE,SKIP_FEATURE] as const;
+/**
+ * Endless 1.8 rewarded help, once each per run: a start supply on the first launch (+3 balls and a 30s shield during which
+ * pressing the line never costs a life) and a rescue while the wall presses the line (clears the bottom 5 rows).
+ */
+export const SUPPLY_FEATURE='ad-supply-rescue-v1';
+export const SUPPLY_BALLS=3,SUPPLY_SHIELD_TICKS=3600,RESCUE_ROWS=5,RESCUE_MIN_PRESSURE=600;
+export const CHALLENGE_FEATURES=[TRIPLE_RULE_FEATURE,BRICK_POWER_FEATURE,TRAJECTORY_FEATURE,REWARD_FEATURE,SKIP_FEATURE,SUPPLY_FEATURE] as const;
 export function assertTripleRuleSupport(data:{challengeFeatures?:unknown}){if(!Array.isArray(data.challengeFeatures)||!data.challengeFeatures.includes(TRIPLE_RULE_FEATURE))throw Error('排行榜后端尚不支持新版X3规则，请先更新后端；本轮仍可单机游玩');}
 
 export function assertBrickPowerSupport(data:{challengeFeatures?:unknown}){if(!Array.isArray(data.challengeFeatures)||!data.challengeFeatures.includes(BRICK_POWER_FEATURE))throw Error('排行榜后端尚不支持新手关预分配道具，请先更新后端；本轮仍可单机游玩');}

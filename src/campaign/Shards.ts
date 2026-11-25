@@ -13,7 +13,7 @@ export const SHARD_RULES = {
   /** First run of the day (local date). */
   dailyFirstGame: 1,
   /** Rewarded video: shards per view and views per day. */
-  video: 3, videosPerDay: 5,
+  video: 3, videosPerDay: 8,
 } as const;
 export interface ShardStore { read(): unknown; write(value: unknown): void }
 interface State { balance: number; threeStars: number[]; videoDay: string; videos: number; dailyDay: string }
@@ -41,6 +41,8 @@ export class ShardWallet {
   earnVideo(day: string = dayKey()) { if (this.videosLeft(day) <= 0) return 0; if (this.state.videoDay !== day) { this.state.videoDay = day; this.state.videos = 0; } this.state.videos++; return this.add(SHARD_RULES.video); }
   /** Endless milestones of one run: shards for each new multiple of 10 stages beyond what the run already paid. */
   static endlessMilestones(stage: number) { return Math.floor(Math.max(0, stage) / SHARD_RULES.endlessStageStep); }
+  /** Rewarded "×2": the same shards a run (or a clear) just earned, once (the caller tracks that it was doubled). */
+  earnBonus(n: number) { return this.add(Math.max(0, Math.floor(n))); }
   earnEndless(milestones: number) { return this.add(Math.max(0, milestones) * SHARD_RULES.endlessShards); }
   spend(n: number) { if (n <= 0 || this.state.balance < n) return false; this.state.balance -= n; this.save(); return true; }
 }
