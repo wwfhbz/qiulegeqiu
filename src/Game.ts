@@ -14,7 +14,7 @@ import { ENDLESS, ENDLESS_LEVEL, endlessStage, endlessVersion, REVIVE_BONUS_SALT
 import { seededRandom } from './PowerRules';
 import { BOSS_HIT_POINTS, BOSS_KILL_BONUS } from './campaign/Boss';
 import { levelStars } from './campaign/Progress';
-import { RULES_VERSION, MAX_REVIVES, MAX_BOOSTS, BOOST_BALLS, MAX_SKIPS } from '../shared/Challenge';
+import { RULES_VERSION, MAX_REVIVES, MAX_BOOSTS, BOOST_BALLS, MAX_SKIPS, SUPPLY_BALLS, SUPPLY_SHIELD_TICKS, RESCUE_ROWS, RESCUE_MIN_PRESSURE } from '../shared/Challenge';
 export type GameMode = 'campaign' | 'endless';
 
 /** Coordinates the arcade session; physics and rendering remain independent. */
@@ -52,6 +52,19 @@ export class Game {
   get revivesLeft() { return MAX_REVIVES - this.revivesUsed; }
   /** Boosts are only offered after a lost life, never at the start of a level. */
   get canBoost() { return this.state === 'ready' && this.readyReason === 'lifeLost' && !this.boostArmed && this.boostsUsed < MAX_BOOSTS && this.journal.events.length > 0; }
+  /** Endless 1.8 start supply (rewarded): +3 balls and a 30s line shield on the first launch, once per run. */
+  supplyArmed = false; supplyUsed = false;
+  /** Endless 1.8 rescue (rewarded): clear the bottom rows while the wall presses the line, once per run. */
+  rescueUsed = false;
+  get canSupply() { return this.state === 'ready' && !!this.physics.endless?.variant.adHelp && !this.supplyArmed && !this.supplyUsed && this.journal.events.length === 0; }
+  armSupply() { if (!this.canSupply) return false; this.supplyArmed = true; this.onChange(this); return true; }
+  get canRescue() { const field = this.physics.endless; return !!field?.variant.adHelp && !this.rescueUsed && this.roundActive && (this.state === 'running' || this.state === 'paused') && field.pressure >= RESCUE_MIN_PRESSURE; }
+  /** Apply a watched rescue: journaled first so the verifier clears the same rows at the same tick. */
+  rescue() {
+    if (!this.canRescue) return false; const field = this.physics.endless!;
+    this.rescueUsed = true; this.journal.record({type:'rescue',level:this.levels.current.number});
+    const cleared = field.relief(RESCUE_ROWS); this.physics.effects.emit('relief',C.arena.x,field.top+(field.floorRow+.5)*field.step,cleared); this.onChange(this); return true;
+  }
   /**
    * Level map practice (campaign 1.11 table only): play one level on its own, unranked and never uploaded.
    * Clearing it ends in levelComplete (never victory); `nextLevel` continues with the next level as practice.
@@ -156,6 +169,8 @@ export class Game {
       const kind = reviveBonus(this.reviveBonuses); this.journal.record({type:'bonus',level:this.levels.current.number,kind}); this.physics.applyBonus(kind);
     }
     if (this.boostArmed && launching) { this.boostArmed = false; this.boostsUsed++; this.state = 'running'; this.journal.record({type:'boost',level:this.levels.current.number}); this.physics.addBalls(BOOST_BALLS); }
+    const shieldField = this.physics.endless;
+    if (this.supplyArmed && launching && shieldField) { this.supplyArmed = false; this.supplyUsed = true; this.state = 'running'; this.journal.record({type:'supply',level:this.levels.current.number}); this.physics.addBalls(SUPPLY_BALLS); shieldField.shieldUntil = shieldField.clock + SUPPLY_SHIELD_TICKS; }
     this.audio.unlock(); this.physics.paused = false; this.physics.accumulator = 0;
     this.state = 'running'; this.onChange(this);
   }
@@ -167,7 +182,7 @@ export class Game {
     this.newRecord = false; this.endlessBest.beginRun();
     this.roundActive = false;
     this.journal.reset();this.physics.setSeed(this.journal.seed);
-    this.pendingRelief = false; this.awaitingRevive = false; this.revivesUsed = 0; this.boostsUsed = 0; this.boostArmed = false;
+    this.pendingRelief = false; this.awaitingRevive = false; this.revivesUsed = 0; this.boostsUsed = 0; this.boostArmed = false; this.supplyArmed = false; this.supplyUsed = false; this.rescueUsed = false;
     this.reviveBonusPending = false;
     this.skipsUsed = 0; this.practiceLevel = 0; this.physics.assist = false; this.lastStars = 0;
     this.levels.reset(); this.remainingLives = this.mode==='endless'?ENDLESS.lives:this.campaignLives; this.score.reset(); this.result = undefined;

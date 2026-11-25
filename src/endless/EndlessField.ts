@@ -22,6 +22,8 @@ export class EndlessField extends Blocks {
   descents=0;sinceDescent=0;destroyedTotal=0;
   /** Ticks since the run started (1.8 drop spacing reads it; the verifier advances the same clock). */
   clock=0;
+  /** Start-supply shield: until this clock tick, pressing the line never builds pressure. */
+  shieldUntil=0;
   /** Consecutive running ticks with a brick on the floor row (pressure-death timer). */
   pressure=0;
   private seed=1;
@@ -50,7 +52,7 @@ export class EndlessField extends Blocks {
         if(this.maskStart[row]<0)this.maskStart[row]=col;this.maskEnd[row]=col;this.floorRow=row;
       }
     }
-    this.patterns.clear();this.hits.clear();this.descents=0;this.sinceDescent=0;this.destroyedTotal=0;this.pressure=0;this.clock=0;
+    this.patterns.clear();this.hits.clear();this.descents=0;this.sinceDescent=0;this.destroyedTotal=0;this.pressure=0;this.clock=0;this.shieldUntil=0;
     for(let w=0;w<=this.base;w++)this.spawnRow(w);
     this.destroyed.length=0;this.generation++;this.rebuild();
   }
@@ -77,7 +79,7 @@ export class EndlessField extends Blocks {
   /** Advance one simulation tick; returns true when the wall descended this tick. */
   tick(){
     // The pressure timer reads the state left by the previous tick's contacts, like the descent check.
-    if(this.blocked)this.pressure++;else this.pressure=0;
+    if(this.blocked&&this.clock>=this.shieldUntil)this.pressure++;else this.pressure=0;
     this.sinceDescent++;this.clock++;
     if(this.sinceDescent<this.interval||this.blocked)return false;
     this.descend();this.sinceDescent=0;return true;
@@ -87,6 +89,8 @@ export class EndlessField extends Blocks {
   /** Current descent interval in ticks; 1.8 sinks faster while only a thin wall is left. */
   get interval(){const base=descentInterval(this.descents,this.variant),refill=this.variant.refill;return refill&&this.remaining<refill.below?Math.max(refill.minTicks,Math.round(base*refill.factor)):base;}
   /** True while the thin-wall speed-up is active (HUD hint). */
+  /** Seconds of start-supply shield left (HUD). */
+  get shieldSeconds(){return Math.max(0,(this.shieldUntil-this.clock)/120);}
   get refilling(){const refill=this.variant.refill;return !!refill&&this.remaining<refill.below;}
   /**
    * Relief after a pressure death: remove every brick in the `rows` rows nearest the floor. These are not

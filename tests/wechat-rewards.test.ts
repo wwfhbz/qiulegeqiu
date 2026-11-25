@@ -30,7 +30,7 @@ it('生命耗尽：弹出复活卡，看完视频+1命继续本局；最多2次�
 it('中途关闭视频不发奖励；选择放弃则正常结算',async()=>{
  const f=wxFixture();withAds(f,()=>false);const a=app(f),p=a as unknown as Private;
  try{while(a.game.state!=='gameOver')lose(a);a.frame(64);a.panel.actions[0].run();await vi.waitFor(()=>expect(p.busy).toBe(false));expect(a.game.state).toBe('gameOver');expect(a.game.awaitingRevive).toBe(true);
-  a.panel.actions[1].run();expect(a.game.journal.events.at(-1)!.type).toBe('finish');a.frame(80);a.frame(96);expect(a.panel.title).toContain('生命耗尽');expect(a.panel.actions.map(x=>x.label)).toEqual(['再来一次','关卡地图']);
+  a.panel.actions[1].run();expect(a.game.journal.events.at(-1)!.type).toBe('finish');a.frame(80);a.frame(96);expect(a.panel.title).toContain('生命耗尽');expect(a.panel.actions.map(x=>x.label)).toEqual(['再来一次','关卡地图','▶ 看视频领 3 碎片（今日剩 8 次）']);
  }finally{a.dispose();}
 });
 it('丢一条命后才出现"看视频：下一球+3"，开局不出现；看完后下一次发射多3个球',async()=>{
@@ -52,14 +52,18 @@ it('设置（⚙）：音乐/音效/震动为开关行并记住；皮肤页：�
   // 2.17: stars open a skin, 10 shards buy it; videos give 3 shards (5 a day) or lend a skin for 24 hours.
   expect(a.panel.actions.some(x=>x.label==='★3 开放流星拖尾')).toBe(true);expect(a.panel.actions.some(x=>x.label==='★6 开放霓虹光剑')).toBe(true);
   for(let n=1;n<=4;n++)a.progress.record(n,3);p.skins();
-  label('▶ 试用流星拖尾2小时（剩3次）').run();await vi.waitFor(()=>expect(p.busy).toBe(false));expect(p.renderer.cometTail).toBe(true);expect(a.panel.actions.some(x=>x.label==='流星拖尾：使用中 · 剩2小时')).toBe(true);expect((a as unknown as {trialsLeft:number}).trialsLeft).toBe(2);
-  for(let i=0;i<5;i++){label('▶ 看视频得 3 碎片').run();await vi.waitFor(()=>expect(p.busy).toBe(false));}
-  expect(a.shards.balance).toBe(15);expect(a.panel.actions.some(x=>x.label==='今日视频碎片已领完，明天再来')).toBe(true);
-  label('兑换爱心拖尾（10碎片）').run();expect(a.shards.balance).toBe(5);expect((p.renderer as unknown as {trail:string}).trail).toBe('heart');expect(f.storage.get('qiulegeqiu:wechat-trails:v1')).toEqual(['heart']);
-  label('▶ 试用霓虹光剑2小时（剩2次）').run();await vi.waitFor(()=>expect(p.busy).toBe(false));expect(p.renderer.paddleSkin).toBe('neon');
-  // All skins share 3 trials: after the third one no trial button is left, only the shard count.
-  expect((a as unknown as {trialsLeft:number}).trialsLeft).toBe(1);label('▶ 试用烈焰燃烧2小时（剩1次）').run();await vi.waitFor(()=>expect(p.busy).toBe(false));expect(p.renderer.paddleSkin).toBe('flame');
-  expect((a as unknown as {trialsLeft:number}).trialsLeft).toBe(0);expect(a.panel.actions.some(x=>x.label.startsWith('▶ 试用'))).toBe(false);expect(a.panel.actions.some(x=>x.label==='霓虹光剑：使用 · 剩2小时')).toBe(true);
+  // 2.20: one video trial per day across all skins; afterwards no trial button is left until tomorrow.
+  label('▶ 试用流星拖尾2小时（今日1次）').run();await vi.waitFor(()=>expect(p.busy).toBe(false));expect(p.renderer.cometTail).toBe(true);expect(a.panel.actions.some(x=>x.label==='流星拖尾：使用中 · 剩2小时')).toBe(true);
+  expect((a as unknown as {trialsLeft:number}).trialsLeft).toBe(0);expect(a.panel.actions.some(x=>x.label.startsWith('▶ 试用'))).toBe(false);
+  // 2.20: shard videos 8 a day.
+  for(let i=0;i<8;i++){label('▶ 看视频得 3 碎片').run();await vi.waitFor(()=>expect(p.busy).toBe(false));}
+  expect(a.shards.balance).toBe(24);expect(a.panel.actions.some(x=>x.label==='今日视频碎片已领完，明天再来')).toBe(true);
+  label('兑换爱心拖尾（10碎片）').run();expect(a.shards.balance).toBe(14);expect((p.renderer as unknown as {trail:string}).trail).toBe('heart');expect(f.storage.get('qiulegeqiu:wechat-trails:v1')).toEqual(['heart']);
+  label('兑换霓虹光剑（10碎片）').run();expect(a.shards.balance).toBe(4);
+  // A new day brings a new trial (shown only for an open skin the shards cannot buy yet).
+  f.storage.set('qiulegeqiu:wechat-trial-day:v1','2000-01-01');p.skins();expect((a as unknown as {trialsLeft:number}).trialsLeft).toBe(1);
+  label('▶ 试用烈焰燃烧2小时（今日1次）').run();await vi.waitFor(()=>expect(p.busy).toBe(false));expect(p.renderer.paddleSkin).toBe('flame');
+  expect((a as unknown as {trialsLeft:number}).trialsLeft).toBe(0);expect(a.panel.actions.some(x=>x.label.startsWith('▶ 试用'))).toBe(false);
   const again=new MiniGameApp(f.wx,{apiBase:'https://ball.gmgnclaw.com/api',development:false,ads:ADS});try{expect((again as unknown as Private).renderer.paddleSkin).toBe('flame');expect(again.game.audio.musicOn).toBe(false);expect((again as unknown as {renderer:{trail:string}}).renderer.trail).toBe('heart');}finally{again.dispose();}
  }finally{a.dispose();}
 });

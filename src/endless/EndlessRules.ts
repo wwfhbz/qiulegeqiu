@@ -68,6 +68,8 @@ export interface EndlessVariant {
  readonly refill?:{readonly below:number;readonly factor:number;readonly minTicks:number};
  /** 1.8+: at most one drop every `ticks`; drops earned meanwhile wait (up to `pending`) and fall from the next broken brick. */
  readonly dropSpacing?:{readonly ticks:number;readonly pending:number};
+ /** 1.8+: rewarded start supply and line rescue (see SUPPLY_FEATURE). */
+ readonly adHelp?:boolean;
 }
 /** endless-1.0.0: drops every 8 → 30 bricks; the wall stopped 80% down the bowl. */
 export const ENDLESS_V1:EndlessVariant={drops:{start:8,growEvery:250,max:30},floor:'legacy'};
@@ -107,7 +109,7 @@ export const ENDLESS_V7:EndlessVariant={...ENDLESS_V6,pressureReset:true};
 /** endless-1.7.0: V1.6 plus a 20-row clear when reviving with a rewarded video. */
 export const ENDLESS_V8:EndlessVariant={...ENDLESS_V7,reviveRows:20};
 /** endless-1.8.0: special bricks by stage, faster sinking while the wall is thin, drops spaced 1.1s apart. */
-export const ENDLESS_V9:EndlessVariant={...ENDLESS_V8,special:true,refill:{below:350,factor:.5,minTicks:90},dropSpacing:{ticks:132,pending:20}};
+export const ENDLESS_V9:EndlessVariant={...ENDLESS_V8,special:true,refill:{below:350,factor:.5,minTicks:90},dropSpacing:{ticks:132,pending:20},adHelp:true};
 export const ENDLESS_CURRENT=ENDLESS_V9;
 /**
  * 1.8 brick kinds (Cell codes: 1 normal, 2/3 hard, 4 steel, 5 bomb) for a brick spawned at `stage`:

@@ -3,13 +3,13 @@ import {ShardWallet,SHARD_RULES,SKIN_STAR_GATES,SKIN_SHARD_PRICE,dayKey} from '.
 import {MiniGameApp} from '../wechat-game/src/App';
 import {wxFixture} from './helpers/WxFixture';
 
-it('碎片：每关首次三星只给一次、每天第一局一次、视频每天5次、无尽每10阶段1片；不足不能兑换',()=>{
+it('碎片：每关首次三星只给一次、每天第一局一次、视频每天8次、无尽每10阶段1片；不足不能兑换',()=>{
  const store={v:undefined as unknown,read(){return this.v;},write(x:unknown){this.v=JSON.parse(JSON.stringify(x));}},w=new ShardWallet(store);
  expect(w.earnThreeStars(3)).toBe(2);expect(w.earnThreeStars(3)).toBe(0);expect(w.balance).toBe(2);
  expect(w.earnDaily('2026-11-23')).toBe(1);expect(w.earnDaily('2026-11-23')).toBe(0);expect(w.earnDaily('2026-11-24')).toBe(1);
- for(let i=0;i<5;i++)expect(w.earnVideo('2026-11-23')).toBe(3);expect(w.earnVideo('2026-11-23')).toBe(0);expect(w.videosLeft('2026-11-23')).toBe(0);expect(w.videosLeft('2026-11-24')).toBe(5);
+ for(let i=0;i<8;i++)expect(w.earnVideo('2026-11-23')).toBe(3);expect(w.earnVideo('2026-11-23')).toBe(0);expect(w.videosLeft('2026-11-23')).toBe(0);expect(w.videosLeft('2026-11-24')).toBe(8);
  expect([9,10,19,20,35].map(ShardWallet.endlessMilestones)).toEqual([0,1,1,2,3]);expect(w.earnEndless(2)).toBe(2);
- const balance=w.balance;expect(balance).toBe(2+2+15+2);
+ const balance=w.balance;expect(balance).toBe(2+2+24+2);
  const again=new ShardWallet(store);expect(again.balance).toBe(balance);expect(again.earnThreeStars(3)).toBe(0);
  expect(again.spend(SKIN_SHARD_PRICE)).toBe(true);expect(again.balance).toBe(balance-10);expect(again.spend(100)).toBe(false);
  expect(Object.values(SKIN_STAR_GATES)).toEqual([3,6,9,12,15,18]);expect(SHARD_RULES.endlessStageStep).toBe(10);expect(dayKey(new Date(2026,0,5).getTime())).toBe('2026-01-05');

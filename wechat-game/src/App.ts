@@ -9,7 +9,7 @@ import {drawHud} from './GameChrome';
 import {HapticTracker} from '../../src/Haptics';
 import {VIEW,viewX,viewFraction} from '../../src/Viewport';
 const MODE_KEY='qiulegeqiu:wechat-mode:v1';
-const STARS_KEY='qiulegeqiu:wechat-stars:v1',SHARDS_KEY='qiulegeqiu:wechat-shards:v1',SHARDS_MIGRATED_KEY='qiulegeqiu:wechat-shards-migrated:v1',TRIAL_COUNT_KEY='qiulegeqiu:wechat-trial-count:v1',TRIALS_KEY='qiulegeqiu:wechat-trail-trials:v1',TRAIL_GRANDFATHER_KEY='qiulegeqiu:wechat-trail-stars-kept:v1';
+const STARS_KEY='qiulegeqiu:wechat-stars:v1',SHARDS_KEY='qiulegeqiu:wechat-shards:v1',SHARDS_MIGRATED_KEY='qiulegeqiu:wechat-shards-migrated:v1',TRIAL_DAY_KEY='qiulegeqiu:wechat-trial-day:v1',TRIALS_KEY='qiulegeqiu:wechat-trail-trials:v1',TRAIL_GRANDFATHER_KEY='qiulegeqiu:wechat-trail-stars-kept:v1';
 const SETTING={music:'qiulegeqiu:wechat-music:v1',sfx:'qiulegeqiu:wechat-sfx:v1',vibrate:'qiulegeqiu:wechat-vibrate:v1',trail:'qiulegeqiu:wechat-trail:v1',trails:'qiulegeqiu:wechat-trails:v1',paddle:'qiulegeqiu:wechat-paddle:v1',paddles:'qiulegeqiu:wechat-paddles:v1',runs:'qiulegeqiu:wechat-runs:v1',guide:'qiulegeqiu:wechat-mp-guide:v1'};
 const REVIVE_TITLE='生命耗尽';
 import {OCEAN,brickColor} from '../../shared/VisualTheme';
@@ -39,7 +39,7 @@ import {MAX_REVIVES,MAX_SKIPS} from '../../shared/Challenge';
 import {TRAIL_SKINS,PADDLE_SKINS,isTrailSkin,isPaddleSkin,migratePaddle} from '../../shared/Skins';
 import type {TrailSkin,PaddleSkin} from '../../src/Renderer';
 import {privacy,agreement} from './Policies';
-import {CampaignProgress,MAX_STARS,LEGACY_PADDLE_STAR_UNLOCKS,LEGACY_TRAIL_STAR_UNLOCKS,SKIN_TRIAL_MS,SKIN_TRIAL_LIMIT,trialHoursLeft} from '../../src/campaign/Progress';
+import {CampaignProgress,MAX_STARS,LEGACY_PADDLE_STAR_UNLOCKS,LEGACY_TRAIL_STAR_UNLOCKS,SKIN_TRIAL_MS,SKIN_TRIALS_PER_DAY,trialHoursLeft} from '../../src/campaign/Progress';
 import {ShardWallet,SKIN_SHARD_PRICE,SKIN_STAR_GATES,SHARD_RULES,dayKey} from '../../src/campaign/Shards';
 import {LEVELS} from '../../src/Levels';
 import type {Wx,Canvas,Config,TouchEvent} from './Platform';
@@ -68,7 +68,7 @@ export class MiniGameApp {
   this.game=new Game(undefined,()=>{},undefined,this.platform.createAudio());
   // Level map stars (this phone only; never part of scoring).
   this.progress=new CampaignProgress({read:()=>{const v=this.platform.read(STARS_KEY);return typeof v==='string'?v:null;},write:v=>this.platform.write(STARS_KEY,v)});
-  this.game.onLevelCleared=(level,stars)=>{this.progress.record(level,stars);if(stars===3){const got=this.shards.earnThreeStars(level);if(got)this.toast(`第${level}关首次三星 +${got} 碎片`);}this.panel.mapStars=`${this.progress.total}/${MAX_STARS}`;};this.game.onLevelEntered=level=>this.progress.reach(level);
+  this.game.onLevelCleared=(level,stars)=>{this.progress.record(level,stars);if(stars===3){const got=this.shards.earnThreeStars(level);this.addRunShards(got);if(got)this.toast(`第${level}关首次三星 +${got} 碎片`);}this.panel.mapStars=`${this.progress.total}/${MAX_STARS}`;};this.game.onLevelEntered=level=>this.progress.reach(level);
   this.shards=new ShardWallet({read:()=>this.platform.read(SHARDS_KEY),write:v=>this.platform.write(SHARDS_KEY,v)});this.panel.mapStars=`${this.progress.total}/${MAX_STARS}`;
   // V2.15 unlocked trails by stars alone: keep those for good, once (new unlocks follow the 12-star + video rule).
   if(this.platform.read(TRAIL_GRANDFATHER_KEY)!==true){const own=this.platform.read(SETTING.trails),list:string[]=Array.isArray(own)?own.filter((v):v is string=>typeof v==='string'&&isTrailSkin(v)):[];for(const [id,need] of Object.entries(LEGACY_TRAIL_STAR_UNLOCKS))if(this.progress.total>=need&&!list.includes(id))list.push(id);this.platform.write(SETTING.trails,list);this.platform.write(TRAIL_GRANDFATHER_KEY,true);}
@@ -88,6 +88,9 @@ export class MiniGameApp {
   this.game.endlessBest.attach({read:()=>{const v=this.platform.read(ENDLESS_BEST_KEY);return typeof v==='string'?v:null;},write:value=>this.platform.write(ENDLESS_BEST_KEY,value)});
   const renderHost=this.platform.rendererHost(cache,()=>({width:this.view.arena.width,height:this.view.arena.height}),()=>this.dpr);renderHost.lowPerformance=()=>this.lowDevice||this.view.width<360;this.renderer=new Renderer(this.arena,renderHost);this.renderer.trail=this.selectedTrail();this.renderer.paddleSkin=this.selectedPaddle();
   this.sync=new ChallengeSync(this.api,this.game,()=>Date.now(),clientId);this.resize();
+  // Learn once whether the server verifies the endless start supply, so it can be offered before the first launch.
+  // Only for players who already chose online play: nothing touches the network before that consent.
+  if(this.api.authenticated&&!this.offlinePreference)void this.sync.probe();
   wx.onTouchStart(e=>this.down(e));wx.onTouchMove(e=>this.move(e));wx.onTouchEnd(e=>this.up(e));wx.onTouchCancel(()=>{this.touch=undefined;});
   wx.onHide(()=>this.hide());wx.onShow(()=>{this.active=true;this.previous=0;this.resize();this.platform.resume();this.panel.friend?.resume();this.cloud.resume();});wx.onWindowResize?.(()=>this.resize());
   wx.showShareMenu({menus:['shareAppMessage']});wx.onShareAppMessage(()=>this.shareData());this.makeShareImage();
@@ -121,7 +124,8 @@ export class MiniGameApp {
   if(!this.panel.ranking&&!this.panel.friend)c.drawImage(this.arena as CanvasImageSource,v.arena.x,v.arena.y,v.arena.width,v.arena.height);this.actions=[];
   const button=(rect:Rect,label:string,run:()=>void)=>{neonButton(c,rect,'cyan',rect.height/2);c.font='700 15px '+OCEAN.fonts.body;c.textAlign='center';c.textBaseline='middle';c.fillStyle=NEON.cyan;c.fillText(label,rect.x+rect.width/2,rect.y+rect.height/2,rect.width-16);this.actions.push({rect,run});};
   const iconButton=(rect:Rect,icon:IconName,run:()=>void,accent:NeonAccent|'gear'|'pink'='dim')=>{if(accent==='gear'||accent==='pink')flatCandy(c,rect,accent==='gear'?['#3A3F7A','#262A5C','#171A40']:['#FF8CC6','#E0458F','#A82A66']);else candyButton(c,rect,accent==='gold'?'gold':'violet',12);drawIcon(c,icon,rect.x+rect.width/2,rect.y+rect.height/2,accent==='gear'?20:16,accent==='gold'?'#6A3A00':accent==='gear'?'#FFD24D':'#FFFFFF');this.actions.push({rect:{x:rect.x-2,y:rect.y-4,width:44,height:44},run});};
-  if(g.physics.wideRemaining>0||g.score.multiplier>1)canvasText(c,`${g.physics.wideRemaining>0?'加宽 '+g.physics.wideRemaining.toFixed(1)+' 秒 ':''}${g.score.multiplier>1?'连击 ×'+g.score.multiplier:''}`,v.width/2,v.buttonsY-6,v.width-16,10,OCEAN.colors.positive,'center');
+  const shield=g.physics.endless?.shieldSeconds??0;
+  if(g.physics.wideRemaining>0||g.score.multiplier>1||shield>0)canvasText(c,`${shield>0?'护盾 '+Math.ceil(shield)+' 秒 ':''}${g.physics.wideRemaining>0?'加宽 '+g.physics.wideRemaining.toFixed(1)+' 秒 ':''}${g.score.multiplier>1?'连击 ×'+g.score.multiplier:''}`,v.width/2,v.buttonsY-6,v.width-16,10,OCEAN.colors.positive,'center');
   // Long endless runs: warn before the record limit makes the run impossible to submit.
   if(g.journal.truncated||g.journal.nearLimit)canvasText(c,g.journal.truncated?'记录已满，本局无法上榜':'记录即将满额，请尽快结束本局',v.width/2,v.buttonsY-22,v.width-16,11,OCEAN.colors.warning,'center');
   const action=centralActionFor(g);
@@ -133,8 +137,15 @@ export class MiniGameApp {
   else if(action&&g.state!=='ready'&&!this.busy){const centerY=v.arena.y+(C.arena.y-VIEW.y)*v.scale;button({x:v.width/2-70,y:centerY-22,width:140,height:44},action.label.replace('▶ ',''),()=>void this.activate());}
   // After a lost life (never at a level start): an optional rewarded video for +3 balls on the next launch.
   if(!this.panel.open&&!this.busy&&g.state==='ready'){const r={x:v.width/2-96,y:v.arena.y+v.arena.height-60,width:192,height:38};
+   const film=(rect:Rect,label:string,run:()=>void)=>{candyButton(c,rect,'gold',19);drawIcon(c,'film',rect.x+26,rect.y+rect.height/2,18,'#6A3A00');c.font=`800 14px ${OCEAN.fonts.body}`;c.textAlign='center';c.textBaseline='middle';c.fillStyle='#5A2C00';c.fillText(label,rect.x+rect.width/2+12,rect.y+rect.height/2,rect.width-56);this.actions.push({rect,run});};
    if(g.boostArmed)canvasText(c,'下一球 +3 已就绪，点击球场发射',v.width/2,r.y+r.height/2,v.width-24,12,NEON.gold,'center');
-   else if(g.canBoost&&this.ads.rewardedAvailable&&(!this.online||this.sync.rewardsSupported)){candyButton(c,r,'gold',19);drawIcon(c,'film',r.x+26,r.y+r.height/2,18,'#6A3A00');c.font=`800 14px ${OCEAN.fonts.body}`;c.textAlign='center';c.textBaseline='middle';c.fillStyle='#5A2C00';c.fillText('看视频：下一球 +3',r.x+r.width/2+12,r.y+r.height/2,r.width-56);this.actions.push({rect:r,run:()=>void this.watchReward('boost')});}}
+   else if(g.supplyArmed)canvasText(c,'开局补给已就绪：+3 球 · 30 秒护盾，点击球场发射',v.width/2,r.y+r.height/2,v.width-24,12,NEON.gold,'center');
+   else if(g.canBoost&&this.ads.rewardedAvailable&&(!this.online||this.sync.rewardsSupported))film(r,'看视频：下一球 +3',()=>void this.watchReward('boost'));
+   // Endless start supply: offered before the first launch when the server (or an offline run) can verify it.
+   else if(g.canSupply&&this.supplyOffered)film({x:v.width/2-120,y:r.y,width:240,height:r.height},'看视频开局：+3 球 · 30 秒护盾',()=>void this.watchReward('supply'));}
+  // Endless rescue: while the wall presses the line, a one-off button clears the bottom 5 rows (the video pauses the game).
+  if(!this.panel.open&&!this.busy&&g.state==='running'&&g.canRescue&&this.ads.rewardedAvailable&&(!this.online||this.sync.supplySupported)){
+   const r={x:v.width/2-100,y:v.arena.y+v.arena.height*.58,width:200,height:38};candyButton(c,r,'gold',19);drawIcon(c,'film',r.x+26,r.y+r.height/2,18,'#6A3A00');c.font=`800 14px ${OCEAN.fonts.body}`;c.textAlign='center';c.textBaseline='middle';c.fillStyle='#5A2C00';c.fillText('救命！看视频清底部 5 行',r.x+r.width/2+12,r.y+r.height/2,r.width-56);this.actions.push({rect:r,run:()=>void this.watchReward('rescue')});}
   // Touch strip under the arena: a quiet hint; dragging here steers the paddle (see down/move).
   // Joined to the arena's bottom edge: same width, rounded bottom corners, and a swipe hint (the real paddle is the only paddle).
   if((!this.panel.open||this.picking)&&v.pad.height>=30){const p={x:v.arena.x,y:v.pad.y,width:v.arena.width,height:v.pad.height};// Fills to the screen bottom: the whole strip steers.
@@ -212,18 +223,40 @@ export class MiniGameApp {
    {label:'放弃，查看结算',run:()=>{this.panel.close();g.endRun();}},
   ],{score:g.score.total,left:g.revivesLeft,max:MAX_REVIVES,endless});}
  /** Every rewarded video goes through here: the reward is only granted when the video was watched to the end. */
- private async watchReward(kind:'revive'|'boost'|'skip'|'shards'|`trial:${'trail'|'paddle'}:${string}`){
+ private async watchReward(kind:'revive'|'boost'|'skip'|'shards'|'shards-here'|'double'|'supply'|'rescue'|`trial:${'trail'|'paddle'}:${string}`){
   if(this.busy)return;this.busy=true;const g=this.game,generation=g.journal.generation;
+  // The rescue is bought mid-run: hold the game still while the video plays, resume afterwards either way.
+  const hold=kind==='rescue'&&g.state==='running';if(hold)g.pause();
   try{const result=await this.ads.showRewarded();this.previous=0;
    if(result!=='rewarded'){this.toast(result==='closed'?'完整看完视频才能领取奖励':'暂时没有可播放的视频，请稍后再试');return;}
-   if(kind==='shards'){const got=this.shards.earnVideo(dayKey());this.toast(got?`+${got} 碎片`:'今日视频碎片已领完');this.skins();return;}
-   if(kind.startsWith('trial:')){const [,k,id]=kind.split(':') as [string,'trail'|'paddle',string];if(this.trialsLeft<=0){this.toast('试用次数已用完，攒碎片兑换吧');this.skins();return;}this.platform.write(TRIAL_COUNT_KEY,SKIN_TRIAL_LIMIT-this.trialsLeft+1);this.platform.write(TRIALS_KEY,{...this.trials(),[`${k}:${id}`]:Date.now()+SKIN_TRIAL_MS});if(k==='trail')this.useTrail(id as Exclude<TrailSkin,'none'>);else this.usePaddle(id as Exclude<PaddleSkin,'default'>);this.toast(`可免费试用 2 小时（还剩 ${this.trialsLeft} 次试用）`);this.skins();return;}
+   if(kind==='shards'||kind==='shards-here'){const got=this.shards.earnVideo(dayKey());this.toast(got?`+${got} 碎片`:'今日视频碎片已领完');if(kind==='shards')this.skins();else this.refreshEndCard();return;}
+   if(kind==='double'){const n=this.doubleOffer;if(n){this.runShards.doubled=true;this.shards.earnBonus(n);this.toast(`碎片翻倍 +${n}`);}this.refreshEndCard();return;}
+   if(kind.startsWith('trial:')){const [,k,id]=kind.split(':') as [string,'trail'|'paddle',string];if(this.trialsLeft<=0){this.toast('今天的试用已用完，明天再来或攒碎片兑换吧');this.skins();return;}this.platform.write(TRIAL_DAY_KEY,dayKey());this.platform.write(TRIALS_KEY,{...this.trials(),[`${k}:${id}`]:Date.now()+SKIN_TRIAL_MS});if(k==='trail')this.useTrail(id as Exclude<TrailSkin,'none'>);else this.usePaddle(id as Exclude<PaddleSkin,'default'>);this.toast('可免费试用 2 小时（明天可再试用 1 次）');this.skins();return;}
    if(g.journal.generation!==generation)return;
    if(kind==='revive'){if(g.revive()){this.panel.close();this.toast('复活成功，继续加油！');}}
    else if(kind==='skip'){if(g.skipLevel()){this.panel.close();this.toast(`已跳过，进入第${g.levels.current.number}关`);}}
+   else if(kind==='supply'){if(g.armSupply())this.toast('开局补给已就绪：+3 球 · 30 秒护盾');}
+   else if(kind==='rescue'){if(g.rescue())this.toast('已清掉底部 5 行！');}
    else if(g.armBoost())this.toast('下一球出发时多 3 个分身');
-  }finally{this.busy=false;}
+  }finally{this.busy=false;if(hold&&g.journal.generation===generation&&g.state==='paused')g.start();}
  }
+ /** Start supply can be offered: an ad is ready and the run will either stay offline or the server verifies it. */
+ private get supplyOffered(){return this.ads.rewardedAvailable&&(this.offlinePreference||!this.sync.featuresKnown||this.sync.supplySupported);}
+ /** Shards this run (or this campaign clear) earned from play, for the result page's "×2" video. */
+ private runShards={key:'',amount:0,doubled:false};
+ private get runKey(){const g=this.game;return g.mode==='endless'?`e${g.journal.generation}`:`c${g.journal.generation}:${g.levels.current.number}`;}
+ private addRunShards(n:number){if(n<=0)return;if(this.runShards.key!==this.runKey)this.runShards={key:this.runKey,amount:0,doubled:false};this.runShards.amount+=n;}
+ /** Shards the "×2" video would add right now (0 when nothing was earned or it was already doubled). */
+ private get doubleOffer(){return this.runShards.key===this.runKey&&!this.runShards.doubled?this.runShards.amount:0;}
+ /** The end-of-run video: double this run's shards, otherwise a daily shard video. */
+ private rewardAction():Action|undefined{
+  if(!this.ads.rewardedAvailable)return undefined;const n=this.doubleOffer;
+  if(n)return {label:`▶ 看视频 本局碎片×2（再得 ${n} 片）`,primary:true,run:()=>void this.watchReward('double')};
+  const left=this.shards.videosLeft(dayKey());
+  return left>0?{label:`▶ 看视频领 ${SHARD_RULES.video} 碎片（今日剩 ${left} 次）`,primary:true,run:()=>void this.watchReward('shards-here')}:undefined;
+ }
+ /** Redraw whichever end card is up after a reward changed what it offers. */
+ private refreshEndCard(){const g=this.game;if(this.panel.resultView)this.resultPage();else if(g.practice&&(g.state==='levelComplete'||g.state==='gameOver'))this.practicePanel();}
  /** Music, effects, vibration and the comet tail; each switch is remembered. */
  /**
   * Settings (⚙, top-left): music / effects / vibration switches, then account and policy items. Nothing here repeats
@@ -254,7 +287,7 @@ export class MiniGameApp {
  /** Skins page: owned skins switch freely; locked ones open at a star total and are bought with 10 shards. */
  private skins(){const actions:Action[]=[];if(this.game.state==='running'){this.game.pause();this.overlayResume=true;}
   const ads=this.ads.rewardedAvailable,left=this.shards.videosLeft();
-  if(ads)actions.push(left>0?{label:`▶ 看视频得 ${SHARD_RULES.video} 碎片（今日还可 ${left} 次）`,primary:true,run:()=>void this.watchReward('shards')}:{label:'今日视频碎片已领完，明天再来',run:()=>this.toast('每天最多看 5 次视频领碎片')});
+  if(ads)actions.push(left>0?{label:`▶ 看视频得 ${SHARD_RULES.video} 碎片（今日还可 ${left} 次）`,primary:true,run:()=>void this.watchReward('shards')}:{label:'今日视频碎片已领完，明天再来',run:()=>this.toast(`每天最多看 ${SHARD_RULES.videosPerDay} 次视频领碎片`)});
   const unlocked=this.unlockedTrails(),current=this.selectedTrail();
   for(const skin of TRAIL_SKINS){const trial=this.ownedTrails().includes(skin.id)?0:trialHoursLeft(this.trialAt('trail',skin.id),Date.now());if(unlocked.includes(skin.id))actions.push({label:`${skin.name}拖尾：${current===skin.id?'使用中':'使用'}${trial?` · 剩${trial}小时`:''}`,half:true,run:()=>{this.useTrail(skin.id);this.skins();}});
    else actions.push(this.skinLock('trail',skin.id,`${skin.name}拖尾`));}
@@ -271,11 +304,12 @@ export class MiniGameApp {
   const gate=SKIN_STAR_GATES[`${kind}:${id}`]??0;
   if(this.progress.total<gate)return {label:`★${gate} 开放${name}`,half:true,tone:'outline',run:()=>this.toast(`再拿 ${gate-this.progress.total} 颗星，就能兑换${name}`)};
   if(this.shards.balance>=SKIN_SHARD_PRICE)return {label:`兑换${name}（${SKIN_SHARD_PRICE}碎片）`,half:true,tone:'outline',run:()=>{if(!this.shards.spend(SKIN_SHARD_PRICE))return;this.own(kind,id);this.toast(`${name}已永久解锁`);this.skins();}};
-  if(this.ads.rewardedAvailable&&this.trialsLeft>0)return {label:`▶ 试用${name}2小时（剩${this.trialsLeft}次）`,half:true,tone:'outline',run:()=>void this.watchReward(`trial:${kind}:${id}`)};
+  if(this.ads.rewardedAvailable&&this.trialsLeft>0)return {label:`▶ 试用${name}2小时（今日1次）`,half:true,tone:'outline',run:()=>void this.watchReward(`trial:${kind}:${id}`)};
   return {label:`${name}：差${SKIN_SHARD_PRICE-this.shards.balance}碎片`,half:true,tone:'outline',run:()=>this.toast(`再攒 ${SKIN_SHARD_PRICE-this.shards.balance} 片碎片就能兑换${name}`)};
  }
  /** Video trials left: 3 in total for all skins together. */
- get trialsLeft(){return Math.max(0,SKIN_TRIAL_LIMIT-(Number(this.platform.read(TRIAL_COUNT_KEY))||0));}
+ /** One video trial per local day, across all skins (2.20; it used to be 3 for good). */
+ get trialsLeft(){return this.platform.read(TRIAL_DAY_KEY)===dayKey()?0:SKIN_TRIALS_PER_DAY;}
  /** Keep a skin for good and wear it. */
  private own(kind:'trail'|'paddle',id:string){if(kind==='trail'){this.platform.write(SETTING.trails,[...new Set([...this.ownedTrails(),id])]);this.useTrail(id as Exclude<TrailSkin,'none'>);}else{this.platform.write(SETTING.paddles,[...new Set([...this.ownedPaddles(),id])]);this.usePaddle(id as Exclude<PaddleSkin,'default'>);}}
  /** 24-hour video trials: key `trail:id` / `paddle:id` → expiry (2.15 stored bare trail ids). */
@@ -283,9 +317,9 @@ export class MiniGameApp {
  /** Shards from play: the first run of each day, and every 10 stages of an endless run (paid once per run). */
  private endlessPaid={generation:-1,milestones:0};
  private earnPlayShards(){const g=this.game;if(g.state!=='running')return;
-  const daily=this.shards.earnDaily(dayKey());if(daily)this.toast(`今日第一局 +${daily} 碎片`);
+  const daily=this.shards.earnDaily(dayKey());if(daily){this.addRunShards(daily);this.toast(`今日第一局 +${daily} 碎片`);}
   if(g.mode!=='endless')return;if(this.endlessPaid.generation!==g.journal.generation)this.endlessPaid={generation:g.journal.generation,milestones:0};
-  const reached=ShardWallet.endlessMilestones(g.reachedLevel);if(reached>this.endlessPaid.milestones){const got=this.shards.earnEndless(reached-this.endlessPaid.milestones);this.endlessPaid.milestones=reached;if(got)this.toast(`无尽第 ${g.reachedLevel} 阶段 +${got} 碎片`);}
+  const reached=ShardWallet.endlessMilestones(g.reachedLevel);if(reached>this.endlessPaid.milestones){const got=this.shards.earnEndless(reached-this.endlessPaid.milestones);this.endlessPaid.milestones=reached;this.addRunShards(got);if(got)this.toast(`无尽第 ${g.reachedLevel} 阶段 +${got} 碎片`);}
  }
  private ownedPaddles():Exclude<PaddleSkin,'default'>[]{const list=this.platform.read(SETTING.paddles);return Array.isArray(list)?[...new Set(list.map(migratePaddle))].filter((v):v is Exclude<PaddleSkin,'default'>=>isPaddleSkin(v)&&v!=='default'):[];}
  private unlockedPaddles():Exclude<PaddleSkin,'default'>[]{const ids=this.ownedPaddles(),now=Date.now();for(const p of PADDLE_SKINS)if(!ids.includes(p.id)&&trialHoursLeft(this.trialAt('paddle',p.id),now))ids.push(p.id);return ids;}
@@ -333,6 +367,8 @@ export class MiniGameApp {
     else{const network=await this.modal('开始挑战','联网挑战需要微信登录，昵称与地区可在结束后自行登记。也可选择单机，不上传成绩。','联网挑战','单机游玩');
      if(network.confirm){const consent=await this.modal('隐私说明',privacy,'同意登录','单机游玩');if(consent.confirm){await this.loginWithPrivacy();this.me=await this.api.me();this.online=true;}}
     }
+    // A start supply bought before the online choice: an old server could not verify it, so that run stays offline.
+    if(this.online&&this.game.supplyArmed){await this.sync.probe();if(!this.sync.supplySupported){this.online=false;this.toast('服务器暂不支持开局补给，本局按单机进行');}}
    }
   }catch(error){this.online=false;this.toast((error as Error).message);}finally{this.busy=false;if(this.game.journal.generation===generation&&this.game.state===state)activateCentralAction(this.game);if(!this.active)this.game.pause();this.previous=0;}
  }
@@ -396,6 +432,7 @@ export class MiniGameApp {
  private practicePanel(){const g=this.game,n=g.levels.current.number,cleared=g.state==='levelComplete',actions:Action[]=[];
   if(cleared&&!g.levels.isFinal)actions.push({label:'下一关',icon:'play',primary:true,run:()=>{this.panel.close();g.nextLevel();this.renderer.resize();}});
   actions.push({label:'再来一次',icon:'restart',primary:!cleared||g.levels.isFinal,run:()=>{this.panel.close();g.startPractice(n);this.renderer.resize();}},{label:'关卡地图',icon:'flag',run:()=>{g.reset();this.levelMap();}});
+  const reward=this.rewardAction();if(reward)actions.push({...reward,primary:false});
   this.panel.show(cleared?`第${n}关 · ${g.levels.current.name}  ${'★'.repeat(g.lastStars)}`:`第${n}关 · 生命耗尽`,[cleared?(g.lastStars===3?'完美！3 星，没有丢命':g.lastStars===2?'2 星：丢了 1 条命，不丢命可得 3 星':'1 星：少丢命可以拿更多星'):'从本关重新开始，进度不会丢',`${cleared&&g.levels.isFinal?'十二关全部突破！':'进度已自动保存'} · 总星数 ${this.progress.total}/${MAX_STARS}`],actions);}
  private async history(){return this.task(async()=>{
   this.me=await this.api.me();const lines=scoreHistoryLines(this.me.historicalBests,this.me.historicalBest);
@@ -405,14 +442,15 @@ export class MiniGameApp {
  private countRun(){const runs=(Number(this.platform.read(SETTING.runs))||0)+1;this.platform.write(SETTING.runs,runs);if(runs>=2&&this.platform.read(SETTING.guide)!==true){this.platform.write(SETTING.guide,true);this.guide=true;}}
  private result(){this.countRun();this.scoreShareImage=undefined;const g=this.game,generation=g.journal.generation;void scoreShare(this.wx,{mode:g.mode,score:g.score.total}).then(r=>{if(g.journal.generation===generation&&(g.state==='gameOver'||g.state==='victory'))this.scoreShareImage=r.imageUrl;}).catch(()=>{});this.resultPage();}
  /** Full-screen result page; it stays up (also after the leaderboard or a dialog closes) until a mode is chosen. */
- private resultPage(){const g=this.game,endless=g.mode==='endless',field=g.physics.endless,s=g.journal.summary(g.score.total,g.reachedLevel,g.state==='victory');
+ private resultPage(){const g=this.game,endless=g.mode==='endless',field=g.physics.endless,s=g.journal.summary(g.score.total,g.reachedLevel,g.state==='victory'),reward=this.rewardAction();
   const view={mode:g.mode,title:g.state==='victory'?'全部关卡突破！':endless?'挑战结束':'生命耗尽',score:g.score.total,
    stats:[[endless?'到达阶段':'到达关卡',endless?`第${g.reachedLevel}阶段`:`第${g.levels.current.number}关`],['消除砖块',g.journal.bricksDestroyed.toLocaleString('zh-CN')],endless?['砖墙下沉',`${field?.descents??0} 行`]:['挑战用时',`${Math.round(s.durationMs/1000)} 秒`]] as [string,string][],
    submitLabel:this.online?'提交成绩':'单机局 · 不上传',note:endless&&g.endlessBest.stage>0?`${g.newRecord?'🏆 新纪录！':''}个人最佳 第${g.endlessBest.stage}阶段 · ${g.endlessBest.score.toLocaleString('zh-CN')} 分`:this.online?'成绩经服务端回放验证后上榜':'本轮为单机挑战，下一局开始时可选择联网',canSubmit:this.online};
   this.panel.showResult(GAME_NAME+' · '+(g.state==='victory'?'十二关突破成功':'挑战结束'),[`本次总分 ${g.score.total}`,(endless?`无尽模式 · 第${g.reachedLevel}阶段`:`到达第${g.levels.current.number}关`)+` · 消除 ${g.journal.bricksDestroyed} 块`,view.note],[
   {label:'提交本次成绩',run:()=>void this.scoreEntry()}, {label:'查看全球排行榜',half:true,run:()=>void this.board()}, {label:'分享成绩',half:true,run:()=>void this.shareScore()},
-  {label:'闯关模式',half:true,run:()=>this.chooseMode('campaign')},{label:'无尽模式',half:true,run:()=>this.chooseMode('endless')}
- ],view);}
+  {label:'闯关模式',half:true,run:()=>this.chooseMode('campaign')},{label:'无尽模式',half:true,run:()=>this.chooseMode('endless')},
+  ...(reward?[reward]:[])
+ ],{...view,reward:reward?.label.replace('▶ ','')});}
  private async scoreEntry(){return this.task(async()=>{
   if(!this.online)throw Error('本轮单机成绩无法登记；下一轮开始时可选择联网');
   this.me=await this.api.me();const p=this.me.player;
