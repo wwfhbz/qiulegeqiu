@@ -1,4 +1,4 @@
-import {ENDLESS_RULES_VERSION,ENDLESS_V1_RULES_VERSION,ENDLESS_V2_RULES_VERSION,ENDLESS_V3_RULES_VERSION,ENDLESS_V4_RULES_VERSION,ENDLESS_V5_RULES_VERSION,ENDLESS_V6_RULES_VERSION,ENDLESS_V7_RULES_VERSION} from '../../shared/Challenge';
+import {ENDLESS_RULES_VERSION,ENDLESS_V1_RULES_VERSION,ENDLESS_V2_RULES_VERSION,ENDLESS_V3_RULES_VERSION,ENDLESS_V4_RULES_VERSION,ENDLESS_V5_RULES_VERSION,ENDLESS_V6_RULES_VERSION,ENDLESS_V7_RULES_VERSION,ENDLESS_V8_RULES_VERSION} from '../../shared/Challenge';
 import type {LevelConfig} from '../Levels';
 import type {PowerKind} from '../PowerRules';
 /**
@@ -62,6 +62,12 @@ export interface EndlessVariant {
  readonly pressureReset?:boolean;
  /** 1.7+: rows a rewarded-video revive clears (pressure-death relief stays ENDLESS.reliefRows). */
  readonly reviveRows?:number;
+ /** 1.8+: hard, bomb and steel bricks join new rows as the stage rises (see `endlessCellKind`). */
+ readonly special?:boolean;
+ /** 1.8+: while fewer than `below` bricks are on screen the wall sinks `factor` × the usual interval (never under `minTicks`). */
+ readonly refill?:{readonly below:number;readonly factor:number;readonly minTicks:number};
+ /** 1.8+: at most one drop every `ticks`; drops earned meanwhile wait (up to `pending`) and fall from the next broken brick. */
+ readonly dropSpacing?:{readonly ticks:number;readonly pending:number};
 }
 /** endless-1.0.0: drops every 8 → 30 bricks; the wall stopped 80% down the bowl. */
 export const ENDLESS_V1:EndlessVariant={drops:{start:8,growEvery:250,max:30},floor:'legacy'};
@@ -100,7 +106,24 @@ export const ENDLESS_V6:EndlessVariant={drops:{start:12,growEvery:100,max:50},fl
 export const ENDLESS_V7:EndlessVariant={...ENDLESS_V6,pressureReset:true};
 /** endless-1.7.0: V1.6 plus a 20-row clear when reviving with a rewarded video. */
 export const ENDLESS_V8:EndlessVariant={...ENDLESS_V7,reviveRows:20};
-export const ENDLESS_CURRENT=ENDLESS_V8;
+/** endless-1.8.0: special bricks by stage, faster sinking while the wall is thin, drops spaced 1.1s apart. */
+export const ENDLESS_V9:EndlessVariant={...ENDLESS_V8,special:true,refill:{below:350,factor:.5,minTicks:90},dropSpacing:{ticks:132,pending:20}};
+export const ENDLESS_CURRENT=ENDLESS_V9;
+/**
+ * 1.8 brick kinds (Cell codes: 1 normal, 2/3 hard, 4 steel, 5 bomb) for a brick spawned at `stage`:
+ * hard bricks from stage 6, bombs from 8, three-hit bricks from 14, steel from 24, each share growing with the stage.
+ */
+export const ENDLESS_SPECIAL={hard2:{from:6,base:.04,per:.01,max:.22},bomb:{from:8,base:.015,per:0,max:.015},hard3:{from:14,base:.02,per:.005,max:.12},steel:{from:24,base:.01,per:.002,max:.05}} as const;
+export function endlessShare(rule:{readonly from:number;readonly base:number;readonly per:number;readonly max:number},stage:number){return stage<rule.from?0:Math.min(rule.max,rule.base+rule.per*(stage-rule.from));}
+export function endlessCellKind(stage:number,roll:number):number{
+ const s=ENDLESS_SPECIAL;let edge=endlessShare(s.steel,stage);if(roll<edge)return 4;
+ edge+=endlessShare(s.bomb,stage);if(roll<edge)return 5;
+ edge+=endlessShare(s.hard3,stage);if(roll<edge)return 3;
+ edge+=endlessShare(s.hard2,stage);if(roll<edge)return 2;
+ return 1;
+}
+/** Seed salt for the per-row kind stream (independent of the fill pattern, so 1.7 layouts keep their shape). */
+export const KIND_SALT=0x7f4a7c15;
 export function endlessSettings(variant:EndlessVariant=ENDLESS_CURRENT):EndlessSettings{return variant.settings??ENDLESS_LEGACY_SETTINGS;}
 /** Relief reward: one of the four ball effects, equally likely, from its own seeded stream. */
 export const BONUS_KINDS=['plus3','pierce','fire','lightning'] as const;
@@ -121,6 +144,6 @@ export const ENDLESS_LEVEL:LevelConfig={number:1,name:'无尽模式',speedScale:
 
 /** One reviewed version registry shared by Game and API replay dispatch. Unknown versions never fall back. */
 export const ENDLESS_VARIANTS:Readonly<Record<string,EndlessVariant>>={
- [ENDLESS_V1_RULES_VERSION]:ENDLESS_V1,[ENDLESS_V2_RULES_VERSION]:ENDLESS_V2,[ENDLESS_V3_RULES_VERSION]:ENDLESS_V3,[ENDLESS_V4_RULES_VERSION]:ENDLESS_V4,[ENDLESS_V5_RULES_VERSION]:ENDLESS_V5,[ENDLESS_V6_RULES_VERSION]:ENDLESS_V6,[ENDLESS_V7_RULES_VERSION]:ENDLESS_V7,[ENDLESS_RULES_VERSION]:ENDLESS_V8,
+ [ENDLESS_V1_RULES_VERSION]:ENDLESS_V1,[ENDLESS_V2_RULES_VERSION]:ENDLESS_V2,[ENDLESS_V3_RULES_VERSION]:ENDLESS_V3,[ENDLESS_V4_RULES_VERSION]:ENDLESS_V4,[ENDLESS_V5_RULES_VERSION]:ENDLESS_V5,[ENDLESS_V6_RULES_VERSION]:ENDLESS_V6,[ENDLESS_V7_RULES_VERSION]:ENDLESS_V7,[ENDLESS_V8_RULES_VERSION]:ENDLESS_V8,[ENDLESS_RULES_VERSION]:ENDLESS_V9,
 };
 export function endlessVersion(variant:EndlessVariant){const version=Object.keys(ENDLESS_VARIANTS).find(key=>ENDLESS_VARIANTS[key]===variant);if(!version)throw Error('未知无尽规则配置');return version;}

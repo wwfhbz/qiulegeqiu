@@ -1,3 +1,4 @@
+import {ENDLESS_BEST_KEY} from '../../src/endless/EndlessBest';
 import {CloudSync} from './social/CloudSync';
 import {FriendBoard} from './social/FriendBoard';
 import {Profile} from './social/Profile';
@@ -84,6 +85,7 @@ export class MiniGameApp {
   // A shared score card opens straight into the same mode.
   try{const mode=wx.getLaunchOptionsSync?.().query?.mode;if(mode==='endless'||mode==='campaign'){this.game.setMode(mode);this.platform.write(MODE_KEY,mode);}}catch{/* Optional API. */}
   if(this.platform.read(MODE_KEY)==='endless')this.game.setMode('endless');
+  this.game.endlessBest.attach({read:()=>{const v=this.platform.read(ENDLESS_BEST_KEY);return typeof v==='string'?v:null;},write:value=>this.platform.write(ENDLESS_BEST_KEY,value)});
   const renderHost=this.platform.rendererHost(cache,()=>({width:this.view.arena.width,height:this.view.arena.height}),()=>this.dpr);renderHost.lowPerformance=()=>this.lowDevice||this.view.width<360;this.renderer=new Renderer(this.arena,renderHost);this.renderer.trail=this.selectedTrail();this.renderer.paddleSkin=this.selectedPaddle();
   this.sync=new ChallengeSync(this.api,this.game,()=>Date.now(),clientId);this.resize();
   wx.onTouchStart(e=>this.down(e));wx.onTouchMove(e=>this.move(e));wx.onTouchEnd(e=>this.up(e));wx.onTouchCancel(()=>{this.touch=undefined;});
@@ -406,7 +408,7 @@ export class MiniGameApp {
  private resultPage(){const g=this.game,endless=g.mode==='endless',field=g.physics.endless,s=g.journal.summary(g.score.total,g.reachedLevel,g.state==='victory');
   const view={mode:g.mode,title:g.state==='victory'?'全部关卡突破！':endless?'挑战结束':'生命耗尽',score:g.score.total,
    stats:[[endless?'到达阶段':'到达关卡',endless?`第${g.reachedLevel}阶段`:`第${g.levels.current.number}关`],['消除砖块',g.journal.bricksDestroyed.toLocaleString('zh-CN')],endless?['砖墙下沉',`${field?.descents??0} 行`]:['挑战用时',`${Math.round(s.durationMs/1000)} 秒`]] as [string,string][],
-   submitLabel:this.online?'提交成绩':'单机局 · 不上传',note:this.online?'成绩经服务端回放验证后上榜':'本轮为单机挑战，下一局开始时可选择联网',canSubmit:this.online};
+   submitLabel:this.online?'提交成绩':'单机局 · 不上传',note:endless&&g.endlessBest.stage>0?`${g.newRecord?'🏆 新纪录！':''}个人最佳 第${g.endlessBest.stage}阶段 · ${g.endlessBest.score.toLocaleString('zh-CN')} 分`:this.online?'成绩经服务端回放验证后上榜':'本轮为单机挑战，下一局开始时可选择联网',canSubmit:this.online};
   this.panel.showResult(GAME_NAME+' · '+(g.state==='victory'?'十二关突破成功':'挑战结束'),[`本次总分 ${g.score.total}`,(endless?`无尽模式 · 第${g.reachedLevel}阶段`:`到达第${g.levels.current.number}关`)+` · 消除 ${g.journal.bricksDestroyed} 块`,view.note],[
   {label:'提交本次成绩',run:()=>void this.scoreEntry()}, {label:'查看全球排行榜',half:true,run:()=>void this.board()}, {label:'分享成绩',half:true,run:()=>void this.shareScore()},
   {label:'闯关模式',half:true,run:()=>this.chooseMode('campaign')},{label:'无尽模式',half:true,run:()=>this.chooseMode('endless')}

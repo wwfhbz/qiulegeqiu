@@ -11,7 +11,7 @@ function loseRound(g:Game){for(const b of g.physics.balls)Object.assign(b,{x:400
 
 it('切换无尽模式：3条命、单一关卡、规则版本独立；切回闯关恢复12关与5条命',()=>{
  const g=new Game();expect(g.rulesVersion).toBe(RULES_VERSION);g.setMode('endless');
- expect(g.mode).toBe('endless');expect(g.lives).toBe(3);expect(g.maxLives).toBe(3);expect(g.levels.count).toBe(1);expect(g.rulesVersion).toBe('endless-1.7.0-3l-sink-v8');
+ expect(g.mode).toBe('endless');expect(g.lives).toBe(3);expect(g.maxLives).toBe(3);expect(g.levels.count).toBe(1);expect(g.rulesVersion).toBe('endless-1.8.0-3l-sink-v9');
  expect(g.physics.endless).toBeDefined();expect(g.physics.blocks.total).toBeGreaterThan(400);expect(g.reachedLevel).toBe(1);
  g.setMode('campaign');expect(g.lives).toBe(3);expect(g.levels.count).toBe(12);expect(g.physics.endless).toBeUndefined();expect(g.physics.blocks.total).toBe(600);
 });

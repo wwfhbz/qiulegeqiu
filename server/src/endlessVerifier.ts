@@ -6,6 +6,8 @@ import {C} from '../../src/GameConfig.js';
 import {seededRandom,type PowerKind} from '../../src/PowerRules.js';
 import {MAX_REVIVES,MAX_BOOSTS,BOOST_BALLS,type ChallengeEvent,type ChallengeSummary} from '../../shared/Challenge.js';
 import {ApiError} from './moderation.js';
+import {Cell} from '../../src/campaign/Patterns.js';
+import {Physics} from '../../src/Physics.js';
 
 /**
  * Endless-mode replay. The descending wall is rebuilt with the client's own EndlessField from the
@@ -18,6 +20,9 @@ export function verifyEndlessTrace(events:ChallengeEvent[],wallMs:number,seed:nu
   const field=new EndlessField();field.start(seed,variant);const skills=endlessSettings(variant);
   const score=new ScoreSystem('unbounded'),drops:{id:number;kind:PowerKind;tick:number;y:number}[]=[],suspicious=new Set<string>();
   const dropRandom=seededRandom((seed>>>0^DROP_SALT)>>>0),bonusRandom=seededRandom((seed>>>0^BONUS_SALT)>>>0);let pendingRelief=false,expectBonus=false,reliefRows:number=ENDLESS.reliefRows;let nextDropAt=dropEvery(0,variant),dropSequence=0;
+  // 1.8 drop spacing: drops earned inside the window wait and fall from the next broken brick.
+  const spacing=variant.dropSpacing,pending:PowerKind[]=[];let lastDrop=-Infinity,blastTick=-1,blasts=0;
+  const spawnDrop=(kind:PowerKind,tick:number,y:number)=>{const id=++dropSequence;if(drops.length<C.power.maxDrops)drops.push({id,kind,tick,y});};
   let lives:number=ENDLESS.lives,phase:'ready'|'running'|'gameOver'='ready',balls=0,peakBalls=1,lastTick=0,fieldTick=0,bricks=0,finished=false;
   let fireUntil=-1,lightningTick=-1,lightnings=0,hitTick=-1,tickHits=0,tickBallMax=0;
   // Rewarded help: revives only on game over, boosts only on the launch right after a lost life.
@@ -37,7 +42,7 @@ export function verifyEndlessTrace(events:ChallengeEvent[],wallMs:number,seed:nu
         if(pendingRelief){pendingRelief=false;field.relief(reliefRows);reliefRows=ENDLESS.reliefRows;expectBonus=true;}break;
       case 'crushed':
         if(!variant.crush||phase!=='running'||field.pressure<ENDLESS.crushTicks)throw new ApiError(422,'压线扣命无效');
-        lives--;phase=lives>0?'ready':'gameOver';balls=0;drops.length=0;dropSequence=0;score.resetCombo();pendingRelief=lives>0;reliefRows=ENDLESS.reliefRows;fireUntil=-1;lostRound=true;break;
+        lives--;phase=lives>0?'ready':'gameOver';balls=0;drops.length=0;dropSequence=0;pending.length=0;lastDrop=-Infinity;score.resetCombo();pendingRelief=lives>0;reliefRows=ENDLESS.reliefRows;fireUntil=-1;lostRound=true;break;
       case 'revive':if(phase!=='gameOver'||lives!==0||revives>=MAX_REVIVES)throw new ApiError(422,'复活无效');revives++;lives=1;phase='ready';pendingRelief=true;reliefRows=variant.reviveRows??ENDLESS.reliefRows;lostRound=true;break;
       case 'boost':if(phase!=='running'||e.tick!==launchTick||boosted||!afterLoss||boosts>=MAX_BOOSTS)throw new ApiError(422,'加球奖励无效');boosts++;boosted=true;balls=Math.min(C.maxBalls,balls+BOOST_BALLS);break;
       case 'bonus':{
@@ -49,11 +54,20 @@ export function verifyEndlessTrace(events:ChallengeEvent[],wallMs:number,seed:nu
       case 'hit':{
         if(phase!=='running'||!balls)throw new ApiError(422,'重复或不可能的方块事件');
         const index=field.indexOfWorld(e.index);if(index<0)throw new ApiError(422,'方块不存在或已被击碎');
-        const y=field.top+Math.floor(index/field.cols)*field.step+field.size/2;field.hit(index);score.hit(e.index);bricks++;
-        // Versioned fire area and lightning batch bound the existing per-tick anomaly budget.
-        const allowance=Math.max(tickBallMax,balls)*12*(e.tick<=fireUntil?1+skills.fireOffsets.length:1)+(e.tick===lightningTick?lightnings*skills.lightningBricks:0);
+        if(field.isSteel(index))throw new ApiError(422,'钢砖不可击碎');
+        // 1.8: fire breaks a hard brick outright (journaled as crush); otherwise a hard brick only cracks.
+        if(e.crush&&(!variant.special||e.tick>fireUntil||field.hp[index]<2))throw new ApiError(422,'火焰击碎硬砖无效');
+        const y=field.top+Math.floor(index/field.cols)*field.step+field.size/2,kind=field.kinds[index];
+        field.crush=!!e.crush;field.hit(index);field.crush=false;
+        // Versioned fire area, lightning batch and bomb blasts bound the existing per-tick anomaly budget.
+        const allowance=Math.max(tickBallMax,balls)*12*(e.tick<=fireUntil?1+skills.fireOffsets.length:1)+(e.tick===lightningTick?lightnings*skills.lightningBricks:0)+(e.tick===blastTick?blasts*Math.ceil(Math.PI*Physics.BLAST_RADIUS**2+2):0);
         if(++tickHits>allowance)suspicious.add('单步击碎数量异常');
-        if(field.destroyedTotal>=nextDropAt){nextDropAt+=dropEvery(field.destroyedTotal,variant);const kind=endlessPower(dropRandom,variant),id=++dropSequence;if(drops.length<C.power.maxDrops)drops.push({id,kind,tick:e.tick,y});}
+        if(field.alive[index]){score.chip();break;}
+        score.hit(e.index);bricks++;
+        if(variant.special&&kind===Cell.Bomb){if(blastTick!==e.tick){blastTick=e.tick;blasts=0;}blasts++;}
+        if(field.destroyedTotal>=nextDropAt){nextDropAt+=dropEvery(field.destroyedTotal,variant);const power=endlessPower(dropRandom,variant);
+          if(!spacing)spawnDrop(power,e.tick,y);else if(pending.length<spacing.pending)pending.push(power);}
+        if(spacing&&pending.length&&field.clock-lastDrop>=spacing.ticks){lastDrop=field.clock;spawnDrop(pending.shift()!,e.tick,y);}
         break;
       }
       case 'power':{
@@ -69,7 +83,7 @@ export function verifyEndlessTrace(events:ChallengeEvent[],wallMs:number,seed:nu
         break;
       }
       case 'ballLost':if(phase!=='running'||balls<=0)throw new ApiError(422,'重复弹球死亡');balls--;break;
-      case 'lost':if(phase!=='running'||balls!==0)throw new ApiError(422,'回合扣命无效');lives--;if(variant.pressureReset)field.pressure=0;phase=lives>0?'ready':'gameOver';drops.length=0;dropSequence=0;score.resetCombo();lostRound=true;break;
+      case 'lost':if(phase!=='running'||balls!==0)throw new ApiError(422,'回合扣命无效');lives--;if(variant.pressureReset)field.pressure=0;phase=lives>0?'ready':'gameOver';drops.length=0;dropSequence=0;pending.length=0;lastDrop=-Infinity;score.resetCombo();lostRound=true;break;
       case 'finish':if(phase!=='gameOver')throw new ApiError(422,'挑战尚未结束');finished=true;break;
       default:throw new ApiError(422,'无尽模式不支持该事件');
     }

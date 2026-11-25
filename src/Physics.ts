@@ -121,7 +121,7 @@ export class Physics {
   pierceRemaining=0;fireRemaining=0;
   /** Visual only: points shown with a pickup popup (the Game sets this from its rules). */
   powerPointsShown=0;
-  private endlessDrops=seededRandom(1);private endlessBonuses=seededRandom(1);private nextDropAt:number=ENDLESS_CURRENT.drops.start;
+  private endlessDrops=seededRandom(1);private endlessPending:PowerKind[]=[];private endlessLastDrop=-Infinity;private endlessBonuses=seededRandom(1);private nextDropAt:number=ENDLESS_CURRENT.drops.start;
 
   paddleX: number = C.arena.x; targetX: number = C.arena.x;
   accumulator = 0; ticks = 0; paused = false;
@@ -200,7 +200,12 @@ export class Physics {
     const field=this.endless;
     if(field){
       // Endless: one random drop each time the destroyed count reaches the next threshold.
-      if(field.destroyedTotal>=this.nextDropAt){this.nextDropAt+=dropEvery(field.destroyedTotal,field.variant);this.powers.spawn(x,y,endlessPower(this.endlessDrops,field.variant));}
+      const spacing=field.variant.dropSpacing;
+      if(field.destroyedTotal>=this.nextDropAt){this.nextDropAt+=dropEvery(field.destroyedTotal,field.variant);const kind=endlessPower(this.endlessDrops,field.variant);
+        if(!spacing)this.powers.spawn(x,y,kind);else if(this.endlessPending.length<spacing.pending)this.endlessPending.push(kind);}
+      // 1.8: at most one drop per spacing window; earned drops wait and fall from the next broken brick (the verifier mirrors this).
+      if(spacing&&this.endlessPending.length&&field.clock-this.endlessLastDrop>=spacing.ticks){this.endlessLastDrop=field.clock;this.powers.spawn(x,y,this.endlessPending.shift()!);}
+      if(field.variant.special&&b.kinds[index]===Cell.Bomb)this.queueBlast(index);
       return;
     }
     const interval = this.powerDropEvery;
@@ -388,7 +393,7 @@ export class Physics {
     for (const b of this.balls) b.alive = false;
     this.recycleDead();
     this.paddleX = this.targetX = C.arena.x;
-    this.wideRemaining = 0; this.pierceRemaining = 0; this.fireRemaining = 0; this.effects.reset(); this.powers.reset();this.assistQueue.length=0;this.assistRelease=0;this.sinceDrop=0;this.lowBalls=0;this.lastBreak={x:C.arena.x,y:C.arena.y-C.arena.radius/2};
+    this.wideRemaining = 0; this.pierceRemaining = 0; this.fireRemaining = 0; this.effects.reset(); this.powers.reset();this.endlessPending.length=0;this.endlessLastDrop=-Infinity;this.assistQueue.length=0;this.assistRelease=0;this.sinceDrop=0;this.lowBalls=0;this.lastBreak={x:C.arena.x,y:C.arena.y-C.arena.radius/2};
     if (spawn) this.balls.push(this.newBall());
     this.accumulator = 0; this.ticks = 0; this.paused = false;
   }

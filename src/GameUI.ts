@@ -7,6 +7,7 @@ import { TRAIL_SKINS, PADDLE_SKINS, isTrailSkin, isPaddleSkin, migratePaddle } f
 import { iconSvg } from '../shared/Icons';
 import { Game, type GameMode } from './Game';
 import { ENDLESS } from './endless/EndlessRules';
+import { ENDLESS_BEST_KEY } from './endless/EndlessBest';
 import { C } from './GameConfig';
 
 /** A run is in progress once it has events and has not ended; a cleared practice level counts as ended. */
@@ -65,6 +66,7 @@ export function mountGame(root: HTMLElement) {
           <div class="tr-score-label">本次总分</div>
           <div class="tr-score" id="tr-score">0</div>
           <div class="tr-stats"><span><i id="tr-level-label">关卡</i><b id="tr-level"></b></span><span><i>消除砖块</i><b id="tr-bricks"></b></span><span><i id="tr-extra-label">用时</i><b id="tr-extra"></b></span></div>
+          <p id="tr-best" class="tr-best" hidden></p>
           <button type="button" id="tr-submit" class="tr-submit">${iconSvg('trophy')}<span>提交成绩</span></button>
         </div>
         <div class="ts-again">再来一局 · 选择模式</div>
@@ -136,12 +138,18 @@ export function mountGame(root: HTMLElement) {
     el('tr-level-label').textContent=endless?'到达阶段':'到达关卡';el('tr-level').textContent=endless?`第${g.reachedLevel}阶段`:`第${s.reachedLevel}关`;
     el('tr-bricks').textContent=s.bricksDestroyed.toLocaleString('zh-CN');
     const field=g.physics.endless;el('tr-extra-label').textContent=endless?'砖墙下沉':'挑战用时';el('tr-extra').textContent=endless?`${field?.descents??0} 行`:`${Math.round(s.durationMs/1000)} 秒`;
+    // Endless personal best (this device): a badge when this run set it.
+    const best=g.endlessBest,bestLine=el('tr-best');bestLine.hidden=!endless||best.stage<=0;
+    bestLine.textContent=g.newRecord?`🏆 新纪录！个人最佳 第${best.stage}阶段 · ${best.score.toLocaleString('zh-CN')} 分`:`个人最佳 第${best.stage}阶段 · ${best.score.toLocaleString('zh-CN')} 分`;bestLine.classList.toggle('record',g.newRecord);
   };
   const update = (g: Game) => {
     online?.observe(g);
     const blocks = g.physics.blocks, level = g.levels.current;
     const field = g.physics.endless;
-    text('level-label', field ? '无尽阶段' : '关卡');
+    // Endless: chase the personal best; the label turns into a record badge once this run passes it.
+    const beaten=!!field&&g.endlessBest.beaten(g.reachedLevel);
+    text('level-label', field ? (beaten ? '新纪录！' : g.endlessBest.target ? `无尽阶段 · 最佳${g.endlessBest.target}` : '无尽阶段') : '关卡');
+    el('level-label').classList.toggle('record', beaten);
     text('level', field ? `第${g.reachedLevel}阶段` : `${String(level.number).padStart(2, '0')}/${String(g.levels.count).padStart(2, '0')}`);
     if (el('hearts').children.length !== g.maxLives) { shown.delete('hearts:lives'); el('hearts').innerHTML = Array.from({ length: g.maxLives }, () => '<span aria-hidden="true">♥</span>').join(''); }
     el('hearts').setAttribute('aria-label', `剩余${g.lives}条生命`);
@@ -257,6 +265,7 @@ export function mountGame(root: HTMLElement) {
   button('stress').onclick = () => game.stress();
   // Mode is chosen once when the game opens, and again only after a run ends (game over or victory).
   const MODE_KEY='qiulegeqiu:mode';
+  game.endlessBest.attach({read:()=>{try{return localStorage.getItem(ENDLESS_BEST_KEY);}catch{return null;}},write:value=>{try{localStorage.setItem(ENDLESS_BEST_KEY,value);}catch{/* Display only. */}}});
   for(const b of Array.from(root.querySelectorAll<HTMLButtonElement>('[data-pick]')))b.onclick=()=>{
     const mode=b.dataset.pick as GameMode;picking=false;
     // Campaign is a saved journey: it continues from the furthest open level (unranked; only endless has a board).

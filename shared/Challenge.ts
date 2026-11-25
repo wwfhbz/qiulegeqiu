@@ -35,10 +35,12 @@ export const ENDLESS_V5_RULES_VERSION = 'endless-1.4.0-3l-sink-v5';
 export const ENDLESS_V6_RULES_VERSION = 'endless-1.5.0-3l-sink-v6';
 /** Frozen V1.6: V1.5 balance; a lost life restarts the 10s pressure timer, and the relief lightning bonus scores its bricks. */
 export const ENDLESS_V7_RULES_VERSION = 'endless-1.6.0-3l-sink-v7';
-/** V1.7: a rewarded-video revive clears the bottom 20 rows (pressure deaths still clear 5). Every endless version shares one permanent board. */
-export const ENDLESS_RULES_VERSION = 'endless-1.7.0-3l-sink-v8';
+/** Frozen V1.7: a rewarded-video revive clears the bottom 20 rows (pressure deaths still clear 5). */
+export const ENDLESS_V8_RULES_VERSION = 'endless-1.7.0-3l-sink-v8';
+/** V1.8: hard/bomb/steel bricks join the wall by stage, a thin wall sinks faster, drops are spaced 0.5s apart. Every endless version shares one permanent board. */
+export const ENDLESS_RULES_VERSION = 'endless-1.8.0-3l-sink-v9';
 /** Verification compatibility list only. Ranking must never use this version list. */
-export const ENDLESS_BOARD_RULES_VERSIONS=[ENDLESS_V1_RULES_VERSION,ENDLESS_V2_RULES_VERSION,ENDLESS_V3_RULES_VERSION,ENDLESS_V4_RULES_VERSION,ENDLESS_V5_RULES_VERSION,ENDLESS_V6_RULES_VERSION,ENDLESS_V7_RULES_VERSION,ENDLESS_RULES_VERSION] as const;
+export const ENDLESS_BOARD_RULES_VERSIONS=[ENDLESS_V1_RULES_VERSION,ENDLESS_V2_RULES_VERSION,ENDLESS_V3_RULES_VERSION,ENDLESS_V4_RULES_VERSION,ENDLESS_V5_RULES_VERSION,ENDLESS_V6_RULES_VERSION,ENDLESS_V7_RULES_VERSION,ENDLESS_V8_RULES_VERSION,ENDLESS_RULES_VERSION] as const;
 /** Most events one challenge may record (long endless runs log about one event per brick). Client and server share it. */
 export const MAX_CHALLENGE_EVENTS=200000;
 export const ENDLESS_BOARD='endless';
@@ -46,7 +48,7 @@ export const ENDLESS_RANKING_SCOPE='all-endless-versions';
 /** Classification for supported challenge versions, not a leaderboard season filter. */
 export function isEndlessRules(rules:string){return rules.startsWith('endless-');}
 export function assertEndlessBoard(data:LeaderboardMetadata){if(data.board!==ENDLESS_BOARD||data.rankingScope!==ENDLESS_RANKING_SCOPE)throw Error('排行榜后端需更新为永久统一无尽榜；历史成绩仍保留');}
-export const SUPPORTED_RULES_VERSIONS=[LEGACY_RULES_VERSION,PREVIOUS_RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,V17_RULES_VERSION,V18_RULES_VERSION,V19_RULES_VERSION,V110_RULES_VERSION,RULES_VERSION,ENDLESS_V1_RULES_VERSION,ENDLESS_V2_RULES_VERSION,ENDLESS_V3_RULES_VERSION,ENDLESS_V4_RULES_VERSION,ENDLESS_V5_RULES_VERSION,ENDLESS_V6_RULES_VERSION,ENDLESS_V7_RULES_VERSION,ENDLESS_RULES_VERSION] as const;
+export const SUPPORTED_RULES_VERSIONS=[LEGACY_RULES_VERSION,PREVIOUS_RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,V17_RULES_VERSION,V18_RULES_VERSION,V19_RULES_VERSION,V110_RULES_VERSION,RULES_VERSION,ENDLESS_V1_RULES_VERSION,ENDLESS_V2_RULES_VERSION,ENDLESS_V3_RULES_VERSION,ENDLESS_V4_RULES_VERSION,ENDLESS_V5_RULES_VERSION,ENDLESS_V6_RULES_VERSION,ENDLESS_V7_RULES_VERSION,ENDLESS_V8_RULES_VERSION,ENDLESS_RULES_VERSION] as const;
 /** Compatibility/audit inventory only. Live ranking uses mode, never a version whitelist. */
 export const GLOBAL_BOARD_RULES_VERSIONS=[LEGACY_RULES_VERSION,PREVIOUS_RULES_VERSION,V13_RULES_VERSION,V15_RULES_VERSION,V16_RULES_VERSION,V17_RULES_VERSION,V18_RULES_VERSION,V19_RULES_VERSION,V110_RULES_VERSION,RULES_VERSION] as const;
 /** Seasons whose first launch must declare preassigned tutorial powers and the X3 threshold rule. */
