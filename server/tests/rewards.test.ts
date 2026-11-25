@@ -20,7 +20,8 @@ function play(mode:'campaign'|'endless',seed:number){
 it('服务端公布复活/加球能力，最多复活2次、加球3次',()=>{expect(CHALLENGE_FEATURES).toContain(REWARD_FEATURE);expect(MAX_REVIVES).toBe(2);expect(MAX_BOOSTS).toBe(3);});
 it.each(['campaign','endless'] as const)('%s：看视频复活2次、加球3次后照常结束，服务端验证通过并可上榜',mode=>{
  const g=play(mode,11),events=g.journal.events;
- expect(events.filter(e=>e.type==='revive')).toHaveLength(2);expect(events.filter(e=>e.type==='boost')).toHaveLength(3);expect(events.at(-1)!.type).toBe('finish');
+ expect(events.filter(e=>e.type==='revive')).toHaveLength(2);// Endless 1.9 has one life: a boost follows each revive only (2); the campaign loses lives first (3).
+ expect(events.filter(e=>e.type==='boost')).toHaveLength(mode==='endless'?2:3);expect(events.at(-1)!.type).toBe('finish');
  expect(g.revive()).toBe(false);
  const v=verifyTrace(events,1e9,11,g.rulesVersion);expect(v.summary).toEqual(g.journal.summary(g.score.total,g.reachedLevel,false));expect(v.suspicious).toEqual([]);
 });

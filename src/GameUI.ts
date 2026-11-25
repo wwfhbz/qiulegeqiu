@@ -72,7 +72,7 @@ export function mountGame(root: HTMLElement) {
         <div class="ts-again">再来一局 · 选择模式</div>
         <div class="ts-cards">
           <button type="button" class="ts-card ts-campaign" data-pick="campaign"><span class="ts-icon">${iconSvg('flag')}</span><span class="ts-text"><strong>闯关模式</strong><span class="ts-desc">12 关逐关突破，死了从本关接着打</span><span class="ts-chips"><em>每关 3 条命</em><em>12 关</em><em>36 星</em></span></span><span class="ts-go">${iconSvg('play')}</span><span class="ts-last">上次玩过</span></button>
-          <button type="button" class="ts-card ts-endless" data-pick="endless"><span class="ts-icon">${iconSvg('infinity')}</span><span class="ts-text"><strong>无尽模式</strong><span class="ts-desc">砖墙不断下沉，坚持越久分越高</span><span class="ts-chips"><em>3 条命</em><em>无限阶段</em><em>无尽榜</em></span></span><span class="ts-go">${iconSvg('play')}</span><span class="ts-last">上次玩过</span></button>
+          <button type="button" class="ts-card ts-endless" data-pick="endless"><span class="ts-icon">${iconSvg('infinity')}</span><span class="ts-text"><strong>无尽模式</strong><span class="ts-desc">砖墙不断下沉，坚持越久分越高</span><span class="ts-chips"><em>1 条命</em><em>无限阶段</em><em>无尽榜</em></span></span><span class="ts-go">${iconSvg('play')}</span><span class="ts-last">上次玩过</span></button>
         </div>
         <button type="button" id="ts-map" class="ts-map"><span class="ts-map-star">★</span><span>关卡地图 · 选关刷星</span><b id="ts-map-stars">0/36</b></button>
         <div class="ts-tools"><button type="button" id="ts-settings" class="ts-tool">${iconSvg('gear')}<span>设置</span></button><button type="button" id="ts-skin" class="ts-tool">${iconSvg('spark')}<span>皮肤</span></button><button type="button" id="ts-board" class="ts-tool">${iconSvg('trophy')}<span>排行榜</span></button></div>

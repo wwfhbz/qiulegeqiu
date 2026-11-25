@@ -10,7 +10,7 @@ import type { GameState, ReadyReason } from './GameState';
 import { Blocks } from './Blocks';
 import { EndlessField } from './endless/EndlessField';
 import { EndlessBest } from './endless/EndlessBest';
-import { ENDLESS, ENDLESS_LEVEL, endlessStage, endlessVersion, REVIVE_BONUS_SALT, reviveBonus } from './endless/EndlessRules';
+import { ENDLESS, ENDLESS_LEVEL, endlessLives, endlessStage, endlessVersion, REVIVE_BONUS_SALT, reviveBonus } from './endless/EndlessRules';
 import { seededRandom } from './PowerRules';
 import { BOSS_HIT_POINTS, BOSS_KILL_BONUS } from './campaign/Boss';
 import { levelStars } from './campaign/Progress';
@@ -135,7 +135,7 @@ export class Game {
   /** Replays of seasons before 1.10 (5 lives) on the current level table; call before the first launch. */
   legacyLives=false;
   useLegacyLives(){this.legacyLives=true;if(this.mode==='campaign'&&!this.journal.events.length)this.remainingLives=LEGACY_LIVES;}
-  get maxLives():number{return this.mode==='endless'?ENDLESS.lives:this.levels.isThreeLife&&!this.legacyLives?ARCADE.maxLives:LEGACY_LIVES;}
+  get maxLives():number{return this.mode==='endless'?endlessLives(this.physics.endless?.variant).max:this.levels.isThreeLife&&!this.legacyLives?ARCADE.maxLives:LEGACY_LIVES;}
   /** Level for campaign; stage (+1 per 10 descended rows) for endless. Stored as the score's reached level. */
   get reachedLevel(){const field=this.physics.endless;return field?endlessStage(field.descents):this.levels.current.number;}
   /** Switch between the twelve-level campaign and endless mode; always starts a fresh run. */
@@ -153,6 +153,8 @@ export class Game {
   start() {
     if (this.lives <= 0 || (this.state !== 'ready' && this.state !== 'paused')) return;
     const launching = this.state === 'ready';
+    // Endless: a run's lives follow its rule version (1.9+: one life; frozen versions: three), fixed before the first launch.
+    if (this.state === 'ready' && this.physics.endless && this.journal.events.length === 0) this.remainingLives = endlessLives(this.physics.endless.variant).start;
     if (this.state === 'ready') { this.journal.record({type:'launch',level:this.levels.current.number,...(this.journal.events.length===0&&this.physics.trajectoryVersion===1?{trajectoryVersion:1 as const}:{}),...(this.journal.events.length===0&&this.mode==='campaign'?{...(this.physics.tripleRuleVersion===2?{tripleRuleVersion:2 as const}:{}),...(this.physics.brickPowerVersion===2&&this.levels.current.brickPowers?{brickPowerVersion:2 as const}:{})}:{})}); this.roundActive = true; for (const b of this.physics.balls) this.physics.aimLaunch(b); }
     // Endless relief after a pressure death: clear the rows nearest the line, then a random effect ball.
     const field=this.physics.endless;
@@ -185,7 +187,7 @@ export class Game {
     this.pendingRelief = false; this.awaitingRevive = false; this.revivesUsed = 0; this.boostsUsed = 0; this.boostArmed = false; this.supplyArmed = false; this.supplyUsed = false; this.rescueUsed = false;
     this.reviveBonusPending = false;
     this.skipsUsed = 0; this.practiceLevel = 0; this.physics.assist = false; this.lastStars = 0;
-    this.levels.reset(); this.remainingLives = this.mode==='endless'?ENDLESS.lives:this.campaignLives; this.score.reset(); this.result = undefined;
+    this.levels.reset(); this.remainingLives = this.mode==='endless'?endlessLives(this.physics.endless?.variant).start:this.campaignLives; this.score.reset(); this.result = undefined;
     this.configureLevel();
     this.physics.reset(); this.state = 'ready'; this.readyReason = 'initial'; this.onChange(this);
   }

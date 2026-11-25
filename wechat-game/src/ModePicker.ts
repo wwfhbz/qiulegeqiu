@@ -61,7 +61,7 @@ export interface ResultView {mode:'campaign'|'endless';title:string;score:number
 const STARS=[[.12,.18,1.5],[.78,.12,1],[.64,.34,1.5],[.28,.46,1],[.88,.52,1],[.08,.72,1.5],[.46,.84,1],[.92,.88,1],[.36,.06,1],[.56,.62,1],[.18,.94,1],[.72,.76,1.5]];
 const CARDS=[
  {title:'闯关模式',desc:'12 关逐关突破，死了从本关接着打',chips:['每关 3 条命','12 关','36 星'],icon:'flag' as const,from:'#4FD8FF',mid:'#3A8CFF',to:'#4B5BFF',edge:'#2443B8',go:'#2D6BFF'},
- {title:'无尽模式',desc:'砖墙不断下沉，坚持越久分越高',chips:['3 条命','无限阶段','无尽榜'],icon:'infinity' as const,from:'#FF8CC6',mid:'#C25CFF',to:'#7A4BFF',edge:'#5A2AB8',go:'#A040FF'},
+ {title:'无尽模式',desc:'砖墙不断下沉，坚持越久分越高',chips:['1 条命','无限阶段','无尽榜'],icon:'infinity' as const,from:'#FF8CC6',mid:'#C25CFF',to:'#7A4BFF',edge:'#5A2AB8',go:'#A040FF'},
 ];
 
 function backdrop(c:CanvasRenderingContext2D,width:number,height:number,now:number){

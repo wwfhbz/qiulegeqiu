@@ -2,7 +2,7 @@ import {expect,it} from 'vitest';
 import {Game} from '../src/Game';
 import {C} from '../src/GameConfig';
 import {EndlessField} from '../src/endless/EndlessField';
-import {ENDLESS_V8,ENDLESS_V9,ENDLESS_CURRENT,endlessCellKind,descentInterval} from '../src/endless/EndlessRules';
+import {ENDLESS_V8,ENDLESS_V9,ENDLESS_V10,ENDLESS_CURRENT,endlessCellKind,descentInterval} from '../src/endless/EndlessRules';
 import {EndlessBest} from '../src/endless/EndlessBest';
 import {Cell} from '../src/campaign/Patterns';
 
@@ -10,7 +10,7 @@ const kindsAt=(stage:number)=>{const seen=new Set<number>();for(let i=0;i<2000;i
 const sink=(f:EndlessField,rows:number)=>{for(let i=0;i<rows;i++)(f as unknown as {descend():void}).descend();};
 
 it('1.8 为当前无尽规则：特殊砖按阶段加入——6 阶段硬砖、8 炸弹、14 三击砖、24 钢砖',()=>{
- expect(ENDLESS_CURRENT).toBe(ENDLESS_V9);
+ expect(ENDLESS_CURRENT).toBe(ENDLESS_V10);
  expect([...kindsAt(5)]).toEqual([Cell.Normal]);
  expect(kindsAt(6).has(Cell.Hard2)).toBe(true);expect(kindsAt(7).has(Cell.Bomb)).toBe(false);
  expect(kindsAt(8).has(Cell.Bomb)).toBe(true);expect(kindsAt(13).has(Cell.Hard3)).toBe(false);
@@ -71,4 +71,11 @@ it('无尽局结束时更新个人最佳并标记新纪录；下一局重新计�
  for(let i=0;i<5&&g.state!=='gameOver';i++){for(const b of p.balls)Object.assign(b,{x:400,y:1080,vx:0,vy:760,outsideArena:true});g.update(C.step);if(g.state==='ready')g.start();}
  expect(g.state).toBe('gameOver');expect(g.newRecord).toBe(true);expect(g.endlessBest.stage).toBe(1);
  g.reset();expect(g.newRecord).toBe(false);expect(g.endlessBest.target).toBe(1);
+});
+it('无尽 1.9：开局 1 条命，吃到 +1 生命最多 2 条；1.8 及更早版本仍是 3 条',()=>{
+ const g=new Game();g.setMode('endless');expect(g.lives).toBe(1);expect(g.maxLives).toBe(2);
+ g.start();g.physics.collect('life');expect(g.lives).toBe(2);g.physics.collect('life');expect(g.lives).toBe(2);
+ for(const b of g.physics.balls)Object.assign(b,{x:400,y:1080,vx:0,vy:760,outsideArena:true});g.update(C.step);expect(g.state).toBe('ready');expect(g.lives).toBe(1);
+ g.start();for(const b of g.physics.balls)Object.assign(b,{x:400,y:1080,vx:0,vy:760,outsideArena:true});g.update(C.step);expect(g.state).toBe('gameOver');
+ const old=new Game();old.setMode('endless');const f=new EndlessField();f.variant=ENDLESS_V9;old.physics.useField(f);old.physics.reset();old.start();expect(old.lives).toBe(3);expect(old.maxLives).toBe(3);
 });

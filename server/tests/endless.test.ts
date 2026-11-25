@@ -8,6 +8,10 @@ import {ENDLESS_V1,ENDLESS_V2,ENDLESS_V8,type EndlessVariant} from '../../src/en
 import {EndlessField} from '../../src/endless/EndlessField';
 import {verifyTrace} from '../src/verifier';
 import {createApp} from '../src/app';
+import {EndlessField as V9Field} from '../../src/endless/EndlessField';
+import {ENDLESS_V9 as FROZEN_V18} from '../../src/endless/EndlessRules';
+/** Pressure-death, relief and boost flows need more than one life: run them on frozen 1.8 (three lives). */
+const useV18=(g:{physics:{useField(f:V9Field):void}})=>{const f=new V9Field();f.variant=FROZEN_V18;g.physics.useField(f);};
 const apps:Awaited<ReturnType<typeof createApp>>[]=[];
 afterEach(async()=>{for(const s of apps.splice(0))await s.app.close();});
 
@@ -77,7 +81,7 @@ it('冻结的无尽1.1（底线在圆底）仍按旧规则通过校验；1.2当�
 
 /** Drive a real endless game until the wall presses the line, wait out the pressure death, relaunch with relief. */
 function crushRun(seed:number){
- const g=new Game();g.setMode('endless');g.journal.seed=seed;g.physics.setSeed(seed);g.physics.reset();g.start();
+ const g=new Game();g.setMode('endless');useV18(g);g.journal.seed=seed;g.physics.setSeed(seed);g.physics.reset();g.start();
  const p=g.physics,f=p.endless!;const park=()=>{for(const b of p.balls)Object.assign(b,{x:C.arena.x,y:C.arena.y+C.arena.radius+40,vx:0,vy:-1,outsideArena:true});};
  let guard=0;while(!f.blocked&&guard++<400000){park();g.update(C.step);}
  while(g.state==='running'&&guard++<800000){park();g.update(C.step);}
@@ -87,14 +91,14 @@ function crushRun(seed:number){
  expect(g.state).toBe('gameOver');return g;
 }
 it('1.3压线死亡回放：压线扣命、清行与补偿奖励按同一种子通过校验；伪造奖励、漏报压线、旧版冒充均被拒绝',()=>{
- const g=crushRun(31),events=g.journal.events,ok=verifyTrace(events,1e9,31,ENDLESS_RULES_VERSION);
+ const g=crushRun(31),events=g.journal.events,ok=verifyTrace(events,1e9,31,g.rulesVersion);
  expect(ok.summary).toEqual(g.journal.summary(g.score.total,g.reachedLevel,false));
  const bonus=events.findIndex(e=>e.type==='bonus');expect(bonus).toBeGreaterThan(0);expect(events[bonus-1].type).toBe('launch');
  const other=(['plus3','pierce','fire','lightning'] as const).find(k=>k!==(events[bonus] as {kind:string}).kind)!;
- expect(()=>verifyTrace(events.map((e,i)=>i===bonus?{...e,kind:other}:e) as ChallengeEvent[],1e9,31,ENDLESS_RULES_VERSION)).toThrow('补偿');
- expect(()=>verifyTrace(events.filter((_,i)=>i!==bonus),1e9,31,ENDLESS_RULES_VERSION)).toThrow();
+ expect(()=>verifyTrace(events.map((e,i)=>i===bonus?{...e,kind:other}:e) as ChallengeEvent[],1e9,31,g.rulesVersion)).toThrow('补偿');
+ expect(()=>verifyTrace(events.filter((_,i)=>i!==bonus),1e9,31,g.rulesVersion)).toThrow();
  // Hiding the pressure death and playing on must fail.
- const crushed=events.findIndex(e=>e.type==='crushed');expect(()=>verifyTrace(events.filter((_,i)=>i!==crushed),1e9,31,ENDLESS_RULES_VERSION)).toThrow();
+ const crushed=events.findIndex(e=>e.type==='crushed');expect(()=>verifyTrace(events.filter((_,i)=>i!==crushed),1e9,31,g.rulesVersion)).toThrow();
  // A crush is not a valid event under endless 1.2.
  expect(()=>verifyTrace(events,1e9,31,ENDLESS_V3_RULES_VERSION)).toThrow();
 });
