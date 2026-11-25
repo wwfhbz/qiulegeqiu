@@ -40,7 +40,7 @@ it('开局补给（+3球、30秒护盾）与压线救援（清底部5行）服�
  expect(g.physics.balls.filter(b=>b.alive)).toHaveLength(4);expect(g.journal.events.slice(0,2).map(e=>e.type)).toEqual(['launch','supply']);
  expect(f.shieldSeconds).toBeCloseTo(30,1);expect(g.canSupply).toBe(false);
  // The shield holds pressure at zero even with the wall on the line; afterwards it builds and a rescue is offered.
- hover(g,60,()=>f.shieldSeconds===0);expect(g.lives).toBe(3);
+ hover(g,60,()=>f.shieldSeconds===0);expect(g.lives).toBe(1);
  hover(g,600,()=>g.canRescue);expect(g.canRescue).toBe(true);expect(f.pressure).toBeGreaterThanOrEqual(600);
  g.pause();const before=f.remaining;expect(g.rescue()).toBe(true);expect(f.pressure).toBe(0);expect(f.remaining).toBeLessThan(before);expect(g.rescue()).toBe(false);g.start();
  hover(g,5);finish(g);expect(g.state).toBe('gameOver');
@@ -56,3 +56,11 @@ it('开局补给（+3球、30秒护盾）与压线救援（清底部5行）服�
  // Frozen 1.7 runs never accept the new help.
  expect(()=>verifyTrace(events,1e9,seed,'endless-1.7.0-3l-sink-v8')).toThrow();
 },300000);
+it('无尽 1.9：1 条命开局，丢一次就结束，服务端按同一规则回放；死后继续发射或冒充 1.8 都会被拒绝',()=>{
+ const g=new Game();g.setMode('endless');g.journal.seed=5;g.physics.setSeed(5);g.physics.reset();g.canOfferRevive=()=>false;g.start();
+ expect(g.lives).toBe(1);hover(g,3);finish(g);expect(g.state).toBe('gameOver');expect(g.journal.events.filter(e=>e.type==='lost')).toHaveLength(1);
+ const events=g.journal.events,s=g.journal.summary(g.score.total,g.reachedLevel,false);expect(verifyTrace(events,1e9,5,ENDLESS_RULES_VERSION).summary).toEqual(s);
+ const lost=events.findIndex(e=>e.type==='lost'),tick=events[lost].tick;
+ const extra=[...events.slice(0,lost+1),{type:'launch' as const,tick,level:1},...events.slice(lost+1)];expect(()=>verifyTrace(extra,1e9,5,ENDLESS_RULES_VERSION)).toThrow();
+ expect(()=>verifyTrace(events,1e9,5,'endless-1.8.0-3l-sink-v9')).toThrow();
+});

@@ -6,6 +6,10 @@ import {ENDLESS,ENDLESS_V4,ENDLESS_V5,ENDLESS_V6,type EndlessVariant} from '../.
 import {ENDLESS_V6_RULES_VERSION as ENDLESS_RULES_VERSION,ENDLESS_V4_RULES_VERSION,ENDLESS_V5_RULES_VERSION,ENDLESS_RANKING_SCOPE,type ChallengeEvent} from '../../shared/Challenge';
 import {verifyTrace} from '../src/verifier';
 import {createApp} from '../src/app';
+import {EndlessField as V9Field} from '../../src/endless/EndlessField';
+import {ENDLESS_V9 as FROZEN_V18} from '../../src/endless/EndlessRules';
+/** Pressure-death, relief and boost flows need more than one life: run them on frozen 1.8 (three lives). */
+const useV18=(g:{physics:{useField(f:V9Field):void}})=>{const f=new V9Field();f.variant=FROZEN_V18;g.physics.useField(f);};
 function finish(g:Game){for(let n=0;n<10&&g.state!=='gameOver';n++){for(const b of g.physics.balls)Object.assign(b,{x:400,y:1080,vx:0,vy:760,outsideArena:true});g.update(C.step);if(g.state==='ready')g.start();}expect(g.state).toBe('gameOver');}
 /** Scripted contacts use real field, drop pool, pickup callbacks and journal; physical=true also drives actual ball/area contacts. */
 function run(seed:number,v:EndlessVariant,ticks=6000,physical=false){
@@ -29,7 +33,7 @@ it('V1.5真实穿透/火焰范围/闪电物理接触和连续掉落、拾取日�
  const at=g.journal.events.findIndex(e=>e.type==='power');expect(at).toBeGreaterThan(0);expect(()=>verifyTrace(g.journal.events.map((e,i)=>i===at?{...e,dropId:49999}:e) as ChallengeEvent[],1e9,7,g.rulesVersion)).toThrow('无对应');expect(()=>verifyTrace(g.journal.events,1e9,8,g.rulesVersion)).toThrow();expect(()=>verifyTrace(g.journal.events,1e9,7,'endless-unknown')).toThrow('不支持');
 });
 it('V1.5仍1200tick压迫扣命，暂停不计时，下一发射清底部5行并按原种子给予补偿',()=>{
- const g=new Game();g.setMode('endless');g.journal.seed=31;g.physics.setSeed(31);g.physics.reset();g.start();const p=g.physics,f=p.endless!,park=()=>{for(const b of p.balls)Object.assign(b,{x:400,y:900,vx:0,vy:-1,outsideArena:true});};let guard=0;while(!f.blocked&&guard++<100000){park();g.update(C.step);}expect(f.blocked).toBe(true);expect(f.pressure).toBe(0);g.pause();const time=f.sinceDescent;g.update(1000);expect(f.sinceDescent).toBe(time);g.start();for(let n=0;n<1199;n++){park();g.update(C.step);}expect(g.lives).toBe(3);park();g.update(C.step);expect(g.lives).toBe(2);expect(g.pendingRelief).toBe(true);
+ const g=new Game();g.setMode('endless');useV18(g);g.journal.seed=31;g.physics.setSeed(31);g.physics.reset();g.start();const p=g.physics,f=p.endless!,park=()=>{for(const b of p.balls)Object.assign(b,{x:400,y:900,vx:0,vy:-1,outsideArena:true});};let guard=0;while(!f.blocked&&guard++<100000){park();g.update(C.step);}expect(f.blocked).toBe(true);expect(f.pressure).toBe(0);g.pause();const time=f.sinceDescent;g.update(1000);expect(f.sinceDescent).toBe(time);g.start();for(let n=0;n<1199;n++){park();g.update(C.step);}expect(g.lives).toBe(3);park();g.update(C.step);expect(g.lives).toBe(2);expect(g.pendingRelief).toBe(true);
  const before=f.destroyedTotal;g.start();expect(g.pendingRelief).toBe(false);expect(f.blocked).toBe(false);expect(f.pressure).toBe(0);expect(f.destroyedTotal-before).toBeLessThanOrEqual(12);const events=g.journal.events,launch=events.map(e=>e.type).lastIndexOf('launch');expect(events[launch+1].type).toBe('bonus');expect(ENDLESS.reliefRows).toBe(5);for(let row=f.floorRow-4;row<=f.floorRow;row++)expect(f.alive.slice(row*f.cols,(row+1)*f.cols).some(Boolean)).toBe(false);
  finish(g);expect(verifyTrace(g.journal.events,1e9,31,g.rulesVersion).summary).toEqual(g.journal.summary(g.score.total,g.reachedLevel,false));
 });

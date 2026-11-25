@@ -404,7 +404,7 @@ export class MiniGameApp {
   // Switching fields can reuse generation/revision numbers: invalidate the visual brick cache.
   this.renderer.resize();
   this.platform.write(MODE_KEY,mode);this.panel.close();
-  this.toast(mode==='endless'?'无尽模式：砖墙会不断下沉，3条命':`闯关模式：第${g.levels.current.number}关，进度自动保存`);
+  this.toast(mode==='endless'?'无尽模式：砖墙会不断下沉，1条命，吃到♥最多2条':`闯关模式：第${g.levels.current.number}关，进度自动保存`);
  }
  /** The permanent tabs share the existing chooseMode reset path. No score submission is triggered. */
  private async requestMode(mode:GameMode){
@@ -421,7 +421,7 @@ export class MiniGameApp {
  /** The mode picker panel; it has no close button, so a mode must be chosen to play. */
  /** Full-screen pages (mode picker and result page) cover the game, HUD and top bar. */
  private get titleOpen(){return this.panel.title==='选择游戏模式'||!!this.panel.resultView||!!this.panel.mapView;}
- private modePicker(){this.picking=true;const last=this.game.mode;this.panel.show('选择游戏模式',['闯关模式：12 关逐关突破 · 死了从本关接着打 · 攒星解锁皮肤','无尽模式：砖墙不断下沉 · 3 条命 · 无尽榜','每局结束后可重新选择模式'],[
+ private modePicker(){this.picking=true;const last=this.game.mode;this.panel.show('选择游戏模式',['闯关模式：12 关逐关突破 · 死了从本关接着打 · 攒星解锁皮肤','无尽模式：砖墙不断下沉 · 1 条命 · 无尽榜','每局结束后可重新选择模式'],[
   {label:(last==='campaign'?'▶ ':'')+'闯关模式',run:()=>this.chooseMode('campaign')},{label:(last==='endless'?'▶ ':'')+'无尽模式',run:()=>this.chooseMode('endless')},
   {label:'关卡地图',run:()=>this.levelMap()},{label:'设置',run:()=>this.settings()},{label:'皮肤',run:()=>this.skins()},{label:'排行榜',run:()=>void this.board()}]);}
  /** Level map: any open level can be replayed (campaign is unranked since 2.16; progress and stars are saved). */

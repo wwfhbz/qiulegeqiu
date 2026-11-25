@@ -588,7 +588,7 @@ export class Renderer {
       const intro=b.removed===0&&!p.endless?p.level.intro:undefined,width=Math.min(C.width-80,Math.max(c.measureText(START_HINT).width+56,intro?c.measureText(intro).width*.62+56:0)),fresh=b.removed===0,cardH=fresh?fontSize*(intro?4.7:3.9):fontSize*1.7,top=a.y-cardH/2+(fresh?fontSize*.4:0);
       c.fillStyle='rgba(40,28,112,.9)';c.beginPath();c.roundRect(a.x-width/2,top,width,cardH,18);c.fill();
       c.strokeStyle=rgba(OCEAN.colors.gold,.85);c.lineWidth=2.5;c.stroke();
-      if(fresh){c.font=`800 ${Math.round(fontSize*.62)}px ${OCEAN.fonts.body}`;c.fillStyle=OCEAN.colors.warning;c.fillText(p.endless?'压迫下沉 · 3条命':`第 ${p.level.number} 关`,a.x,top+fontSize*.75);c.font=`900 ${Math.round(fontSize*1.35)}px ${OCEAN.fonts.body}`;c.fillStyle=OCEAN.colors.text;c.fillText(p.level.name,a.x,top+fontSize*1.85);if(intro){c.font=`800 ${Math.round(fontSize*.56)}px ${OCEAN.fonts.body}`;c.fillStyle='#FFD98A';c.fillText(intro,a.x,top+fontSize*2.95,width-24);}}
+      if(fresh){c.font=`800 ${Math.round(fontSize*.62)}px ${OCEAN.fonts.body}`;c.fillStyle=OCEAN.colors.warning;c.fillText(p.endless?'压迫下沉 · 1条命':`第 ${p.level.number} 关`,a.x,top+fontSize*.75);c.font=`900 ${Math.round(fontSize*1.35)}px ${OCEAN.fonts.body}`;c.fillStyle=OCEAN.colors.text;c.fillText(p.level.name,a.x,top+fontSize*1.85);if(intro){c.font=`800 ${Math.round(fontSize*.56)}px ${OCEAN.fonts.body}`;c.fillStyle='#FFD98A';c.fillText(intro,a.x,top+fontSize*2.95,width-24);}}
       const blink=.75+.25*Math.sin(now/260);c.globalAlpha*=blink;c.font=`700 ${Math.round(fontSize*.72)}px ${OCEAN.fonts.body}`;c.fillStyle=OCEAN.colors.accent;c.fillText(START_HINT,a.x,top+cardH-fontSize*.78,width-24);c.restore();
     }
     c.setTransform(this.ratio,0,0,this.ratio,0,0);

@@ -1,6 +1,6 @@
 import {validateTrajectoryMarkers} from '../../shared/Challenge.js';
 import {EndlessField} from '../../src/endless/EndlessField.js';
-import {ENDLESS,ENDLESS_CURRENT,endlessSettings,dropEvery,endlessPower,endlessBonus,endlessStage,DROP_SALT,BONUS_SALT,type EndlessVariant} from '../../src/endless/EndlessRules.js';
+import {ENDLESS,ENDLESS_CURRENT,endlessLives,endlessSettings,dropEvery,endlessPower,endlessBonus,endlessStage,DROP_SALT,BONUS_SALT,type EndlessVariant} from '../../src/endless/EndlessRules.js';
 import {ScoreSystem} from '../../src/ScoreSystem.js';
 import {C} from '../../src/GameConfig.js';
 import {seededRandom,type PowerKind} from '../../src/PowerRules.js';
@@ -23,7 +23,7 @@ export function verifyEndlessTrace(events:ChallengeEvent[],wallMs:number,seed:nu
   // 1.8 drop spacing: drops earned inside the window wait and fall from the next broken brick.
   const spacing=variant.dropSpacing,pending:PowerKind[]=[];let lastDrop=-Infinity,blastTick=-1,blasts=0;
   const spawnDrop=(kind:PowerKind,tick:number,y:number)=>{const id=++dropSequence;if(drops.length<C.power.maxDrops)drops.push({id,kind,tick,y});};
-  let lives:number=ENDLESS.lives,phase:'ready'|'running'|'gameOver'='ready',balls=0,peakBalls=1,lastTick=0,fieldTick=0,bricks=0,finished=false;
+  const livesRule=endlessLives(variant);let lives:number=livesRule.start,phase:'ready'|'running'|'gameOver'='ready',balls=0,peakBalls=1,lastTick=0,fieldTick=0,bricks=0,finished=false;
   let fireUntil=-1,lightningTick=-1,lightnings=0,hitTick=-1,tickHits=0,tickBallMax=0;
   // Rewarded help: revives only on game over, boosts only on the launch right after a lost life.
   let revives=0,boosts=0,launchTick=-1,boosted=false,afterLoss=false,lostRound=false;
@@ -82,7 +82,7 @@ export function verifyEndlessTrace(events:ChallengeEvent[],wallMs:number,seed:nu
         if(index<0)throw new ApiError(422,'无对应可拾取道具');drops.splice(index,1);
         if(e.kind==='plus3')balls=Math.min(C.maxBalls,balls+ENDLESS.plusBalls);
         else if(e.kind==='halve')balls=Math.max(1,Math.ceil(balls/2));
-        else if(e.kind==='life')lives=Math.min(ENDLESS.lives,lives+1);
+        else if(e.kind==='life')lives=Math.min(livesRule.max,lives+1);
         else if(e.kind==='fire')fireUntil=e.tick+Math.ceil(skills.fireSeconds/C.step);
         else if(e.kind==='lightning'){if(lightningTick!==e.tick){lightningTick=e.tick;lightnings=0;}lightnings++;}
         if(variant.powerPoints)score.addPowerPoints();

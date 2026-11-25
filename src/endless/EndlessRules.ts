@@ -1,4 +1,4 @@
-import {ENDLESS_RULES_VERSION,ENDLESS_V1_RULES_VERSION,ENDLESS_V2_RULES_VERSION,ENDLESS_V3_RULES_VERSION,ENDLESS_V4_RULES_VERSION,ENDLESS_V5_RULES_VERSION,ENDLESS_V6_RULES_VERSION,ENDLESS_V7_RULES_VERSION,ENDLESS_V8_RULES_VERSION} from '../../shared/Challenge';
+import {ENDLESS_RULES_VERSION,ENDLESS_V1_RULES_VERSION,ENDLESS_V2_RULES_VERSION,ENDLESS_V3_RULES_VERSION,ENDLESS_V4_RULES_VERSION,ENDLESS_V5_RULES_VERSION,ENDLESS_V6_RULES_VERSION,ENDLESS_V7_RULES_VERSION,ENDLESS_V8_RULES_VERSION,ENDLESS_V9_RULES_VERSION} from '../../shared/Challenge';
 import type {LevelConfig} from '../Levels';
 import type {PowerKind} from '../PowerRules';
 /**
@@ -70,6 +70,8 @@ export interface EndlessVariant {
  readonly dropSpacing?:{readonly ticks:number;readonly pending:number};
  /** 1.8+: rewarded start supply and line rescue (see SUPPLY_FEATURE). */
  readonly adHelp?:boolean;
+ /** 1.9+: lives at the start and the most a run can hold (earlier versions: 3 and 3). */
+ readonly lives?:{readonly start:number;readonly max:number};
 }
 /** endless-1.0.0: drops every 8 → 30 bricks; the wall stopped 80% down the bowl. */
 export const ENDLESS_V1:EndlessVariant={drops:{start:8,growEvery:250,max:30},floor:'legacy'};
@@ -110,7 +112,11 @@ export const ENDLESS_V7:EndlessVariant={...ENDLESS_V6,pressureReset:true};
 export const ENDLESS_V8:EndlessVariant={...ENDLESS_V7,reviveRows:20};
 /** endless-1.8.0: special bricks by stage, faster sinking while the wall is thin, drops spaced 1.1s apart. */
 export const ENDLESS_V9:EndlessVariant={...ENDLESS_V8,special:true,refill:{below:350,factor:.5,minTicks:90},dropSpacing:{ticks:132,pending:20},adHelp:true};
-export const ENDLESS_CURRENT=ENDLESS_V9;
+/** endless-1.9.0: one life at the start; +1 life drops raise it to at most two. */
+export const ENDLESS_V10:EndlessVariant={...ENDLESS_V9,lives:{start:1,max:2}};
+export const ENDLESS_CURRENT=ENDLESS_V10;
+/** Lives at the start of a run and the cap for +1 life drops. */
+export function endlessLives(variant:EndlessVariant=ENDLESS_CURRENT){return variant.lives??{start:ENDLESS.lives,max:ENDLESS.lives};}
 /**
  * 1.8 brick kinds (Cell codes: 1 normal, 2/3 hard, 4 steel, 5 bomb) for a brick spawned at `stage`:
  * hard bricks from stage 6, bombs from 8, three-hit bricks from 14, steel from 24, each share growing with the stage.
@@ -146,6 +152,6 @@ export const ENDLESS_LEVEL:LevelConfig={number:1,name:'无尽模式',speedScale:
 
 /** One reviewed version registry shared by Game and API replay dispatch. Unknown versions never fall back. */
 export const ENDLESS_VARIANTS:Readonly<Record<string,EndlessVariant>>={
- [ENDLESS_V1_RULES_VERSION]:ENDLESS_V1,[ENDLESS_V2_RULES_VERSION]:ENDLESS_V2,[ENDLESS_V3_RULES_VERSION]:ENDLESS_V3,[ENDLESS_V4_RULES_VERSION]:ENDLESS_V4,[ENDLESS_V5_RULES_VERSION]:ENDLESS_V5,[ENDLESS_V6_RULES_VERSION]:ENDLESS_V6,[ENDLESS_V7_RULES_VERSION]:ENDLESS_V7,[ENDLESS_V8_RULES_VERSION]:ENDLESS_V8,[ENDLESS_RULES_VERSION]:ENDLESS_V9,
+ [ENDLESS_V1_RULES_VERSION]:ENDLESS_V1,[ENDLESS_V2_RULES_VERSION]:ENDLESS_V2,[ENDLESS_V3_RULES_VERSION]:ENDLESS_V3,[ENDLESS_V4_RULES_VERSION]:ENDLESS_V4,[ENDLESS_V5_RULES_VERSION]:ENDLESS_V5,[ENDLESS_V6_RULES_VERSION]:ENDLESS_V6,[ENDLESS_V7_RULES_VERSION]:ENDLESS_V7,[ENDLESS_V8_RULES_VERSION]:ENDLESS_V8,[ENDLESS_V9_RULES_VERSION]:ENDLESS_V9,[ENDLESS_RULES_VERSION]:ENDLESS_V10,
 };
 export function endlessVersion(variant:EndlessVariant){const version=Object.keys(ENDLESS_VARIANTS).find(key=>ENDLESS_VARIANTS[key]===variant);if(!version)throw Error('未知无尽规则配置');return version;}
