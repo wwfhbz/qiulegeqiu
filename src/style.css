@@ -207,6 +207,8 @@ input,textarea,select,[contenteditable]{-webkit-user-select:text;user-select:tex
 .tr-title{font-size:24px;font-weight:900;letter-spacing:4px;color:#fff;text-shadow:0 2px 0 rgba(0,0,0,.25)}
 .tr-score-label{margin-top:2px;font-size:12px;letter-spacing:3px;color:#A9C1DE}
 .tr-score{font-size:clamp(40px,13vw,56px)}
+.tr-best{margin:2px 0 0;font-size:13px;font-weight:700;color:var(--muted,#B8B5E0);text-align:center}.tr-best.record{color:#FFD98A}
+#level-label.record{color:#FFD98A;font-weight:800}
 .tr-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;width:100%;margin-top:4px}
 .tr-submit{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:48px;margin-top:8px;border:0;border-radius:16px;font-size:16px;font-weight:900;letter-spacing:3px;color:#5A2C00;
  background:linear-gradient(180deg,#FFE27A,#FFB31F);box-shadow:0 5px 0 #C9770A,0 10px 22px rgba(255,170,30,.25),inset 0 1px 0 rgba(255,255,255,.7)}

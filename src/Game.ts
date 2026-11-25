@@ -9,6 +9,7 @@ import { ScoreSystem, type LevelScore } from './ScoreSystem';
 import type { GameState, ReadyReason } from './GameState';
 import { Blocks } from './Blocks';
 import { EndlessField } from './endless/EndlessField';
+import { EndlessBest } from './endless/EndlessBest';
 import { ENDLESS, ENDLESS_LEVEL, endlessStage, endlessVersion, REVIVE_BONUS_SALT, reviveBonus } from './endless/EndlessRules';
 import { seededRandom } from './PowerRules';
 import { BOSS_HIT_POINTS, BOSS_KILL_BONUS } from './campaign/Boss';
@@ -70,7 +71,12 @@ export class Game {
     this.reset(); this.levels.jump(level); this.score.beginLevel(); this.configureLevel(); this.physics.reset();
     this.journal.unranked = true; this.practiceLevel = this.levels.current.number; this.physics.assist = true; this.readyReason = 'levelStart'; this.onLevelEntered?.(this.practiceLevel); this.onChange(this);
   }
+  /** Personal endless best on this device (the host attaches storage); display only. */
+  readonly endlessBest = new EndlessBest();
+  /** The endless run that just ended set a new personal best stage or score. */
+  newRecord = false;
   private runOut() {
+    if (this.mode === 'endless') this.newRecord = this.endlessBest.record(this.reachedLevel, this.score.total) || this.newRecord;
     if (this.revivesUsed < MAX_REVIVES && this.canOfferRevive()) { this.awaitingRevive = true; return; }
     this.journal.record({type:'finish',level:this.levels.current.number});
   }
@@ -99,7 +105,7 @@ export class Game {
     // Endless bricks move, so the journal stores their stable world id instead of the grid slot.
     this.physics.onBlockDestroyed = index => { const id=this.physics.endless?.worldId(index)??index; if (this.state === 'running' && this.score.hit(id)>0) this.journal.record({type:'hit',level:this.levels.current.number,index:id,...(this.physics.blocks.lastCrushed?{crush:true as const}:{})}); };
     // Campaign 1.11: cracks on hard bricks score per hit; boss core hits, stages and the kill are journaled too.
-    this.physics.onBlockDamaged = index => { if (this.state === 'running') { this.score.chip(); this.journal.record({type:'hit',level:this.levels.current.number,index},false); } };
+    this.physics.onBlockDamaged = index => { if (this.state === 'running') { this.score.chip(); this.journal.record({type:'hit',level:this.levels.current.number,index:this.physics.endless?.worldId(index)??index},false); } };
     this.physics.onBossHit = revived => { if (this.state !== 'running') return; this.score.chip(BOSS_HIT_POINTS); this.journal.record({type:'boss',level:this.levels.current.number}); if (revived.length) this.score.unscore(revived); if (!this.physics.boss?.alive) this.score.addBonus(BOSS_KILL_BONUS); };
     this.physics.onBallLost = () => { if(this.state==='running')this.journal.record({type:'ballLost',level:this.levels.current.number}); };
     this.physics.onPowerCollected = (kind,dropId) => { if(this.state==='running'&&this.roundActive&&this.physics.balls.some(ball=>ball.alive)){if(kind==='life')this.remainingLives=Math.min(this.maxLives,this.remainingLives+1);if(this.powerPoints)this.score.addPowerPoints();this.journal.record({type:'power',level:this.levels.current.number,kind,...(dropId===undefined?{}:{dropId})});} };
@@ -158,6 +164,7 @@ export class Game {
     this.physics.paused = true; this.state = 'paused'; this.onChange(this);
   }
   reset() {
+    this.newRecord = false; this.endlessBest.beginRun();
     this.roundActive = false;
     this.journal.reset();this.physics.setSeed(this.journal.seed);
     this.pendingRelief = false; this.awaitingRevive = false; this.revivesUsed = 0; this.boostsUsed = 0; this.boostArmed = false;

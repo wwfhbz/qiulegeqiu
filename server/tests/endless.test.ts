@@ -3,8 +3,8 @@ import {randomUUID} from 'node:crypto';
 import {Game} from '../../src/Game';
 import {C} from '../../src/GameConfig';
 import {descentInterval} from '../../src/endless/EndlessRules';
-import {ENDLESS_RULES_VERSION,ENDLESS_V1_RULES_VERSION,ENDLESS_V2_RULES_VERSION,ENDLESS_V3_RULES_VERSION,RULES_VERSION,type ChallengeEvent} from '../../shared/Challenge';
-import {ENDLESS_V1,ENDLESS_V2,type EndlessVariant} from '../../src/endless/EndlessRules';
+import {ENDLESS_RULES_VERSION,ENDLESS_V8_RULES_VERSION,ENDLESS_V1_RULES_VERSION,ENDLESS_V2_RULES_VERSION,ENDLESS_V3_RULES_VERSION,RULES_VERSION,type ChallengeEvent} from '../../shared/Challenge';
+import {ENDLESS_V1,ENDLESS_V2,ENDLESS_V8,type EndlessVariant} from '../../src/endless/EndlessRules';
 import {EndlessField} from '../../src/endless/EndlessField';
 import {verifyTrace} from '../src/verifier';
 import {createApp} from '../src/app';
@@ -71,7 +71,7 @@ it('冻结的无尽1.0：旧规则日志仍按旧底线与旧掉落频率通过�
 it('冻结的无尽1.1（底线在圆底）仍按旧规则通过校验；1.2当前规则同样通过，且1.2底线高于1.1',()=>{
  const old=run(13,26000,6,ENDLESS_V2),result=verifyTrace(old.journal.events,1e9,13,ENDLESS_V2_RULES_VERSION);
  expect(result.summary).toEqual(old.journal.summary(old.score.total,old.reachedLevel,false));
- const now=run(13,26000,6);expect(verifyTrace(now.journal.events,1e9,13,ENDLESS_RULES_VERSION).summary.score).toBe(now.score.total);
+ const now=run(13,26000,6,ENDLESS_V8);expect(verifyTrace(now.journal.events,1e9,13,ENDLESS_V8_RULES_VERSION).summary.score).toBe(now.score.total);
  expect(old.physics.endless!.floorRow).toBeGreaterThan(now.physics.endless!.floorRow);
 });
 
